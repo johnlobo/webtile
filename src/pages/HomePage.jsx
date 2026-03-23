@@ -137,22 +137,23 @@ function NavDropdown({ label, open, disabled, onToggle, children }) {
   )
 }
 
-function NavItem({ label, icon, onClick, accent }) {
+function NavItem({ label, icon, onClick, accent, disabled }) {
+  const baseColor = disabled ? 'var(--text-dim)' : accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)'
   return (
     <button
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
         padding: '9px 16px', background: 'transparent', border: 'none',
-        cursor: 'pointer', textAlign: 'left',
+        cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left',
         fontFamily: "'VT323', monospace", fontSize: '21px', letterSpacing: '1.5px',
-        color: accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)',
+        color: baseColor, opacity: disabled ? 0.35 : 1,
         transition: 'color 0.12s, background 0.12s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = accent === 'red' ? 'rgba(255,64,64,0.08)' : 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--green)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)' }}
+      onMouseEnter={e => { if (disabled) return; e.currentTarget.style.background = accent === 'red' ? 'rgba(255,64,64,0.08)' : 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--green)' }}
+      onMouseLeave={e => { if (disabled) return; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = baseColor }}
     >
-      {icon && <span style={{ fontSize: '11px', color: 'var(--green-dim)', flexShrink: 0, lineHeight: 1 }}>{icon}</span>}
+      {icon && <span style={{ fontSize: '11px', color: disabled ? 'var(--text-dim)' : 'var(--green-dim)', flexShrink: 0, lineHeight: 1 }}>{icon}</span>}
       {label}
     </button>
   )
@@ -199,9 +200,10 @@ function NavMapItem({ map, active, onClick, onDelete }) {
   )
 }
 
-function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
+function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
+  const hasActiveMap = !!activeMapId
   const navRef = useRef(null)
 
   useEffect(() => {
@@ -260,8 +262,8 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
         <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
           onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
         <NavSep />
-        <NavItem label="⬇ EXPORT .TMX"     icon="" onClick={() => { onAction('export', 'tmx'); close() }} />
-        <NavItem label="⬇ EXPORT TILESET"  icon="" onClick={() => { onAction('export', 'tileset-png'); close() }} />
+        <NavItem label="⬇ EXPORT .TMX"     icon="" disabled={!hasActiveMap} onClick={() => { onAction('export', 'tmx'); close() }} />
+        <NavItem label="⬇ EXPORT TILESET"  icon="" disabled={!hasActiveMap || !hasTileset} onClick={() => { onAction('export', 'tileset-png'); close() }} />
         {activeMapId && (
           <>
             <NavSep />
@@ -950,6 +952,7 @@ export default function HomePage() {
           onCloseProject={handleCloseProject}
           onCloseMap={handleCloseMap}
           onCloseSprite={handleCloseSprite}
+          hasTileset={!!tileset}
         />
 
         {/* Centre breadcrumb */}
