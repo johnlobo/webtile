@@ -104,7 +104,7 @@ function NavDropdown({ label, open, disabled, onToggle, children }) {
           border: 'none', borderBottom: isOpen ? '2px solid var(--green)' : '2px solid transparent',
           cursor: disabled ? 'not-allowed' : 'pointer',
           fontFamily: "'Press Start 2P', monospace",
-          fontSize: '7px', letterSpacing: '1.5px',
+          fontSize: '8px', letterSpacing: '1.5px',
           color: disabled ? 'var(--text-dim)' : isOpen ? 'var(--green)' : 'var(--text)',
           opacity: disabled ? 0.35 : 1,
           transition: 'color 0.15s, background 0.15s, border-color 0.15s',
@@ -145,7 +145,7 @@ function NavItem({ label, icon, onClick, accent }) {
         width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
         padding: '9px 16px', background: 'transparent', border: 'none',
         cursor: 'pointer', textAlign: 'left',
-        fontFamily: "'VT323', monospace", fontSize: '19px', letterSpacing: '1.5px',
+        fontFamily: "'VT323', monospace", fontSize: '21px', letterSpacing: '1.5px',
         color: accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)',
         transition: 'color 0.12s, background 0.12s',
       }}
@@ -220,7 +220,7 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
 
       {/* PROJECTS */}
       <NavDropdown label="PROJECTS" open={activeMenu === 'project'} onToggle={() => toggle('project')}>
-        <div style={{ padding: '8px 16px 6px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>PROJECT</div>
+        <div style={{ padding: '8px 16px 6px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>PROJECT</div>
         {projectName && (
           <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--amber)', letterSpacing: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             ▸ {projectName}
@@ -239,7 +239,7 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
 
       {/* MAPS */}
       <NavDropdown label="MAPS" open={activeMenu === 'maps'} disabled={!hasProject} onToggle={() => toggle('maps')}>
-        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>MAPS</div>
+        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>MAPS</div>
         {maps.length === 0 && (
           <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No maps yet</div>
         )}
@@ -272,7 +272,7 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
 
       {/* SPRITES */}
       <NavDropdown label="SPRITES" open={activeMenu === 'sprites'} disabled={!hasProject} onToggle={() => toggle('sprites')}>
-        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>SPRITES</div>
+        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>SPRITES</div>
         {sprites.length === 0 && (
           <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No sprites yet</div>
         )}

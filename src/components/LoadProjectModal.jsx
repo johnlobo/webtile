@@ -99,10 +99,10 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
             >
               <span style={{ fontSize: '18px', color: 'var(--green-dim)', flexShrink: 0 }}>▤</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: 'var(--text)', letterSpacing: '1px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--text)', letterSpacing: '1px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {p.name}
                 </div>
-                <div style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
+                <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
                   {fmt(p.updatedAt)}
                 </div>
               </div>

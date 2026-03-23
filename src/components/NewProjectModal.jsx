@@ -46,7 +46,7 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
             autoFocus
             style={{ width: '100%' }}
           />
-          <div style={{ fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', marginTop: '8px', letterSpacing: '1px' }}>
+          <div style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--text-dim)', marginTop: '8px', letterSpacing: '1px' }}>
             Maps and sprites are added after creation.
           </div>
         </div>

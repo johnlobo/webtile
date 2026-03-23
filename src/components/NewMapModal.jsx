@@ -84,7 +84,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
             TILE SIZE (px)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -115,7 +115,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
             <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: doubleWidth ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '1px' }}>
               DOUBLE PIXEL WIDTH
             </div>
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', marginTop: '4px', letterSpacing: '1px' }}>
+            <div style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--text-dim)', marginTop: '4px', letterSpacing: '1px' }}>
               Render tiles at {displayTileW}×{tileH} px on screen
             </div>
           </div>
@@ -124,7 +124,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <div style={{ height: '1px', background: 'var(--border)', marginBottom: '24px' }} />
 
         <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
             MAP SIZE (tiles)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -136,7 +136,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <div style={{
           background: 'rgba(0,232,122,0.04)', border: '1px solid var(--border)',
           padding: '10px 14px', marginBottom: '28px',
-          fontFamily: "'VT323', monospace", fontSize: '16px',
+          fontFamily: "'VT323', monospace", fontSize: '18px',
           color: 'var(--text-dim)', letterSpacing: '2px', lineHeight: 1.7,
         }}>
           <div>TILES: {tileW}×{tileH} px stored{doubleWidth && <span style={{ color: 'var(--green)' }}> · {displayTileW}×{tileH} px displayed</span>}</div>

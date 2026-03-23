@@ -99,7 +99,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Video Mode */}
         <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
             VIDEO MODE
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -119,10 +119,10 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
                   onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--green-dim)'; e.currentTarget.style.background = 'var(--green-glow)' } }}
                   onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' } }}
                 >
-                  <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: active ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '1px', marginBottom: '6px' }}>
+                  <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: active ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '1px', marginBottom: '6px' }}>
                     {label}
                   </div>
-                  <div style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: active ? 'var(--text)' : 'var(--text-dim)', letterSpacing: '0.5px', lineHeight: 1.4 }}>
+                  <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: active ? 'var(--text)' : 'var(--text-dim)', letterSpacing: '0.5px', lineHeight: 1.4 }}>
                     {desc}
                   </div>
                 </button>
@@ -133,7 +133,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Dimensions */}
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
             DIMENSIONS (CPC PIXELS)
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
@@ -171,7 +171,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
         <div style={{
           background: 'rgba(0,232,122,0.04)', border: '1px solid var(--border)',
           padding: '10px 14px', marginBottom: '28px',
-          fontFamily: "'VT323', monospace", fontSize: '15px',
+          fontFamily: "'VT323', monospace", fontSize: '17px',
           color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.6,
         }}>
           <div>
