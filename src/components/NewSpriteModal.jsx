@@ -49,10 +49,17 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
     })
   }
 
+  const sectionLabel = {
+    fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 700,
+    color: 'var(--text-dim)', letterSpacing: '0.5px', textTransform: 'uppercase',
+    marginBottom: '12px',
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.85)',
+      background: 'rgba(52,71,103,0.25)',
+      backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 50,
     }}>
@@ -62,11 +69,11 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
         <button
           onClick={onCancel}
           style={{
-            position: 'absolute', top: '12px', right: '12px',
-            width: '24px', height: '24px', background: 'transparent',
-            border: '1px solid var(--border)', color: 'var(--text-dim)',
-            cursor: 'pointer', fontFamily: "'Press Start 2P', monospace",
-            fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'absolute', top: '16px', right: '16px',
+            width: '28px', height: '28px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: '6px',
+            color: 'var(--text-dim)', cursor: 'pointer',
+            fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
@@ -75,15 +82,15 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Title */}
         <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', color: 'var(--green)', letterSpacing: '2px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
             NEW SPRITE
           </div>
-          <div style={{ width: '36px', height: '2px', background: 'var(--green)', marginTop: '12px' }} />
+          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
         </div>
 
         {/* Name */}
         <div style={{ marginBottom: '20px' }}>
-          <label className="pixel-label">SPRITE NAME</label>
+          <label className="pixel-label">Sprite Name</label>
           <input
             className="pixel-input"
             type="text"
@@ -99,9 +106,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Video Mode */}
         <div style={{ marginBottom: '20px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
-            VIDEO MODE
-          </div>
+          <div style={sectionLabel}>Video Mode</div>
           <div style={{ display: 'flex', gap: '8px' }}>
             {MODE_INFO.map(({ mode, label, desc }) => {
               const active = videoMode === mode
@@ -111,18 +116,19 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
                   onClick={() => handleModeChange(mode)}
                   style={{
                     flex: 1, padding: '10px 6px', cursor: 'pointer',
-                    background: active ? 'rgba(0,232,122,0.10)' : 'transparent',
-                    border: `1px solid ${active ? 'var(--green)' : 'var(--border)'}`,
+                    background: active ? 'rgba(33,82,255,0.07)' : 'transparent',
+                    border: `1px solid ${active ? 'rgba(33,82,255,0.35)' : 'var(--border)'}`,
+                    borderRadius: '8px',
                     transition: 'border-color 0.15s, background 0.15s',
                     textAlign: 'center',
                   }}
-                  onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--green-dim)'; e.currentTarget.style.background = 'var(--green-glow)' } }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.borderColor = 'rgba(33,82,255,0.25)'; e.currentTarget.style.background = 'rgba(33,82,255,0.04)' } }}
                   onMouseLeave={e => { if (!active) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' } }}
                 >
-                  <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: active ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '1px', marginBottom: '6px' }}>
+                  <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 700, color: active ? 'var(--accent)' : 'var(--text-dim)', letterSpacing: '0.3px', marginBottom: '4px' }}>
                     {label}
                   </div>
-                  <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: active ? 'var(--text)' : 'var(--text-dim)', letterSpacing: '0.5px', lineHeight: 1.4 }}>
+                  <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 300, color: active ? 'var(--text)' : 'var(--text-dim)', lineHeight: 1.5 }}>
                     {desc}
                   </div>
                 </button>
@@ -133,12 +139,10 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Dimensions */}
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
-            DIMENSIONS (CPC PIXELS)
-          </div>
+          <div style={sectionLabel}>Dimensions (CPC pixels)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label className="pixel-label">WIDTH</label>
+              <label className="pixel-label">Width</label>
               <input
                 className="pixel-input"
                 type="number"
@@ -152,7 +156,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
               />
             </div>
             <div>
-              <label className="pixel-label">HEIGHT</label>
+              <label className="pixel-label">Height</label>
               <input
                 className="pixel-input"
                 type="number"
@@ -169,26 +173,26 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
 
         {/* Constraint hint */}
         <div style={{
-          background: 'rgba(0,232,122,0.04)', border: '1px solid var(--border)',
-          padding: '10px 14px', marginBottom: '28px',
-          fontFamily: "'VT323', monospace", fontSize: '17px',
-          color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.6,
+          background: 'rgba(33,82,255,0.04)', border: '1px solid rgba(33,82,255,0.12)',
+          borderRadius: '8px', padding: '12px 14px', marginBottom: '28px',
+          fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400,
+          color: 'var(--text-dim)', lineHeight: 1.7,
         }}>
           <div>
-            Width must be divisible by <span style={{ color: 'var(--amber)' }}>{currentMultiple}</span>
+            Width must be divisible by <span style={{ color: 'var(--amber)', fontWeight: 600 }}>{currentMultiple}</span>
             {' '}(Mode {videoMode} constraint)
           </div>
           <div>
-            Pixel array: <span style={{ color: 'var(--green)' }}>{width} × {height}</span>
-            {' '}= <span style={{ color: 'var(--green)' }}>{width * height}</span> pixels
-            {' '}· <span style={{ color: 'var(--green)' }}>{Math.ceil(width / currentMultiple) * height}</span> bytes/frame
+            Pixel array: <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{width} × {height}</span>
+            {' '}= <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{width * height}</span> pixels
+            {' '}· <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{Math.ceil(width / currentMultiple) * height}</span> bytes/frame
           </div>
         </div>
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn-pixel" onClick={handleConfirm} style={{ flex: 1 }}>CREATE</button>
-          <button className="btn-ghost" onClick={onCancel}      style={{ flex: 1 }}>CANCEL</button>
+          <button className="btn-pixel" onClick={handleConfirm} style={{ flex: 1 }}>Create</button>
+          <button className="btn-ghost" onClick={onCancel}      style={{ flex: 1 }}>Cancel</button>
         </div>
       </div>
     </div>

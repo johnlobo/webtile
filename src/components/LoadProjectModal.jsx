@@ -44,7 +44,8 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.75)',
+      background: 'rgba(52,71,103,0.25)',
+      backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 100,
     }}>
@@ -53,11 +54,11 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
         <button
           onClick={onCancel}
           style={{
-            position: 'absolute', top: '12px', right: '12px',
-            width: '24px', height: '24px', background: 'transparent',
-            border: '1px solid var(--border)', color: 'var(--text-dim)',
-            cursor: 'pointer', fontFamily: "'Press Start 2P', monospace",
-            fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'absolute', top: '16px', right: '16px',
+            width: '28px', height: '28px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: '6px',
+            color: 'var(--text-dim)', cursor: 'pointer',
+            fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
@@ -65,22 +66,22 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
         >✕</button>
 
         <div style={{ marginBottom: '24px', flexShrink: 0 }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', color: 'var(--green)', letterSpacing: '2px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
             LOAD PROJECT
           </div>
-          <div style={{ width: '36px', height: '2px', background: 'var(--green)', marginTop: '12px' }} />
+          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading && (
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: '18px', color: 'var(--text-dim)', letterSpacing: '2px', textAlign: 'center', padding: '32px 0' }}>
-              LOADING<span className="blink">_</span>
+            <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 300, color: 'var(--text-dim)', textAlign: 'center', padding: '32px 0' }}>
+              Loading<span className="blink">...</span>
             </div>
           )}
           {error && <div className="msg-error" style={{ marginBottom: '12px' }}>{error}</div>}
           {!loading && projects.length === 0 && (
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: '18px', color: 'var(--text-dim)', letterSpacing: '2px', textAlign: 'center', padding: '32px 0' }}>
-              NO SAVED PROJECTS
+            <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 300, color: 'var(--text-dim)', textAlign: 'center', padding: '32px 0' }}>
+              No saved projects
             </div>
           )}
           {!loading && projects.map(p => (
@@ -90,19 +91,19 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
               style={{
                 display: 'flex', alignItems: 'center', gap: '12px',
                 padding: '12px 14px', marginBottom: '8px',
-                border: '1px solid var(--border)',
+                border: '1px solid var(--border)', borderRadius: '8px',
                 background: 'transparent', cursor: 'pointer',
-                transition: 'border-color 0.15s, background 0.15s',
+                transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.background = 'var(--green-glow)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent' }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(33,82,255,0.3)'; e.currentTarget.style.background = 'rgba(33,82,255,0.04)'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(33,82,255,0.08)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.boxShadow = 'none' }}
             >
-              <span style={{ fontSize: '18px', color: 'var(--green-dim)', flexShrink: 0 }}>▤</span>
+              <span style={{ fontSize: '18px', color: 'var(--accent)', flexShrink: 0, opacity: 0.7 }}>▤</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--text)', letterSpacing: '1px', marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {p.name}
                 </div>
-                <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
+                <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 300, color: 'var(--text-dim)' }}>
                   {fmt(p.updatedAt)}
                 </div>
               </div>
@@ -110,23 +111,23 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
                 onClick={e => handleDelete(e, p.id)}
                 disabled={deleting === p.id}
                 style={{
-                  flexShrink: 0, padding: '4px 8px',
-                  background: 'transparent', border: '1px solid var(--border)',
+                  flexShrink: 0, padding: '4px 10px',
+                  background: 'transparent', border: '1px solid var(--border)', borderRadius: '6px',
                   color: 'var(--text-dim)', cursor: 'pointer',
-                  fontFamily: "'Press Start 2P', monospace", fontSize: '6px',
-                  letterSpacing: '1px', transition: 'border-color 0.15s, color 0.15s',
+                  fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 600,
+                  transition: 'border-color 0.15s, color 0.15s',
                 }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' }}
               >
-                {deleting === p.id ? '…' : 'DEL'}
+                {deleting === p.id ? '…' : 'Del'}
               </button>
             </div>
           ))}
         </div>
 
         <div style={{ marginTop: '20px', flexShrink: 0 }}>
-          <button className="btn-ghost" onClick={onCancel} style={{ width: '100%' }}>CANCEL</button>
+          <button className="btn-ghost" onClick={onCancel} style={{ width: '100%' }}>Cancel</button>
         </div>
       </div>
     </div>

@@ -39,10 +39,17 @@ export default function NewMapModal({ onConfirm, onCancel }) {
     onConfirm({ name: name.trim() || 'Untitled Map', tileW, tileH, mapW, mapH, doubleWidth })
   }
 
+  const sectionLabel = {
+    fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 700,
+    color: 'var(--text-dim)', letterSpacing: '0.5px', textTransform: 'uppercase',
+    marginBottom: '12px',
+  }
+
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.75)',
+      background: 'rgba(52,71,103,0.25)',
+      backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 100,
     }}>
@@ -51,11 +58,11 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <button
           onClick={onCancel}
           style={{
-            position: 'absolute', top: '12px', right: '12px',
-            width: '24px', height: '24px', background: 'transparent',
-            border: '1px solid var(--border)', color: 'var(--text-dim)',
-            cursor: 'pointer', fontFamily: "'Press Start 2P', monospace",
-            fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'absolute', top: '16px', right: '16px',
+            width: '28px', height: '28px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: '6px',
+            color: 'var(--text-dim)', cursor: 'pointer',
+            fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
@@ -63,14 +70,14 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         >✕</button>
 
         <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', color: 'var(--green)', letterSpacing: '2px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
             NEW MAP
           </div>
-          <div style={{ width: '36px', height: '2px', background: 'var(--green)', marginTop: '12px' }} />
+          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
         </div>
 
         <div style={{ marginBottom: '20px' }}>
-          <label className="pixel-label">MAP NAME</label>
+          <label className="pixel-label">Map Name</label>
           <input
             className="pixel-input"
             type="text"
@@ -84,12 +91,10 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         </div>
 
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
-            TILE SIZE (px)
-          </div>
+          <div style={sectionLabel}>Tile Size (px)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FIELD label="WIDTH"  value={tileW} onChange={setTileW} min={1} max={256} />
-            <FIELD label="HEIGHT" value={tileH} onChange={setTileH} min={1} max={256} />
+            <FIELD label="Width"  value={tileW} onChange={setTileW} min={1} max={256} />
+            <FIELD label="Height" value={tileH} onChange={setTileH} min={1} max={256} />
           </div>
         </div>
 
@@ -97,25 +102,27 @@ export default function NewMapModal({ onConfirm, onCancel }) {
           display: 'flex', alignItems: 'center', gap: '12px',
           cursor: 'pointer', marginBottom: '24px',
           padding: '10px 12px',
-          background: doubleWidth ? 'rgba(0,232,122,0.06)' : 'transparent',
-          border: `1px solid ${doubleWidth ? 'var(--green-dim)' : 'var(--border)'}`,
+          background: doubleWidth ? 'rgba(33,82,255,0.05)' : 'transparent',
+          border: `1px solid ${doubleWidth ? 'rgba(33,82,255,0.3)' : 'var(--border)'}`,
+          borderRadius: '8px',
           transition: 'background 0.15s, border-color 0.15s',
         }}>
           <span style={{
             width: '16px', height: '16px', flexShrink: 0,
-            border: `2px solid ${doubleWidth ? 'var(--green)' : 'var(--text-dim)'}`,
-            background: doubleWidth ? 'var(--green)' : 'transparent',
+            border: `2px solid ${doubleWidth ? 'var(--accent)' : 'var(--text-dim)'}`,
+            borderRadius: '4px',
+            background: doubleWidth ? 'var(--accent)' : 'transparent',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'all 0.15s',
           }}>
-            {doubleWidth && <span style={{ color: '#000', fontSize: '10px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
+            {doubleWidth && <span style={{ color: '#fff', fontSize: '10px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
           </span>
           <input type="checkbox" checked={doubleWidth} onChange={e => setDoubleWidth(e.target.checked)} style={{ display: 'none' }} />
           <div>
-            <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: doubleWidth ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '1px' }}>
-              DOUBLE PIXEL WIDTH
+            <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 600, color: doubleWidth ? 'var(--accent)' : 'var(--text)', letterSpacing: '0.3px' }}>
+              Double Pixel Width
             </div>
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--text-dim)', marginTop: '4px', letterSpacing: '1px' }}>
+            <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 300, color: 'var(--text-dim)', marginTop: '2px' }}>
               Render tiles at {displayTileW}×{tileH} px on screen
             </div>
           </div>
@@ -124,28 +131,26 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <div style={{ height: '1px', background: 'var(--border)', marginBottom: '24px' }} />
 
         <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '12px' }}>
-            MAP SIZE (tiles)
-          </div>
+          <div style={sectionLabel}>Map Size (tiles)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FIELD label="COLUMNS" value={mapW} onChange={setMapW} min={1} max={256} />
-            <FIELD label="ROWS"    value={mapH} onChange={setMapH} min={1} max={256} />
+            <FIELD label="Columns" value={mapW} onChange={setMapW} min={1} max={256} />
+            <FIELD label="Rows"    value={mapH} onChange={setMapH} min={1} max={256} />
           </div>
         </div>
 
         <div style={{
-          background: 'rgba(0,232,122,0.04)', border: '1px solid var(--border)',
-          padding: '10px 14px', marginBottom: '28px',
-          fontFamily: "'VT323', monospace", fontSize: '18px',
-          color: 'var(--text-dim)', letterSpacing: '2px', lineHeight: 1.7,
+          background: 'rgba(33,82,255,0.04)', border: '1px solid rgba(33,82,255,0.12)',
+          borderRadius: '8px', padding: '12px 14px', marginBottom: '28px',
+          fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400,
+          color: 'var(--text-dim)', lineHeight: 1.7,
         }}>
-          <div>TILES: {tileW}×{tileH} px stored{doubleWidth && <span style={{ color: 'var(--green)' }}> · {displayTileW}×{tileH} px displayed</span>}</div>
-          <div>MAP: {mapW}×{mapH} tiles · <span style={{ color: 'var(--green)' }}>{mapW * displayTileW}×{mapH * tileH} px</span> on screen</div>
+          <div>Tiles: {tileW}×{tileH} px stored{doubleWidth && <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {displayTileW}×{tileH} px displayed</span>}</div>
+          <div>Map: {mapW}×{mapH} tiles · <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{mapW * displayTileW}×{mapH * tileH} px</span> on screen</div>
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn-pixel" onClick={handleConfirm} style={{ flex: 1 }}>CREATE</button>
-          <button className="btn-ghost" onClick={onCancel}      style={{ flex: 1 }}>CANCEL</button>
+          <button className="btn-pixel" onClick={handleConfirm} style={{ flex: 1 }}>Create</button>
+          <button className="btn-ghost" onClick={onCancel}      style={{ flex: 1 }}>Cancel</button>
         </div>
       </div>
     </div>

@@ -6,7 +6,8 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(0,0,0,0.75)',
+      background: 'rgba(52,71,103,0.25)',
+      backdropFilter: 'blur(4px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 100,
     }}>
@@ -15,11 +16,11 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
         <button
           onClick={onCancel}
           style={{
-            position: 'absolute', top: '12px', right: '12px',
-            width: '24px', height: '24px', background: 'transparent',
-            border: '1px solid var(--border)', color: 'var(--text-dim)',
-            cursor: 'pointer', fontFamily: "'Press Start 2P', monospace",
-            fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            position: 'absolute', top: '16px', right: '16px',
+            width: '28px', height: '28px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: '6px',
+            color: 'var(--text-dim)', cursor: 'pointer',
+            fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center',
             transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
@@ -27,14 +28,14 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
         >✕</button>
 
         <div style={{ marginBottom: '28px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', color: 'var(--green)', letterSpacing: '2px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
             NEW PROJECT
           </div>
-          <div style={{ width: '36px', height: '2px', background: 'var(--green)', marginTop: '12px' }} />
+          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
         </div>
 
         <div style={{ marginBottom: '28px' }}>
-          <label className="pixel-label">PROJECT NAME</label>
+          <label className="pixel-label">Project Name</label>
           <input
             className="pixel-input"
             type="text"
@@ -46,17 +47,17 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
             autoFocus
             style={{ width: '100%' }}
           />
-          <div style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--text-dim)', marginTop: '8px', letterSpacing: '1px' }}>
+          <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 300, color: 'var(--text-dim)', marginTop: '8px' }}>
             Maps and sprites are added after creation.
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
           <button className="btn-pixel" onClick={() => onConfirm({ name: name.trim() || 'Untitled' })} style={{ flex: 1 }}>
-            CREATE
+            Create
           </button>
           <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>
-            CANCEL
+            Cancel
           </button>
         </div>
       </div>

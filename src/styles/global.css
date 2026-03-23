@@ -1,19 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Press+Start+2P&display=swap');
 
 :root {
-  --bg:           #06090a;
-  --bg2:          #0b1214;
-  --panel:        #090e10;
-  --green:        #00e87a;
-  --green-dim:    #007a40;
-  --green-glow:   rgba(0, 232, 122, 0.12);
-  --amber:        #ff9500;
-  --amber-dim:    #994900;
-  --red:          #ff4040;
-  --text:         #a0f0c0;
-  --text-dim:     #3a6a4a;
-  --border:       #122018;
+  --bg:           #f0f2f5;
+  --bg2:          #ffffff;
+  --panel:        #ffffff;
+
+  /* Primary accent — blue gradient */
+  --accent:       #2152ff;
+  --accent-end:   #21d4fd;
+  --accent-gradient: linear-gradient(310deg, #2152ff, #21d4fd);
+
+  /* Legacy aliases so existing inline var(--green) references pick up accent */
+  --green:        var(--accent);
+  --green-dim:    rgba(33, 82, 255, 0.25);
+  --green-glow:   rgba(33, 82, 255, 0.07);
+
+  --amber:        #f6921a;
+  --amber-dim:    rgba(246, 146, 26, 0.15);
+  --red:          #ea0606;
+
+  --text:         #344767;
+  --text-dim:     #7b809a;
+  --border:       rgba(0, 0, 0, 0.1);
+
+  --shadow-sm:    0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-md:    0 4px 24px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+
   --tile-size:    32px;
+  --radius:       12px;
+  --radius-sm:    8px;
 }
 
 *, *::before, *::after {
@@ -29,123 +44,103 @@ html, body, #root {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'VT323', monospace;
-  font-size: 18px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
   line-height: 1.5;
   overflow-x: hidden;
 }
 
-/* CRT scanlines */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.06) 2px,
-    rgba(0, 0, 0, 0.06) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
-}
-
-/* Scrollable tile grid background */
+/* Subtle background texture */
 .tile-bg {
   position: fixed;
   inset: 0;
   background-image:
-    linear-gradient(rgba(0, 232, 122, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 232, 122, 0.035) 1px, transparent 1px);
-  background-size: var(--tile-size) var(--tile-size);
-  animation: gridScroll 24s linear infinite;
+    radial-gradient(circle, rgba(33, 82, 255, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
   pointer-events: none;
   z-index: 0;
 }
 
-@keyframes gridScroll {
-  0%   { background-position: 0 0; }
-  100% { background-position: var(--tile-size) var(--tile-size); }
-}
-
-/* Pixel panel */
+/* Soft card panel */
 .pixel-panel {
   background: var(--panel);
-  border: 2px solid var(--green);
-  box-shadow:
-    0 0 0 1px var(--bg),
-    0 0 24px var(--green-glow),
-    inset 0 0 24px rgba(0, 232, 122, 0.02);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
   position: relative;
 }
 
-/* Pixel button — primary */
+/* Primary button — gradient */
 .btn-pixel {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 10px;
-  padding: 14px 28px;
-  background: var(--green);
-  color: #000;
+  font-family: 'Roboto', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 12px 24px;
+  background: var(--accent-gradient);
+  color: #ffffff;
   border: none;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  letter-spacing: 1px;
-  position: relative;
-  transition: transform 0.08s, box-shadow 0.08s;
-  box-shadow: 4px 4px 0 var(--green-dim);
-  image-rendering: pixelated;
+  box-shadow: 0 4px 14px rgba(33, 82, 255, 0.28);
+  transition: box-shadow 0.2s, transform 0.12s;
 }
 .btn-pixel:hover:not(:disabled) {
-  transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0 var(--green-dim);
+  box-shadow: 0 6px 20px rgba(33, 82, 255, 0.38);
+  transform: translateY(-1px);
 }
 .btn-pixel:active:not(:disabled) {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--green-dim);
+  transform: translateY(1px);
+  box-shadow: 0 2px 8px rgba(33, 82, 255, 0.2);
 }
 .btn-pixel:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-/* Ghost button */
+/* Ghost / secondary button */
 .btn-ghost {
-  font-family: 'VT323', monospace;
-  font-size: 20px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
   background: transparent;
   color: var(--text-dim);
   border: 1px solid var(--border);
-  padding: 6px 18px;
+  border-radius: var(--radius-sm);
+  padding: 10px 18px;
   cursor: pointer;
-  letter-spacing: 2px;
-  transition: color 0.2s, border-color 0.2s;
+  transition: all 0.18s;
 }
 .btn-ghost:hover {
-  color: var(--green);
-  border-color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(33, 82, 255, 0.04);
 }
 
-/* Pixel input */
+/* Input */
 .pixel-input {
-  font-family: 'VT323', monospace;
-  font-size: 22px;
-  background: rgba(0, 0, 0, 0.5);
+  font-family: 'Roboto', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  background: #ffffff;
   border: 1px solid var(--border);
-  border-bottom: 2px solid var(--green-dim);
+  border-radius: var(--radius-sm);
   color: var(--text);
   padding: 10px 14px;
   width: 100%;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
-  letter-spacing: 1px;
 }
 .pixel-input:focus {
-  border-color: var(--green);
-  box-shadow: 0 3px 0 var(--green), 0 0 16px var(--green-glow);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(33, 82, 255, 0.12);
 }
 .pixel-input::placeholder {
   color: var(--text-dim);
-  opacity: 0.5;
+  opacity: 0.6;
 }
 .pixel-input[type=number] {
   -moz-appearance: textfield;
@@ -159,56 +154,65 @@ body::after {
 
 /* Label */
 .pixel-label {
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
   color: var(--text-dim);
-  letter-spacing: 2px;
-  margin-bottom: 7px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
   display: block;
 }
 
 /* Google sign-in */
 .btn-google {
   width: 100%;
-  padding: 12px;
-  background: transparent;
+  padding: 11px;
+  background: #ffffff;
   border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  font-family: 'Press Start 2P', monospace;
-  font-size: 9px;
-  letter-spacing: 1px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: border-color 0.2s, background 0.2s;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  box-shadow: var(--shadow-sm);
 }
 .btn-google:hover:not(:disabled) {
-  border-color: var(--green);
-  background: var(--green-glow);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.1);
+  border-color: rgba(0, 0, 0, 0.18);
 }
 .btn-google:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 /* Messages */
 .msg-error {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--red);
-  background: rgba(255, 64, 64, 0.08);
-  border-left: 3px solid var(--red);
-  padding: 8px 14px;
+  background: rgba(234, 6, 6, 0.06);
+  border: 1px solid rgba(234, 6, 6, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
 }
 .msg-success {
-  font-family: 'VT323', monospace;
-  font-size: 18px;
-  color: var(--green);
-  background: var(--green-glow);
-  border-left: 3px solid var(--green);
-  padding: 8px 14px;
+  font-family: 'Roboto', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: rgba(33, 82, 255, 0.06);
+  border: 1px solid rgba(33, 82, 255, 0.18);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
 }
 
 /* Animations */
@@ -218,14 +222,8 @@ body::after {
 }
 .blink { animation: blink 1s step-end infinite; }
 
-@keyframes crtFlicker {
-  0%, 89%, 91%, 93%, 100% { opacity: 1; }
-  90%, 92% { opacity: 0.96; }
-}
-.crt { animation: crtFlicker 10s linear infinite; }
-
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
-.fade-up { animation: fadeUp 0.4s ease both; }
+.fade-up { animation: fadeUp 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }

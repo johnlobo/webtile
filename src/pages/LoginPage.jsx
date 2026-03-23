@@ -73,42 +73,48 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' }}>
       <div className="tile-bg" />
 
-      <div className="pixel-panel crt fade-up" style={{ width: '100%', maxWidth: '400px', padding: '40px 36px' }}>
+      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '400px', padding: '40px 36px' }}>
 
         {/* Logo / title */}
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '22px', color: 'var(--green)', letterSpacing: '2px', lineHeight: 1.4 }}>
-            WEB<span style={{ color: 'var(--amber)' }}>TILE</span>
+          <div style={{
+            fontFamily: "'Press Start 2P', monospace", fontSize: '22px', letterSpacing: '2px', lineHeight: 1.4,
+            background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          }}>
+            WEBTILE
           </div>
-          <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', marginTop: '6px', letterSpacing: '3px' }}>
-            RETRO TILEMAP EDITOR
+          <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 300, color: 'var(--text-dim)', marginTop: '8px', letterSpacing: '3px', textTransform: 'uppercase' }}>
+            Retro Tilemap Editor
           </div>
           <div style={{ width: '100%', height: '1px', background: 'var(--border)', marginTop: '20px' }} />
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', marginBottom: '28px', gap: '2px' }}>
+        <div style={{ display: 'flex', marginBottom: '28px', gap: '6px', padding: '4px', background: 'var(--bg)', borderRadius: '10px' }}>
           {['login', 'register'].map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setError('') }}
               style={{
                 flex: 1,
-                padding: '10px',
-                fontFamily: "'Press Start 2P', monospace",
-                fontSize: '8px',
-                letterSpacing: '1px',
-                background: tab === t ? 'var(--green)' : 'transparent',
-                color: tab === t ? '#000' : 'var(--text-dim)',
-                border: tab === t ? 'none' : '1px solid var(--border)',
+                padding: '9px',
+                fontFamily: "'Roboto', sans-serif",
+                fontSize: '12px',
+                fontWeight: 600,
+                letterSpacing: '0.4px',
+                background: tab === t ? '#ffffff' : 'transparent',
+                color: tab === t ? 'var(--accent)' : 'var(--text-dim)',
+                border: 'none',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 transition: 'all 0.15s',
+                boxShadow: tab === t ? 'var(--shadow-sm)' : 'none',
               }}
             >
-              {t === 'login' ? 'LOG IN' : 'REGISTER'}
+              {t === 'login' ? 'Log In' : 'Register'}
             </button>
           ))}
         </div>
@@ -116,7 +122,7 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           <div>
-            <label className="pixel-label">EMAIL</label>
+            <label className="pixel-label">Email</label>
             <input
               className="pixel-input"
               type="email"
@@ -129,7 +135,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="pixel-label">PASSWORD</label>
+            <label className="pixel-label">Password</label>
             <input
               className="pixel-input"
               type="password"
@@ -143,7 +149,7 @@ export default function LoginPage() {
 
           {tab === 'register' && (
             <div>
-              <label className="pixel-label">CONFIRM PASSWORD</label>
+              <label className="pixel-label">Confirm Password</label>
               <input
                 className="pixel-input"
                 type="password"
@@ -156,24 +162,24 @@ export default function LoginPage() {
             </div>
           )}
 
-          {error && <div className="msg-error">&#x25B6; {error}</div>}
+          {error && <div className="msg-error">{error}</div>}
 
           <button className="btn-pixel" type="submit" disabled={busy} style={{ width: '100%', marginTop: '4px' }}>
-            {busy ? 'LOADING...' : tab === 'login' ? 'LOG IN' : 'CREATE ACCOUNT'}
+            {busy ? 'Loading…' : tab === 'login' ? 'Log In' : 'Create Account'}
           </button>
         </form>
 
         {/* Divider */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '22px 0' }}>
           <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-          <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)' }}>OR</span>
+          <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '1px' }}>or</span>
           <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
         </div>
 
         {/* Google */}
         <button className="btn-google" onClick={handleGoogle} disabled={busy}>
           {GOOGLE_ICON}
-          CONTINUE WITH GOOGLE
+          Continue with Google
         </button>
 
         {/* Forgot password — only on login tab */}
@@ -181,11 +187,11 @@ export default function LoginPage() {
           <div style={{ textAlign: 'center', marginTop: '22px' }}>
             <Link
               to="/forgot-password"
-              style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', textDecoration: 'none', letterSpacing: '1px', transition: 'color 0.2s' }}
-              onMouseEnter={(e) => e.target.style.color = 'var(--green)'}
+              style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 500, color: 'var(--text-dim)', textDecoration: 'none', transition: 'color 0.2s' }}
+              onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
               onMouseLeave={(e) => e.target.style.color = 'var(--text-dim)'}
             >
-              FORGOT PASSWORD?
+              Forgot password?
             </Link>
           </div>
         )}

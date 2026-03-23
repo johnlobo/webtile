@@ -64,14 +64,14 @@ function MinimapSection({ project, mapTiles, tileset }) {
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '6px', color: 'var(--text-dim)',
+          fontFamily: "'Roboto', sans-serif", fontWeight: 700,
+          fontSize: '10px', color: 'var(--text-dim)',
           letterSpacing: '2px', marginBottom: '6px',
         }}>
           MINIMAP
         </div>
         <div style={{
-          fontFamily: "'VT323', monospace",
+          fontFamily: "'Roboto', sans-serif",
           fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.5,
         }}>
           {project.mapW}×{project.mapH}<br/>{project.tileW}×{project.tileH}px
@@ -145,24 +145,24 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
         flexShrink: 0,
       }}>
         <div style={{
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px',
+          fontFamily: "'Roboto', sans-serif", fontWeight: 700,
+          fontSize: '11px', color: 'var(--text-dim)', letterSpacing: '2px',
         }}>
           TILESET
         </div>
         <button
           onClick={() => fileRef.current.click()}
           style={{
-            fontFamily: "'Press Start 2P', monospace", fontSize: '6px',
-            padding: '5px 8px', background: 'transparent',
-            border: '1px solid var(--green-dim)', color: 'var(--green)',
-            cursor: 'pointer', letterSpacing: '1px',
+            fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 600,
+            padding: '5px 10px', background: 'transparent',
+            border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--accent)',
+            cursor: 'pointer',
             transition: 'border-color 0.15s, background 0.15s',
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-glow)'; e.currentTarget.style.borderColor = 'var(--green)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--green-dim)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(33,82,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(33,82,255,0.35)' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)' }}
         >
-          {tileset ? 'CHANGE' : 'LOAD'}
+          {tileset ? 'Change' : 'Load'}
         </button>
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
       </div>
@@ -188,12 +188,12 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
           <button
             onClick={() => fileRef.current.click()}
             className="btn-ghost"
-            style={{ fontSize: '14px', letterSpacing: '2px', padding: '8px 16px' }}
+            style={{ padding: '8px 16px' }}
           >
-            LOAD IMAGE
+            Load Image
           </button>
           <div style={{
-            fontFamily: "'VT323', monospace", fontSize: '14px',
+            fontFamily: "'Roboto', sans-serif", fontSize: '13px',
             color: 'var(--text-dim)', textAlign: 'center', letterSpacing: '1px', lineHeight: 1.6,
           }}>
             PNG, JPG, GIF<br />tiles: {tileW}×{tileH} px
@@ -205,7 +205,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
 
           {/* Tile info */}
           <div style={{
-            fontFamily: "'VT323', monospace", fontSize: '13px',
+            fontFamily: "'Roboto', sans-serif", fontSize: '13px',
             color: 'var(--text-dim)', letterSpacing: '1px', marginBottom: '8px',
           }}>
             {tileset.cols}×{tileset.rows} tiles · {tileset.naturalW}×{tileset.naturalH}px
@@ -221,7 +221,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
             ref={containerRef}
             style={{
               position: 'relative', cursor: 'crosshair',
-              border: '1px solid var(--green-dim)',
+              border: '1px solid var(--border)', borderRadius: '6px', overflow: 'hidden',
               display: 'inline-block', width: '100%',
             }}
             onMouseMove={handleMouseMove}
@@ -246,7 +246,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
                   top:    hover.row * tileH * scale,
                   width:  tileW * scale,
                   height: tileH * scale,
-                  background: 'rgba(0,232,122,0.2)',
+                  background: 'rgba(33,82,255,0.18)',
                   pointerEvents: 'none',
                 }} />
               )
@@ -394,8 +394,8 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 
       {/* Header */}
       <div style={{
-        fontFamily: "'Press Start 2P', monospace",
-        fontSize: '7px', color: 'var(--text-dim)',
+        fontFamily: "'Roboto', sans-serif", fontWeight: 700,
+        fontSize: '11px', color: 'var(--text-dim)',
         letterSpacing: '2px', marginBottom: '10px',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
@@ -435,11 +435,11 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
             border: `1px solid ${tool === id ? 'var(--green)' : 'var(--border)'}`,
             color: tool === id ? 'var(--green)' : 'var(--text-dim)',
             cursor: 'pointer',
-            fontFamily: "'Press Start 2P', monospace", fontSize: '6px', letterSpacing: '1px',
+            fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 600, letterSpacing: '1px',
           }}>{label}</button>
         ))}
         <div style={{
-          fontSize: '7px', color: 'var(--text-dim)', fontFamily: "'VT323', monospace",
+          fontSize: '11px', color: 'var(--text-dim)', fontFamily: "'Roboto', sans-serif", fontWeight: 400,
           letterSpacing: '1px', alignSelf: 'center', lineHeight: 1.2,
           borderLeft: '1px solid var(--border)', paddingLeft: '6px',
         }}>RMB<br/>ERASE</div>
@@ -462,7 +462,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 
       {/* Color input */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-        <span style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
           COLOR
         </span>
         <input
@@ -470,7 +470,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
           onChange={e => { setColor(e.target.value); setTool('pen') }}
           style={{ width: '28px', height: '20px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer', padding: '1px' }}
         />
-        <span style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--green)', letterSpacing: '1px' }}>
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', color: 'var(--green)', letterSpacing: '1px' }}>
           {color.toUpperCase()}
         </span>
       </div>
@@ -509,7 +509,7 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
       {!project && (
         <div style={{
           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'VT323', monospace", fontSize: '16px',
+          fontFamily: "'Roboto', sans-serif", fontSize: '14px',
           color: 'var(--text-dim)', letterSpacing: '2px', textAlign: 'center', padding: '24px',
         }}>
           CREATE A PROJECT<br />TO START<span className="blink">_</span>

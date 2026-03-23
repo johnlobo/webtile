@@ -35,26 +35,26 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', background: 'var(--bg)' }}>
       <div className="tile-bg" />
 
-      <div className="pixel-panel crt fade-up" style={{ width: '100%', maxWidth: '400px', padding: '40px 36px' }}>
+      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '400px', padding: '40px 36px' }}>
 
         {/* Header */}
         <div style={{ marginBottom: '32px' }}>
           <Link
             to="/login"
-            style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '24px', transition: 'color 0.2s' }}
-            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--green)'}
+            style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 500, color: 'var(--text-dim)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '24px', transition: 'color 0.2s' }}
+            onMouseEnter={(e) => e.currentTarget.style.color = 'var(--accent)'}
             onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dim)'}
           >
-            &#x25C4; BACK TO LOGIN
+            ← Back to login
           </Link>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '13px', color: 'var(--green)', letterSpacing: '1px', lineHeight: 1.6 }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '13px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px', lineHeight: 1.6 }}>
             RECOVER<br />ACCESS
           </div>
-          <div style={{ fontFamily: "'VT323', monospace", fontSize: '18px', color: 'var(--text-dim)', marginTop: '10px', letterSpacing: '2px' }}>
-            WE'LL SEND A RESET LINK TO YOUR EMAIL
+          <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 300, color: 'var(--text-dim)', marginTop: '10px' }}>
+            We'll send a reset link to your email.
           </div>
           <div style={{ width: '100%', height: '1px', background: 'var(--border)', marginTop: '20px' }} />
         </div>
@@ -62,24 +62,23 @@ export default function ForgotPasswordPage() {
         {success ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div className="msg-success" style={{ lineHeight: 1.6 }}>
-              &#x25B6; RESET LINK SENT!<br />
-              CHECK YOUR INBOX AND FOLLOW THE INSTRUCTIONS.
+              Reset link sent! Check your inbox and follow the instructions.
             </div>
-            <div style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', textAlign: 'center' }}>
-              DIDN'T RECEIVE IT? CHECK YOUR SPAM FOLDER.
+            <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 300, color: 'var(--text-dim)', textAlign: 'center' }}>
+              Didn't receive it? Check your spam folder.
             </div>
             <button
               className="btn-pixel"
               style={{ width: '100%' }}
               onClick={() => { setSuccess(false); setEmail('') }}
             >
-              SEND AGAIN
+              Send Again
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <label className="pixel-label">EMAIL</label>
+              <label className="pixel-label">Email</label>
               <input
                 className="pixel-input"
                 type="email"
@@ -91,10 +90,10 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            {error && <div className="msg-error">&#x25B6; {error}</div>}
+            {error && <div className="msg-error">{error}</div>}
 
             <button className="btn-pixel" type="submit" disabled={busy} style={{ width: '100%' }}>
-              {busy ? 'SENDING...' : 'SEND RESET LINK'}
+              {busy ? 'Sending…' : 'Send Reset Link'}
             </button>
           </form>
         )}

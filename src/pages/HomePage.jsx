@@ -100,22 +100,22 @@ function NavDropdown({ label, open, disabled, onToggle, children }) {
         style={{
           display: 'flex', alignItems: 'center', gap: '6px',
           padding: '0 16px', height: '100%', minHeight: '36px',
-          background: isOpen ? 'var(--green-glow)' : 'transparent',
-          border: 'none', borderBottom: isOpen ? '2px solid var(--green)' : '2px solid transparent',
+          background: isOpen ? 'rgba(33,82,255,0.07)' : 'transparent',
+          border: 'none', borderBottom: isOpen ? '2px solid var(--accent)' : '2px solid transparent',
           cursor: disabled ? 'not-allowed' : 'pointer',
-          fontFamily: "'Press Start 2P', monospace",
-          fontSize: '8px', letterSpacing: '1.5px',
-          color: disabled ? 'var(--text-dim)' : isOpen ? 'var(--green)' : 'var(--text)',
-          opacity: disabled ? 0.35 : 1,
+          fontFamily: "'Roboto', sans-serif",
+          fontSize: '11px', fontWeight: 600, letterSpacing: '0.6px',
+          color: disabled ? 'var(--text-dim)' : isOpen ? 'var(--accent)' : 'var(--text)',
+          opacity: disabled ? 0.4 : 1,
           transition: 'color 0.15s, background 0.15s, border-color 0.15s',
           whiteSpace: 'nowrap',
         }}
-        onMouseEnter={e => { if (!disabled && !isOpen) { e.currentTarget.style.color = 'var(--green)'; e.currentTarget.style.background = 'rgba(0,232,122,0.06)' }}}
+        onMouseEnter={e => { if (!disabled && !isOpen) { e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.background = 'rgba(33,82,255,0.04)' }}}
         onMouseLeave={e => { if (!disabled && !isOpen) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'transparent' }}}
       >
         {label}
         <span style={{
-          fontSize: '8px', color: disabled ? 'var(--text-dim)' : 'var(--green-dim)',
+          fontSize: '9px', color: disabled ? 'var(--text-dim)' : 'var(--text-dim)',
           transform: isOpen ? 'rotate(180deg)' : 'none',
           transition: 'transform 0.18s', display: 'inline-block', marginTop: '1px',
         }}>▼</span>
@@ -124,11 +124,10 @@ function NavDropdown({ label, open, disabled, onToggle, children }) {
       {isOpen && (
         <div style={{
           position: 'absolute', top: '100%', left: 0,
-          minWidth: '200px', zIndex: 200,
+          minWidth: '210px', zIndex: 200,
           background: 'var(--panel)',
-          border: '1px solid var(--green-dim)',
-          borderTop: '2px solid var(--green)',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(0,232,122,0.08)',
+          borderRadius: '0 0 10px 10px',
+          boxShadow: '0 8px 28px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06)',
         }}>
           {children}
         </div>
@@ -138,7 +137,7 @@ function NavDropdown({ label, open, disabled, onToggle, children }) {
 }
 
 function NavItem({ label, icon, onClick, accent, disabled }) {
-  const baseColor = disabled ? 'var(--text-dim)' : accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)'
+  const baseColor = disabled ? 'var(--text-dim)' : accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text)'
   return (
     <button
       onClick={disabled ? undefined : onClick}
@@ -146,14 +145,14 @@ function NavItem({ label, icon, onClick, accent, disabled }) {
         width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
         padding: '9px 16px', background: 'transparent', border: 'none',
         cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'left',
-        fontFamily: "'VT323', monospace", fontSize: '21px', letterSpacing: '1.5px',
-        color: baseColor, opacity: disabled ? 0.35 : 1,
+        fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 500, letterSpacing: '0.2px',
+        color: baseColor, opacity: disabled ? 0.4 : 1,
         transition: 'color 0.12s, background 0.12s',
       }}
-      onMouseEnter={e => { if (disabled) return; e.currentTarget.style.background = accent === 'red' ? 'rgba(255,64,64,0.08)' : 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--green)' }}
+      onMouseEnter={e => { if (disabled) return; e.currentTarget.style.background = accent === 'red' ? 'rgba(234,6,6,0.06)' : 'rgba(33,82,255,0.05)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--accent)' }}
       onMouseLeave={e => { if (disabled) return; e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = baseColor }}
     >
-      {icon && <span style={{ fontSize: '11px', color: disabled ? 'var(--text-dim)' : 'var(--green-dim)', flexShrink: 0, lineHeight: 1 }}>{icon}</span>}
+      {icon && <span style={{ fontSize: '10px', color: disabled ? 'var(--text-dim)' : 'var(--accent)', flexShrink: 0, lineHeight: 1, opacity: 0.7 }}>{icon}</span>}
       {label}
     </button>
   )
@@ -173,23 +172,23 @@ function NavMapItem({ map, active, onClick, onDelete }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         padding: '8px 12px 8px 16px',
-        background: active ? 'rgba(0,232,122,0.08)' : hovered ? 'var(--green-glow)' : 'transparent',
-        borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+        background: active ? 'rgba(33,82,255,0.07)' : hovered ? 'rgba(33,82,255,0.04)' : 'transparent',
+        borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
         marginLeft: '-1px', cursor: 'pointer',
       }}
     >
       <span style={{
-        fontFamily: "'VT323', monospace", fontSize: '18px', letterSpacing: '1px',
-        color: active ? 'var(--green)' : 'var(--text-dim)', flex: 1,
+        fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: active ? 600 : 400,
+        color: active ? 'var(--accent)' : 'var(--text)', flex: 1,
         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
       }}>{map.name}</span>
       {(hovered || active) && (
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           style={{
-            flexShrink: 0, padding: '1px 5px', background: 'transparent',
+            flexShrink: 0, padding: '2px 6px', background: 'transparent',
             border: '1px solid transparent', color: 'var(--text-dim)', cursor: 'pointer',
-            fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
+            fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 600,
             transition: 'border-color 0.12s, color 0.12s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
@@ -222,10 +221,10 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
 
       {/* PROJECTS */}
       <NavDropdown label="PROJECTS" open={activeMenu === 'project'} onToggle={() => toggle('project')}>
-        <div style={{ padding: '8px 16px 6px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>PROJECT</div>
+        <div style={{ padding: '10px 16px 6px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Project</div>
         {projectName && (
-          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--amber)', letterSpacing: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            ▸ {projectName}
+          <div style={{ padding: '2px 16px 8px', fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {projectName}
           </div>
         )}
         <NavSep />
@@ -241,9 +240,9 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
 
       {/* MAPS */}
       <NavDropdown label="MAPS" open={activeMenu === 'maps'} disabled={!hasProject} onToggle={() => toggle('maps')}>
-        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>MAPS</div>
+        <div style={{ padding: '10px 16px 4px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Maps</div>
         {maps.length === 0 && (
-          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No maps yet</div>
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'Roboto', sans-serif", fontSize: '13px', color: 'var(--text-dim)', opacity: 0.6 }}>No maps yet</div>
         )}
         {maps.length > 0 && (
           <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -274,9 +273,9 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
 
       {/* SPRITES */}
       <NavDropdown label="SPRITES" open={activeMenu === 'sprites'} disabled={!hasProject} onToggle={() => toggle('sprites')}>
-        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '7px', color: 'var(--text-dim)', letterSpacing: '2px' }}>SPRITES</div>
+        <div style={{ padding: '10px 16px 4px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Sprites</div>
         {sprites.length === 0 && (
-          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No sprites yet</div>
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'Roboto', sans-serif", fontSize: '13px', color: 'var(--text-dim)', opacity: 0.6 }}>No sprites yet</div>
         )}
         {sprites.length > 0 && (
           <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -313,24 +312,24 @@ function MapItem({ map, active, onClick, onDelete }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         padding: '7px 10px 7px 16px',
-        background: active ? 'rgba(0,232,122,0.08)' : hovered ? 'var(--green-glow)' : 'transparent',
-        borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+        background: active ? 'rgba(33,82,255,0.07)' : hovered ? 'rgba(33,82,255,0.04)' : 'transparent',
+        borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
         marginLeft: '-2px',
         cursor: 'pointer', transition: 'background 0.15s',
       }}
     >
-      <span style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: active ? 'var(--green)' : 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '1px' }}>
+      <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: active ? 600 : 400, color: active ? 'var(--accent)' : 'var(--text)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {map.name}
       </span>
       {(hovered || active) && (
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           style={{
-            flexShrink: 0, padding: '2px 5px',
+            flexShrink: 0, padding: '2px 6px',
             background: 'transparent', border: '1px solid transparent',
             color: 'var(--text-dim)', cursor: 'pointer',
-            fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
-            letterSpacing: '0.5px', transition: 'border-color 0.15s, color 0.15s',
+            fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 600,
+            transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
@@ -351,26 +350,26 @@ function SpriteItem({ sprite, active, onClick, onDelete }) {
       style={{
         display: 'flex', alignItems: 'center', gap: '6px',
         padding: '7px 10px 7px 16px',
-        background: active ? 'rgba(0,232,122,0.08)' : hovered ? 'var(--green-glow)' : 'transparent',
-        borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+        background: active ? 'rgba(33,82,255,0.07)' : hovered ? 'rgba(33,82,255,0.04)' : 'transparent',
+        borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
         marginLeft: '-2px',
         cursor: 'pointer', transition: 'background 0.15s',
       }}
     >
       <span style={{
-        fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
-        color: active ? 'var(--green)' : 'var(--text-dim)',
-        background: active ? 'rgba(0,232,122,0.15)' : 'var(--bg)',
-        border: `1px solid ${active ? 'var(--green-dim)' : 'var(--border)'}`,
-        padding: '2px 4px', flexShrink: 0, letterSpacing: '0.5px',
+        fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700,
+        color: active ? 'var(--accent)' : 'var(--text-dim)',
+        background: active ? 'rgba(33,82,255,0.1)' : 'var(--bg)',
+        border: `1px solid ${active ? 'rgba(33,82,255,0.3)' : 'var(--border)'}`,
+        borderRadius: '4px',
+        padding: '2px 5px', flexShrink: 0,
       }}>
         {modeLabel}
       </span>
       <span style={{
-        fontFamily: "'VT323', monospace", fontSize: '17px',
-        color: active ? 'var(--green)' : 'var(--text-dim)',
+        fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: active ? 600 : 400,
+        color: active ? 'var(--accent)' : 'var(--text)',
         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        letterSpacing: '1px',
       }}>
         {sprite.name}
       </span>
@@ -378,11 +377,11 @@ function SpriteItem({ sprite, active, onClick, onDelete }) {
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
           style={{
-            flexShrink: 0, padding: '2px 5px',
+            flexShrink: 0, padding: '2px 6px',
             background: 'transparent', border: '1px solid transparent',
             color: 'var(--text-dim)', cursor: 'pointer',
-            fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
-            letterSpacing: '0.5px', transition: 'border-color 0.15s, color 0.15s',
+            fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 600,
+            transition: 'border-color 0.15s, color 0.15s',
           }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
@@ -398,19 +397,19 @@ function EmptyWorkspace() {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
       <div className="pixel-panel fade-up" style={{ padding: '52px 44px', textAlign: 'center', maxWidth: '420px', width: '100%' }}>
-        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--green)', letterSpacing: '2px', marginBottom: '14px' }}>
-          TILEMAP EDITOR
+        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '10px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '2px', marginBottom: '16px' }}>
+          WEBTILE
         </div>
-        <div style={{ width: '40px', height: '2px', background: 'var(--green)', margin: '0 auto 24px' }} />
-        <div style={{ fontFamily: "'VT323', monospace", fontSize: '20px', color: 'var(--text-dim)', letterSpacing: '2px', lineHeight: 1.8 }}>
-          CREATE OR LOAD A PROJECT<br />FROM THE MENU<span className="blink">_</span>
+        <div style={{ width: '40px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '15px', fontWeight: 300, color: 'var(--text-dim)', lineHeight: 1.8 }}>
+          Create or load a project<br />from the menu above
         </div>
-        <div style={{ marginTop: '28px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', opacity: 0.15 }}>
+        <div style={{ marginTop: '28px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', opacity: 0.12 }}>
           {Array.from({ length: 16 }).map((_, i) => (
             <div key={i} style={{
               paddingBottom: '100%',
-              background: i % 3 === 0 ? 'var(--green-dim)' : i % 3 === 1 ? 'var(--amber-dim)' : 'var(--bg2)',
-              border: '1px solid var(--border)',
+              background: i % 3 === 0 ? 'var(--accent)' : i % 3 === 1 ? 'var(--amber)' : 'var(--bg)',
+              borderRadius: '4px',
             }} />
           ))}
         </div>
@@ -423,16 +422,16 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
       <div className="pixel-panel fade-up" style={{ padding: '48px 44px', textAlign: 'center', maxWidth: '380px', width: '100%' }}>
-        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '8px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '14px' }}>
-          NO MAPS YET
+        <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 700, color: 'var(--text)', letterSpacing: '1px', marginBottom: '10px', textTransform: 'uppercase' }}>
+          No Maps Yet
         </div>
-        <div style={{ width: '40px', height: '2px', background: 'var(--amber)', margin: '0 auto 24px' }} />
-        <div style={{ fontFamily: "'VT323', monospace", fontSize: '18px', color: 'var(--text-dim)', letterSpacing: '2px', lineHeight: 1.8, marginBottom: '28px' }}>
-          Add a map to this project<br/>to start editing<span className="blink">_</span>
+        <div style={{ width: '40px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 300, color: 'var(--text-dim)', lineHeight: 1.8, marginBottom: '28px' }}>
+          Add a map to this project<br/>to start editing
         </div>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-          <button className="btn-pixel" onClick={onCreate}>+ NEW MAP</button>
-          <button className="btn-ghost" onClick={() => tmxInputRef.current?.click()}>↑ IMPORT .TMX</button>
+          <button className="btn-pixel" onClick={onCreate}>+ New Map</button>
+          <button className="btn-ghost" onClick={() => tmxInputRef.current?.click()}>↑ Import .TMX</button>
         </div>
       </div>
     </div>
@@ -922,6 +921,7 @@ export default function HomePage() {
         position: 'relative', zIndex: 100,
         display: 'flex', alignItems: 'stretch',
         borderBottom: '1px solid var(--border)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
         background: 'var(--panel)', flexShrink: 0,
         height: '48px',
       }}>
@@ -931,9 +931,10 @@ export default function HomePage() {
           padding: '0 20px 0 24px',
           borderRight: '1px solid var(--border)',
           fontFamily: "'Press Start 2P', monospace", fontSize: '11px',
-          color: 'var(--green)', letterSpacing: '2px', flexShrink: 0,
+          letterSpacing: '2px', flexShrink: 0,
+          background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
         }}>
-          WEB<span style={{ color: 'var(--amber)' }}>TILE</span>
+          WEBTILE
         </div>
 
         {/* Dropdown nav */}
@@ -962,31 +963,31 @@ export default function HomePage() {
         }}>
           {mapConfig && !selectedSpriteId && (
             <>
-              <span style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {mapConfig.name}
               </span>
-              <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--border)', flexShrink: 0 }}>
-                {mapConfig.mapW}×{mapConfig.mapH} / {mapConfig.tileW}×{mapConfig.tileH}px
+              <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 400, color: 'var(--text-dim)', flexShrink: 0 }}>
+                {mapConfig.mapW}×{mapConfig.mapH} · {mapConfig.tileW}×{mapConfig.tileH}px
               </span>
             </>
           )}
           {saveStatus && (
             <span style={{
-              fontSize: '6px', letterSpacing: '1px', flexShrink: 0,
-              color: saveStatus === 'error' ? 'var(--red)' : saveStatus === 'saving' ? 'var(--text-dim)' : 'var(--green)',
-              fontFamily: "'Press Start 2P', monospace",
+              fontSize: '11px', fontWeight: 500, flexShrink: 0,
+              color: saveStatus === 'error' ? 'var(--red)' : saveStatus === 'saving' ? 'var(--text-dim)' : 'var(--accent)',
+              fontFamily: "'Roboto', sans-serif",
             }}>
-              {saveStatus === 'saving' ? '· SAVING…' : saveStatus === 'saved' ? '· SAVED' : '· SAVE ERROR'}
+              {saveStatus === 'saving' ? '· Saving…' : saveStatus === 'saved' ? '· Saved' : '· Save error'}
             </span>
           )}
         </div>
 
         {/* Right: user + logout */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '0 20px', borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '2px', whiteSpace: 'nowrap' }}>
+          <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
             {user.displayName || user.email}
           </span>
-          <button className="btn-ghost" onClick={handleLogout} style={{ fontSize: '14px' }}>LOG OUT</button>
+          <button className="btn-ghost" onClick={handleLogout}>Log Out</button>
         </div>
       </header>
 

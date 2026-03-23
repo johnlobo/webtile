@@ -116,33 +116,37 @@ function ToolBtn({ id, label, shortcut, Icon, active, onClick }) {
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         gap: '4px', width: '48px', height: '48px',
-        background: active ? 'var(--green)' : 'transparent',
-        border: `2px solid ${active ? 'var(--green)' : 'var(--border)'}`,
-        color: active ? '#000' : 'var(--text-dim)',
+        background: active ? 'var(--accent-gradient)' : 'transparent',
+        border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
+        borderRadius: '8px',
+        color: active ? '#fff' : 'var(--text-dim)',
         cursor: 'pointer', transition: 'all 0.1s',
         position: 'relative', flexShrink: 0,
+        boxShadow: active ? '0 3px 10px rgba(33,82,255,0.25)' : 'none',
       }}
       onMouseEnter={e => {
         if (!active) {
-          e.currentTarget.style.borderColor = 'var(--green)'
-          e.currentTarget.style.color = 'var(--green)'
+          e.currentTarget.style.borderColor = 'rgba(33,82,255,0.35)'
+          e.currentTarget.style.color = 'var(--accent)'
+          e.currentTarget.style.background = 'rgba(33,82,255,0.05)'
         }
       }}
       onMouseLeave={e => {
         if (!active) {
           e.currentTarget.style.borderColor = 'var(--border)'
           e.currentTarget.style.color = 'var(--text-dim)'
+          e.currentTarget.style.background = 'transparent'
         }
       }}
     >
       <Icon />
-      <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '5px', letterSpacing: '0.5px', lineHeight: 1 }}>
+      <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>
         {label}
       </span>
       {shortcut && (
         <span style={{
           position: 'absolute', top: '2px', right: '3px',
-          fontFamily: "'Press Start 2P', monospace", fontSize: '4px',
+          fontFamily: "'Roboto', sans-serif", fontSize: '9px', fontWeight: 600,
           color: active ? 'rgba(0,0,0,0.5)' : 'var(--text-dim)', opacity: 0.7,
         }}>
           {shortcut}
@@ -192,8 +196,8 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       {/* Zoom level display */}
       <div style={{
         width: '44px', textAlign: 'center', flexShrink: 0,
-        fontFamily: "'Press Start 2P', monospace",
-        fontSize: '8px', color: 'var(--green)', letterSpacing: '1px',
+        fontFamily: "'Roboto', sans-serif",
+        fontSize: '13px', fontWeight: 700, color: 'var(--accent)',
       }}>
         {zoomLabel}
       </div>
@@ -217,7 +221,8 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
           alignItems: 'center', justifyContent: 'center',
           gap: '4px', width: '48px', height: '48px',
           background: 'transparent',
-          border: '2px solid var(--border)',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
           color: canUndo ? 'var(--text-dim)' : 'var(--border)',
           cursor: canUndo ? 'pointer' : 'default',
           transition: 'all 0.1s', flexShrink: 0,
@@ -227,7 +232,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         onMouseLeave={e => { if (canUndo) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' } }}
       >
         <IconUndo />
-        <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '5px', letterSpacing: '0.5px', lineHeight: 1 }}>UNDO</span>
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>UNDO</span>
       </button>
 
       <Divider />
@@ -240,9 +245,10 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
           gap: '4px', width: '48px', height: '48px',
-          background: doubleWidth ? 'var(--amber, #ffaa00)' : 'transparent',
-          border: `2px solid ${doubleWidth ? 'var(--amber, #ffaa00)' : 'var(--border)'}`,
-          color: doubleWidth ? '#000' : 'var(--text-dim)',
+          background: doubleWidth ? 'var(--amber)' : 'transparent',
+          border: `1px solid ${doubleWidth ? 'var(--amber)' : 'var(--border)'}`,
+          borderRadius: '8px',
+          color: doubleWidth ? '#fff' : 'var(--text-dim)',
           cursor: 'pointer', transition: 'all 0.1s', flexShrink: 0,
         }}
         onMouseEnter={e => {
@@ -266,18 +272,18 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
           <rect x="16" y="5"  width="2" height="2"/>
           <rect x="16" y="9"  width="2" height="2"/>
         </svg>
-        <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '5px', letterSpacing: '0.5px', lineHeight: 1 }}>2×W</span>
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>2×W</span>
       </button>
 
       <Divider />
 
       {/* Active tool label */}
       <div style={{
-        fontFamily: "'Press Start 2P', monospace",
-        fontSize: '7px', color: 'var(--green)', letterSpacing: '1px',
+        fontFamily: "'Roboto', sans-serif",
+        fontSize: '12px', fontWeight: 600, color: 'var(--accent)',
       }}>
         {TOOLS.find(t => t.id === activeTool)?.label}
-        <span style={{ color: 'var(--text-dim)', marginLeft: '8px', fontSize: '6px' }}>
+        <span style={{ color: 'var(--text-dim)', marginLeft: '8px', fontSize: '11px', fontWeight: 400 }}>
           [{TOOLS.find(t => t.id === activeTool)?.shortcut}]
         </span>
       </div>
