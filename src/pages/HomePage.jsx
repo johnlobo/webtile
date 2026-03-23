@@ -7,10 +7,13 @@ import NewMapModal from '../components/NewMapModal'
 import TilemapGrid from '../components/TilemapGrid'
 import RightSidebar from '../components/RightSidebar'
 import Toolbar from '../components/Toolbar'
+import SpriteEditor from '../components/SpriteEditor'
+import NewSpriteModal from '../components/NewSpriteModal'
 import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
+import { createSprite, listSprites, deleteSprite } from '../services/spriteService'
 
 // ── TMX helpers ───────────────────────────────────────────────────────────────
 
@@ -152,7 +155,7 @@ function SidebarBtn({ label, icon, onClick, dimmed, color }) {
   )
 }
 
-function Sidebar({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef }) {
+function Sidebar({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite }) {
   const [open, setOpen] = useState({ project: true, maps: true, sprites: false })
   const toggle = id => setOpen(prev => ({ ...prev, [id]: !prev[id] }))
   const hasProject = !!projectName
@@ -237,14 +240,28 @@ function Sidebar({ projectName, maps, activeMapId, onAction, onSelectMap, onDele
 
           {/* SPRITES (nested) */}
           <SidebarSection id="sprites" label="SPRITES" icon="◈" open={open.sprites} onToggle={toggle}>
-            <div style={{ padding: '8px 16px' }}>
-              <div style={{ fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.45, lineHeight: 1.6 }}>
-                COMING SOON
+            {!hasProject && (
+              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
+                No project loaded
               </div>
-              <div style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--text-dim)', opacity: 0.3, letterSpacing: '1px' }}>
-                Create, import &amp;<br />export sprites
+            )}
+            {hasProject && sprites.length === 0 && (
+              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
+                No sprites yet
               </div>
-            </div>
+            )}
+            {hasProject && sprites.map(s => (
+              <SpriteItem
+                key={s.id}
+                sprite={s}
+                active={s.id === selectedSpriteId}
+                onClick={() => onSelectSprite(s.id)}
+                onDelete={() => onDeleteSprite(s.id)}
+              />
+            ))}
+            {hasProject && (
+              <SidebarBtn label="+ NEW SPRITE" icon="✦" onClick={() => onAction('sprites', 'new')} />
+            )}
           </SidebarSection>
 
         </SidebarSection>
@@ -272,6 +289,58 @@ function MapItem({ map, active, onClick, onDelete }) {
     >
       <span style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: active ? 'var(--green)' : 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '1px' }}>
         {map.name}
+      </span>
+      {(hovered || active) && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          style={{
+            flexShrink: 0, padding: '2px 5px',
+            background: 'transparent', border: '1px solid transparent',
+            color: 'var(--text-dim)', cursor: 'pointer',
+            fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
+            letterSpacing: '0.5px', transition: 'border-color 0.15s, color 0.15s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
+        >DEL</button>
+      )}
+    </div>
+  )
+}
+
+function SpriteItem({ sprite, active, onClick, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+  const modeLabel = `M${sprite.videoMode}`
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '7px 10px 7px 16px',
+        background: active ? 'rgba(0,232,122,0.08)' : hovered ? 'var(--green-glow)' : 'transparent',
+        borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+        marginLeft: '-2px',
+        cursor: 'pointer', transition: 'background 0.15s',
+      }}
+    >
+      <span style={{
+        fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
+        color: active ? 'var(--green)' : 'var(--text-dim)',
+        background: active ? 'rgba(0,232,122,0.15)' : 'var(--bg)',
+        border: `1px solid ${active ? 'var(--green-dim)' : 'var(--border)'}`,
+        padding: '2px 4px', flexShrink: 0, letterSpacing: '0.5px',
+      }}>
+        {modeLabel}
+      </span>
+      <span style={{
+        fontFamily: "'VT323', monospace", fontSize: '17px',
+        color: active ? 'var(--green)' : 'var(--text-dim)',
+        flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        letterSpacing: '1px',
+      }}>
+        {sprite.name}
       </span>
       {(hovered || active) && (
         <button
@@ -362,6 +431,11 @@ export default function HomePage() {
   const [saveStatus,   setSaveStatus]   = useState(null)
   const [canUndo,      setCanUndo]      = useState(false)
 
+  // Sprites
+  const [sprites,            setSprites]            = useState([])
+  const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
+  const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
+
   // Modals
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showLoadModal,       setShowLoadModal]       = useState(false)
@@ -382,6 +456,12 @@ export default function HomePage() {
   useEffect(() => { mapConfigRef_.current   = mapConfig   }, [mapConfig])
   useEffect(() => { tilesetRef_.current     = tileset     }, [tileset])
   useEffect(() => { mapTilesRef_.current    = mapTiles    }, [mapTiles])
+
+  // Load sprites when project changes
+  useEffect(() => {
+    if (!projectId) { setSprites([]); return }
+    listSprites(user.uid, projectId).then(setSprites).catch(console.error)
+  }, [projectId, user.uid])
 
   const pushHistory = useCallback(() => {
     if (!mapTilesRef_.current) return
@@ -418,6 +498,39 @@ export default function HomePage() {
 
   const handleLogout = async () => { await logout(); navigate('/login') }
 
+  // ── Sprite handlers ────────────────────────────────────────────────────────
+
+  const handleNewSprite = async ({ name, videoMode, width, height }) => {
+    setShowNewSpriteModal(false)
+    setSaveStatus('saving')
+    try {
+      const sid = await createSprite(user.uid, projectId, { name, videoMode, width, height })
+      setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
+      setSelectedSpriteId(sid)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(null), 2000)
+    } catch (err) {
+      console.error('Failed to create sprite:', err)
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus(null), 4000)
+    }
+  }
+
+  const handleSelectSprite = (spriteId) => {
+    setSelectedSpriteId(spriteId)
+  }
+
+  const handleDeleteSprite = async (spriteId) => {
+    if (!confirm('Delete this sprite? Cannot be undone.')) return
+    try {
+      await deleteSprite(user.uid, projectId, spriteId)
+      setSprites(prev => prev.filter(s => s.id !== spriteId))
+      if (selectedSpriteId === spriteId) setSelectedSpriteId(null)
+    } catch (err) {
+      console.error('Delete sprite failed:', err)
+    }
+  }
+
   // ── Auto-save ──────────────────────────────────────────────────────────────
 
   const scheduleAutoSave = useCallback((tiles) => {
@@ -448,7 +561,6 @@ export default function HomePage() {
   // ── Activate a map (load its data) ────────────────────────────────────────
 
   const activateMap = useCallback(async (pid, mapId) => {
-    setSaveStatus('saving')
     try {
       const data = await loadMap(user.uid, pid, mapId)
       if (!data) return
@@ -459,16 +571,17 @@ export default function HomePage() {
       setTileset(data.tileset)
       setSelectedTile(null)
       setMapTiles(data.mapTiles)
-      setSaveStatus('saved')
-      setTimeout(() => setSaveStatus(null), 2000)
-    } catch (_) {
+    } catch (err) {
+      console.error('Failed to load map:', err)
       setSaveStatus('error')
+      setTimeout(() => setSaveStatus(null), 4000)
     }
   }, [user.uid])
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
   const handleAction = useCallback(async (group, item, payload) => {
+    if (group === 'sprites' && item === 'new') { if (projectId) setShowNewSpriteModal(true); return }
     if (group === 'project' && item === 'new')  { setShowNewProjectModal(true); return }
     if (group === 'project' && item === 'load') { setShowLoadModal(true); return }
 
@@ -535,6 +648,7 @@ export default function HomePage() {
 
   const handleNewProject = async ({ name }) => {
     setShowNewProjectModal(false)
+    clearTimeout(autoSaveTimer.current)
     setSaveStatus('saving')
     try {
       const pid = await createProject(user.uid, { name })
@@ -550,8 +664,10 @@ export default function HomePage() {
       setCanUndo(false)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
-    } catch (_) {
+    } catch (err) {
+      console.error('Failed to create project:', err)
       setSaveStatus('error')
+      setTimeout(() => setSaveStatus(null), 4000)
     }
   }
 
@@ -583,8 +699,10 @@ export default function HomePage() {
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus(null), 2000)
       }
-    } catch (_) {
+    } catch (err) {
+      console.error('Failed to load project:', err)
       setSaveStatus('error')
+      setTimeout(() => setSaveStatus(null), 4000)
     }
   }
 
@@ -617,6 +735,7 @@ export default function HomePage() {
   // ── Select map ────────────────────────────────────────────────────────────
 
   const handleSelectMap = useCallback(async (mapId) => {
+    setSelectedSpriteId(null)  // switch to map view
     if (mapId === activeMapId) return
     if (projectId) await activateMap(projectId, mapId)
   }, [activeMapId, projectId, activateMap])
@@ -784,10 +903,14 @@ export default function HomePage() {
           onSelectMap={handleSelectMap}
           onDeleteMap={handleDeleteMap}
           tmxInputRef={tmxInputRef}
+          sprites={sprites}
+          selectedSpriteId={selectedSpriteId}
+          onSelectSprite={handleSelectSprite}
+          onDeleteSprite={handleDeleteSprite}
         />
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {hasMap && (
+          {hasMap && !selectedSpriteId && (
             <Toolbar
               activeTool={activeTool} onSelectTool={setActiveTool}
               zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut}
@@ -798,27 +921,37 @@ export default function HomePage() {
           )}
           {!hasProject
             ? <EmptyWorkspace />
-            : !hasMap
-              ? <NoMaps onCreate={() => setShowNewMapModal(true)} onImport={() => tmxInputRef.current?.click()} tmxInputRef={tmxInputRef} />
-              : <TilemapGrid
-                  {...mapConfig}
-                  activeTool={activeTool}
-                  zoom={zoom} onZoomChange={setZoom}
-                  tileset={tileset} selectedTile={selectedTile}
-                  mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
+            : selectedSpriteId
+              ? <SpriteEditor
+                  userId={user.uid}
+                  projectId={projectId}
+                  spriteId={selectedSpriteId}
+                  setSaveStatus={setSaveStatus}
+                  onDeleted={() => setSelectedSpriteId(null)}
                 />
+              : !hasMap
+                ? <NoMaps onCreate={() => setShowNewMapModal(true)} onImport={() => tmxInputRef.current?.click()} tmxInputRef={tmxInputRef} />
+                : <TilemapGrid
+                    {...mapConfig}
+                    activeTool={activeTool}
+                    zoom={zoom} onZoomChange={setZoom}
+                    tileset={tileset} selectedTile={selectedTile}
+                    mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
+                  />
           }
         </div>
 
-        <RightSidebar
-          project={mapConfig}
-          mapTiles={mapTiles}
-          tileset={tileset}
-          selectedTile={selectedTile}
-          onLoadTileset={handleLoadTileset}
-          onSelectTile={setSelectedTile}
-          onEditTile={handleEditTile}
-        />
+        {!selectedSpriteId && (
+          <RightSidebar
+            project={mapConfig}
+            mapTiles={mapTiles}
+            tileset={tileset}
+            selectedTile={selectedTile}
+            onLoadTileset={handleLoadTileset}
+            onSelectTile={setSelectedTile}
+            onEditTile={handleEditTile}
+          />
+        )}
       </div>
 
       {showNewProjectModal && (
@@ -838,6 +971,12 @@ export default function HomePage() {
         <NewMapModal
           onConfirm={handleNewMap}
           onCancel={() => setShowNewMapModal(false)}
+        />
+      )}
+      {showNewSpriteModal && (
+        <NewSpriteModal
+          onConfirm={handleNewSprite}
+          onCancel={() => setShowNewSpriteModal(false)}
         />
       )}
     </div>
