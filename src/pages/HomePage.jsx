@@ -146,11 +146,11 @@ function NavItem({ label, icon, onClick, accent }) {
         padding: '9px 16px', background: 'transparent', border: 'none',
         cursor: 'pointer', textAlign: 'left',
         fontFamily: "'VT323', monospace", fontSize: '19px', letterSpacing: '1.5px',
-        color: accent === 'amber' ? 'var(--amber)' : 'var(--text-dim)',
+        color: accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)',
         transition: 'color 0.12s, background 0.12s',
       }}
-      onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : 'var(--green)' }}
-      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : 'var(--text-dim)' }}
+      onMouseEnter={e => { e.currentTarget.style.background = accent === 'red' ? 'rgba(255,64,64,0.08)' : 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--green)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : accent === 'red' ? 'var(--red)' : 'var(--text-dim)' }}
     >
       {icon && <span style={{ fontSize: '11px', color: 'var(--green-dim)', flexShrink: 0, lineHeight: 1 }}>{icon}</span>}
       {label}
@@ -199,7 +199,7 @@ function NavMapItem({ map, active, onClick, onDelete }) {
   )
 }
 
-function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite }) {
+function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
   const navRef = useRef(null)
@@ -229,6 +229,12 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
         <NavSep />
         <NavItem label="NEW PROJECT"  icon="✦" onClick={() => { onAction('project', 'new');  close() }} />
         <NavItem label="LOAD PROJECT" icon="▶" onClick={() => { onAction('project', 'load'); close() }} />
+        {projectName && (
+          <>
+            <NavSep />
+            <NavItem label="CLOSE PROJECT" icon="✕" accent="red" onClick={() => { onCloseProject(); close() }} />
+          </>
+        )}
       </NavDropdown>
 
       {/* MAPS */}
@@ -256,6 +262,12 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
         <NavSep />
         <NavItem label="⬇ EXPORT .TMX"     icon="" onClick={() => { onAction('export', 'tmx'); close() }} />
         <NavItem label="⬇ EXPORT TILESET"  icon="" onClick={() => { onAction('export', 'tileset-png'); close() }} />
+        {activeMapId && (
+          <>
+            <NavSep />
+            <NavItem label="CLOSE MAP" icon="✕" accent="red" onClick={() => { onCloseMap(); close() }} />
+          </>
+        )}
       </NavDropdown>
 
       {/* SPRITES */}
@@ -277,6 +289,12 @@ function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDelet
         )}
         <NavSep />
         <NavItem label="+ NEW SPRITE" icon="✦" onClick={() => { onAction('sprites', 'new'); close() }} />
+        {selectedSpriteId && (
+          <>
+            <NavSep />
+            <NavItem label="CLOSE SPRITE" icon="✕" accent="red" onClick={() => { onCloseSprite(); close() }} />
+          </>
+        )}
       </NavDropdown>
 
     </div>
@@ -744,6 +762,39 @@ export default function HomePage() {
     }
   }
 
+  // ── Close handlers ────────────────────────────────────────────────────────
+
+  const handleCloseProject = useCallback(() => {
+    clearTimeout(autoSaveTimer.current)
+    setProjectId(null)
+    setProjectName(null)
+    setMaps([])
+    setActiveMapId(null)
+    setMapConfig(null)
+    setMapTiles(null)
+    setTileset(null)
+    setSelectedTile(null)
+    setSprites([])
+    setSelectedSpriteId(null)
+    historyRef.current = []
+    setCanUndo(false)
+    setSaveStatus(null)
+  }, [])
+
+  const handleCloseMap = useCallback(() => {
+    setActiveMapId(null)
+    setMapConfig(null)
+    setMapTiles(null)
+    setTileset(null)
+    setSelectedTile(null)
+    historyRef.current = []
+    setCanUndo(false)
+  }, [])
+
+  const handleCloseSprite = useCallback(() => {
+    setSelectedSpriteId(null)
+  }, [])
+
   // ── Select map ────────────────────────────────────────────────────────────
 
   const handleSelectMap = useCallback(async (mapId) => {
@@ -896,6 +947,9 @@ export default function HomePage() {
           selectedSpriteId={selectedSpriteId}
           onSelectSprite={handleSelectSprite}
           onDeleteSprite={handleDeleteSprite}
+          onCloseProject={handleCloseProject}
+          onCloseMap={handleCloseMap}
+          onCloseSprite={handleCloseSprite}
         />
 
         {/* Centre breadcrumb */}
