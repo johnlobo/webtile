@@ -32,6 +32,10 @@ The app runs behind a code-server reverse proxy. `vite.config.js` sets `base: '/
 
 Single-page React app with Firebase Auth + Firestore. No state management library; all state lives in `HomePage`.
 
+### Routing
+
+Uses `HashRouter` — all URLs begin with `#/`. Routes: `/` → `HomePage` (protected), `/login` → `LoginPage`, `/forgot-password` → `ForgotPasswordPage`. The hash-based router avoids issues with the code-server reverse proxy rewriting paths.
+
 ### Auth flow
 
 `AuthContext` (`src/contexts/AuthContext.jsx`) wraps the app. `ProtectedRoute` redirects unauthenticated users to `/login`. Auth methods: Google OAuth popup, email/password.
@@ -54,6 +58,8 @@ The main content area renders one of four views based on state priority:
 Inline components `Sidebar`, `SidebarSection`, `SidebarBtn`, `MapItem`, `SpriteItem` are defined in this file.
 
 Map undo is fully implemented: `historyRef` stores previous `mapTiles` snapshots (max 50), `pushHistory` is called before every tile mutation, `handleUndo` pops and restores, Ctrl+Z is wired globally, and the toolbar exposes an UNDO button (`canUndo`/`onUndo` props).
+
+**Map editor keyboard shortcuts:** `S` → Stamp, `F` → Fill, `E` → Eraser, `D` → Toggle doubleWidth, `Ctrl+Z` → Undo, `Ctrl++`/`Ctrl+-` → Zoom in/out.
 
 Auto-save fires 2 seconds after the last tile paint, using refs (`projectIdRef_`, `activeMapIdRef_`, `mapConfigRef_`, `tilesetRef_`, `mapTilesRef_`) to capture current values inside the async callback without stale closures.
 
@@ -80,6 +86,18 @@ users/{uid}/projects/{pid}/sprites/{sid}
 ```
 
 Old schema (pre-restructure) stored map config directly on the project doc. `migrateOldProject()` in `projectService.js` auto-migrates on load.
+
+### TilemapGrid (`src/components/TilemapGrid.jsx`)
+
+Renders the map as a CSS grid of tile-sized cells. Left-drag paints, right-click erases. Flood-fill replaces all contiguous cells with the same tile. Hover shows a preview overlay of the selected tile or eraser indicator. Scroll wheel zooms. Empty cells render as a checkerboard (CSS background, `image-rendering: pixelated`).
+
+### RightSidebar (`src/components/RightSidebar.jsx`)
+
+Displays the tileset image as a grid; clicking a tile selects it as the active stamp. Also contains per-tile info, a pixel-level tile editor for editing individual tileset tiles, and tileset import/export buttons (PNG).
+
+### TMX import/export
+
+`handleAction('exportTMX')` / `handleAction('importTMX')` in `HomePage` read/write Tiled `.tmx` (XML) format. Export embeds the tileset image path and encodes `mapTiles` as CSV data. Import parses the XML and rehydrates `mapTiles`. This is the main interchange format with external map editors.
 
 ### Tile encoding
 
