@@ -89,33 +89,47 @@ function downloadText(filename, content) {
   URL.revokeObjectURL(a.href)
 }
 
-// ── Sidebar ───────────────────────────────────────────────────────────────────
+// ── Top Navigation ────────────────────────────────────────────────────────────
 
-function SidebarSection({ id, label, icon, open, onToggle, children }) {
+function NavDropdown({ label, open, disabled, onToggle, children }) {
+  const isOpen = open && !disabled
   return (
-    <div>
+    <div style={{ position: 'relative' }} data-topnav="true">
       <button
-        onClick={() => onToggle(id)}
+        onClick={disabled ? undefined : onToggle}
         style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-          padding: '10px 16px', background: 'transparent', border: 'none',
-          cursor: 'pointer', fontFamily: "'Press Start 2P', monospace",
-          fontSize: '8px', color: 'var(--green)', letterSpacing: '1px',
-          textAlign: 'left', transition: 'background 0.15s',
+          display: 'flex', alignItems: 'center', gap: '6px',
+          padding: '0 16px', height: '100%', minHeight: '36px',
+          background: isOpen ? 'var(--green-glow)' : 'transparent',
+          border: 'none', borderBottom: isOpen ? '2px solid var(--green)' : '2px solid transparent',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontFamily: "'Press Start 2P', monospace",
+          fontSize: '7px', letterSpacing: '1.5px',
+          color: disabled ? 'var(--text-dim)' : isOpen ? 'var(--green)' : 'var(--text)',
+          opacity: disabled ? 0.35 : 1,
+          transition: 'color 0.15s, background 0.15s, border-color 0.15s',
+          whiteSpace: 'nowrap',
         }}
-        onMouseEnter={e => e.currentTarget.style.background = 'var(--green-glow)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        onMouseEnter={e => { if (!disabled && !isOpen) { e.currentTarget.style.color = 'var(--green)'; e.currentTarget.style.background = 'rgba(0,232,122,0.06)' }}}
+        onMouseLeave={e => { if (!disabled && !isOpen) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.background = 'transparent' }}}
       >
-        <span style={{ fontSize: '12px', lineHeight: 1 }}>{icon}</span>
-        <span style={{ flex: 1 }}>{label}</span>
+        {label}
         <span style={{
-          fontSize: '10px', color: 'var(--text-dim)',
-          transform: open ? 'rotate(90deg)' : 'rotate(0deg)',
-          transition: 'transform 0.2s', display: 'inline-block',
-        }}>▶</span>
+          fontSize: '8px', color: disabled ? 'var(--text-dim)' : 'var(--green-dim)',
+          transform: isOpen ? 'rotate(180deg)' : 'none',
+          transition: 'transform 0.18s', display: 'inline-block', marginTop: '1px',
+        }}>▼</span>
       </button>
-      {open && (
-        <div style={{ borderLeft: '2px solid var(--green-dim)', marginLeft: '24px' }}>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0,
+          minWidth: '200px', zIndex: 200,
+          background: 'var(--panel)',
+          border: '1px solid var(--green-dim)',
+          borderTop: '2px solid var(--green)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.6), 0 0 12px rgba(0,232,122,0.08)',
+        }}>
           {children}
         </div>
       )}
@@ -123,151 +137,149 @@ function SidebarSection({ id, label, icon, open, onToggle, children }) {
   )
 }
 
-function SidebarBtn({ label, icon, onClick, dimmed, color }) {
+function NavItem({ label, icon, onClick, accent }) {
   return (
     <button
       onClick={onClick}
       style={{
         width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
         padding: '9px 16px', background: 'transparent', border: 'none',
-        cursor: onClick ? 'pointer' : 'default',
-        fontFamily: "'VT323', monospace",
-        fontSize: '18px',
-        color: dimmed ? 'var(--text-dim)' : (color || 'var(--text-dim)'),
-        letterSpacing: '2px', textAlign: 'left',
-        transition: 'color 0.15s, background 0.15s',
-        opacity: dimmed ? 0.5 : 1,
+        cursor: 'pointer', textAlign: 'left',
+        fontFamily: "'VT323', monospace", fontSize: '19px', letterSpacing: '1.5px',
+        color: accent === 'amber' ? 'var(--amber)' : 'var(--text-dim)',
+        transition: 'color 0.12s, background 0.12s',
       }}
-      onMouseEnter={e => {
-        if (!onClick) return
-        e.currentTarget.style.color = color || 'var(--green)'
-        e.currentTarget.style.background = 'var(--green-glow)'
-      }}
-      onMouseLeave={e => {
-        if (!onClick) return
-        e.currentTarget.style.color = dimmed ? 'var(--text-dim)' : (color || 'var(--text-dim)')
-        e.currentTarget.style.background = 'transparent'
-      }}
+      onMouseEnter={e => { e.currentTarget.style.background = 'var(--green-glow)'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : 'var(--green)' }}
+      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = accent === 'amber' ? 'var(--amber)' : 'var(--text-dim)' }}
     >
-      {icon && <span style={{ fontSize: '10px', color: 'var(--green-dim)', flexShrink: 0 }}>{icon}</span>}
+      {icon && <span style={{ fontSize: '11px', color: 'var(--green-dim)', flexShrink: 0, lineHeight: 1 }}>{icon}</span>}
       {label}
     </button>
   )
 }
 
-function Sidebar({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite }) {
-  const [open, setOpen] = useState({ project: true, maps: true, sprites: false })
-  const toggle = id => setOpen(prev => ({ ...prev, [id]: !prev[id] }))
+function NavSep() {
+  return <div style={{ height: '1px', background: 'var(--border)', margin: '3px 0' }} />
+}
+
+function NavMapItem({ map, active, onClick, onDelete }) {
+  const [hovered, setHovered] = useState(false)
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '6px',
+        padding: '8px 12px 8px 16px',
+        background: active ? 'rgba(0,232,122,0.08)' : hovered ? 'var(--green-glow)' : 'transparent',
+        borderLeft: active ? '2px solid var(--green)' : '2px solid transparent',
+        marginLeft: '-1px', cursor: 'pointer',
+      }}
+    >
+      <span style={{
+        fontFamily: "'VT323', monospace", fontSize: '18px', letterSpacing: '1px',
+        color: active ? 'var(--green)' : 'var(--text-dim)', flex: 1,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>{map.name}</span>
+      {(hovered || active) && (
+        <button
+          onClick={e => { e.stopPropagation(); onDelete() }}
+          style={{
+            flexShrink: 0, padding: '1px 5px', background: 'transparent',
+            border: '1px solid transparent', color: 'var(--text-dim)', cursor: 'pointer',
+            fontFamily: "'Press Start 2P', monospace", fontSize: '5px',
+            transition: 'border-color 0.12s, color 0.12s',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--red)'; e.currentTarget.style.color = 'var(--red)' }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
+        >DEL</button>
+      )}
+    </div>
+  )
+}
+
+function TopNav({ projectName, maps, activeMapId, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite }) {
+  const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
+  const navRef = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) setActiveMenu(null)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const toggle = (menu) => setActiveMenu(prev => prev === menu ? null : menu)
+  const close = () => setActiveMenu(null)
 
   return (
-    <aside style={{
-      width: '200px', flexShrink: 0,
-      background: 'var(--panel)',
-      borderRight: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column',
-      position: 'relative', zIndex: 1,
-    }}>
-      <div style={{
-        padding: '14px 16px 10px',
-        fontFamily: "'Press Start 2P', monospace",
-        fontSize: '7px', color: 'var(--text-dim)',
-        letterSpacing: '2px', borderBottom: '1px solid var(--border)',
-      }}>
-        MENU
-      </div>
+    <div ref={navRef} style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
 
-      <nav style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+      {/* PROJECTS */}
+      <NavDropdown label="PROJECTS" open={activeMenu === 'project'} onToggle={() => toggle('project')}>
+        <div style={{ padding: '8px 16px 6px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>PROJECT</div>
+        {projectName && (
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--amber)', letterSpacing: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            ▸ {projectName}
+          </div>
+        )}
+        <NavSep />
+        <NavItem label="NEW PROJECT"  icon="✦" onClick={() => { onAction('project', 'new');  close() }} />
+        <NavItem label="LOAD PROJECT" icon="▶" onClick={() => { onAction('project', 'load'); close() }} />
+      </NavDropdown>
 
-        {/* PROJECT */}
-        <SidebarSection id="project" label="PROJECT" icon="▤" open={open.project} onToggle={toggle}>
-          {hasProject && (
-            <div style={{
-              padding: '6px 16px 8px',
-              fontFamily: "'VT323', monospace", fontSize: '16px',
-              color: 'var(--amber)', letterSpacing: '1px',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {projectName}
-            </div>
-          )}
-          <SidebarBtn label="NEW"  icon="✦" onClick={() => onAction('project', 'new')} />
-          <SidebarBtn label="LOAD" icon="▶" onClick={() => onAction('project', 'load')} />
-
-          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
-
-          {/* MAPS (nested) */}
-          <SidebarSection id="maps" label="MAPS" icon="⊞" open={open.maps} onToggle={toggle}>
-            {!hasProject && (
-              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
-                No project loaded
-              </div>
-            )}
-            {hasProject && maps.length === 0 && (
-              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
-                No maps yet
-              </div>
-            )}
-            {hasProject && maps.map(m => (
-              <MapItem
-                key={m.id}
-                map={m}
-                active={m.id === activeMapId}
-                onClick={() => onSelectMap(m.id)}
+      {/* MAPS */}
+      <NavDropdown label="MAPS" open={activeMenu === 'maps'} disabled={!hasProject} onToggle={() => toggle('maps')}>
+        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>MAPS</div>
+        {maps.length === 0 && (
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No maps yet</div>
+        )}
+        {maps.length > 0 && (
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            {maps.map(m => (
+              <NavMapItem
+                key={m.id} map={m} active={m.id === activeMapId}
+                onClick={() => { onSelectMap(m.id); close() }}
                 onDelete={() => onDeleteMap(m.id)}
               />
             ))}
-            {hasProject && (
-              <>
-                <SidebarBtn label="+ NEW MAP"    icon="✦" onClick={() => onAction('maps', 'new')} />
-                <SidebarBtn label="IMPORT .TMX"  icon="↑" onClick={() => tmxInputRef.current?.click()} />
-                {/* hidden TMX file input */}
-                <input
-                  ref={tmxInputRef}
-                  type="file"
-                  accept=".tmx"
-                  style={{ display: 'none' }}
-                  onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }}
-                />
-                <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
-                <SidebarBtn label="EXPORT .TMX"     icon="⬇" onClick={() => onAction('export', 'tmx')} />
-                <SidebarBtn label="EXPORT TILESET"  icon="⬇" onClick={() => onAction('export', 'tileset-png')} />
-              </>
-            )}
-          </SidebarSection>
+          </div>
+        )}
+        <NavSep />
+        <NavItem label="+ NEW MAP"       icon="✦" onClick={() => { onAction('maps', 'new'); close() }} />
+        <NavItem label="↑ IMPORT .TMX"  icon="" onClick={() => { tmxInputRef.current?.click(); close() }} />
+        <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
+          onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
+        <NavSep />
+        <NavItem label="⬇ EXPORT .TMX"     icon="" onClick={() => { onAction('export', 'tmx'); close() }} />
+        <NavItem label="⬇ EXPORT TILESET"  icon="" onClick={() => { onAction('export', 'tileset-png'); close() }} />
+      </NavDropdown>
 
-          <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }} />
-
-          {/* SPRITES (nested) */}
-          <SidebarSection id="sprites" label="SPRITES" icon="◈" open={open.sprites} onToggle={toggle}>
-            {!hasProject && (
-              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
-                No project loaded
-              </div>
-            )}
-            {hasProject && sprites.length === 0 && (
-              <div style={{ padding: '6px 16px', fontFamily: "'VT323', monospace", fontSize: '14px', color: 'var(--text-dim)', letterSpacing: '1px', opacity: 0.5 }}>
-                No sprites yet
-              </div>
-            )}
-            {hasProject && sprites.map(s => (
+      {/* SPRITES */}
+      <NavDropdown label="SPRITES" open={activeMenu === 'sprites'} disabled={!hasProject} onToggle={() => toggle('sprites')}>
+        <div style={{ padding: '8px 16px 4px', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '2px' }}>SPRITES</div>
+        {sprites.length === 0 && (
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', opacity: 0.5, letterSpacing: '1px' }}>No sprites yet</div>
+        )}
+        {sprites.length > 0 && (
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            {sprites.map(s => (
               <SpriteItem
-                key={s.id}
-                sprite={s}
-                active={s.id === selectedSpriteId}
-                onClick={() => onSelectSprite(s.id)}
+                key={s.id} sprite={s} active={s.id === selectedSpriteId}
+                onClick={() => { onSelectSprite(s.id); close() }}
                 onDelete={() => onDeleteSprite(s.id)}
               />
             ))}
-            {hasProject && (
-              <SidebarBtn label="+ NEW SPRITE" icon="✦" onClick={() => onAction('sprites', 'new')} />
-            )}
-          </SidebarSection>
+          </div>
+        )}
+        <NavSep />
+        <NavItem label="+ NEW SPRITE" icon="✦" onClick={() => { onAction('sprites', 'new'); close() }} />
+      </NavDropdown>
 
-        </SidebarSection>
-
-      </nav>
-    </aside>
+    </div>
   )
 }
 
@@ -854,48 +866,25 @@ export default function HomePage() {
 
       {/* Top bar */}
       <header style={{
-        position: 'relative', zIndex: 1,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 24px',
+        position: 'relative', zIndex: 100,
+        display: 'flex', alignItems: 'stretch',
         borderBottom: '1px solid var(--border)',
         background: 'var(--panel)', flexShrink: 0,
+        height: '48px',
       }}>
-        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '13px', color: 'var(--green)', letterSpacing: '2px' }}>
+        {/* Logo */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '0 20px 0 24px',
+          borderRight: '1px solid var(--border)',
+          fontFamily: "'Press Start 2P', monospace", fontSize: '11px',
+          color: 'var(--green)', letterSpacing: '2px', flexShrink: 0,
+        }}>
           WEB<span style={{ color: 'var(--amber)' }}>TILE</span>
-          {projectName && (
-            <span style={{ fontSize: '8px', color: 'var(--amber)', marginLeft: '20px', letterSpacing: '1px' }}>
-              {projectName}
-            </span>
-          )}
-          {mapConfig && (
-            <span style={{ fontSize: '7px', color: 'var(--text-dim)', marginLeft: '12px', letterSpacing: '1px' }}>
-              {mapConfig.name}
-              <span style={{ marginLeft: '10px', color: 'var(--text-dim)', opacity: 0.6 }}>
-                {mapConfig.mapW}×{mapConfig.mapH} / {mapConfig.tileW}×{mapConfig.tileH}px
-              </span>
-            </span>
-          )}
-          {saveStatus && (
-            <span style={{
-              marginLeft: '18px', fontSize: '6px', letterSpacing: '1px',
-              color: saveStatus === 'error' ? 'var(--red, #ff3c3c)' : saveStatus === 'saving' ? 'var(--text-dim)' : 'var(--green)',
-              fontFamily: "'Press Start 2P', monospace",
-            }}>
-              {saveStatus === 'saving' ? '· SAVING…' : saveStatus === 'saved' ? '· SAVED' : '· SAVE ERROR'}
-            </span>
-          )}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '18px' }}>
-          <span style={{ fontFamily: "'VT323', monospace", fontSize: '17px', color: 'var(--text-dim)', letterSpacing: '2px' }}>
-            {user.displayName || user.email}
-          </span>
-          <button className="btn-ghost" onClick={handleLogout}>LOG OUT</button>
-        </div>
-      </header>
 
-      {/* Body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        <Sidebar
+        {/* Dropdown nav */}
+        <TopNav
           projectName={projectName}
           maps={maps}
           activeMapId={activeMapId}
@@ -908,6 +897,44 @@ export default function HomePage() {
           onSelectSprite={handleSelectSprite}
           onDeleteSprite={handleDeleteSprite}
         />
+
+        {/* Centre breadcrumb */}
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center',
+          padding: '0 20px', gap: '10px', overflow: 'hidden',
+        }}>
+          {mapConfig && !selectedSpriteId && (
+            <>
+              <span style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {mapConfig.name}
+              </span>
+              <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--border)', flexShrink: 0 }}>
+                {mapConfig.mapW}×{mapConfig.mapH} / {mapConfig.tileW}×{mapConfig.tileH}px
+              </span>
+            </>
+          )}
+          {saveStatus && (
+            <span style={{
+              fontSize: '6px', letterSpacing: '1px', flexShrink: 0,
+              color: saveStatus === 'error' ? 'var(--red)' : saveStatus === 'saving' ? 'var(--text-dim)' : 'var(--green)',
+              fontFamily: "'Press Start 2P', monospace",
+            }}>
+              {saveStatus === 'saving' ? '· SAVING…' : saveStatus === 'saved' ? '· SAVED' : '· SAVE ERROR'}
+            </span>
+          )}
+        </div>
+
+        {/* Right: user + logout */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '0 20px', borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
+          <span style={{ fontFamily: "'VT323', monospace", fontSize: '16px', color: 'var(--text-dim)', letterSpacing: '2px', whiteSpace: 'nowrap' }}>
+            {user.displayName || user.email}
+          </span>
+          <button className="btn-ghost" onClick={handleLogout} style={{ fontSize: '14px' }}>LOG OUT</button>
+        </div>
+      </header>
+
+      {/* Body */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {hasMap && !selectedSpriteId && (
