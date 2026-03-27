@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
+npm install       # Install dependencies
 npm run dev       # Start dev server at port 5173
 npm run build     # Production build to dist/
 npm run preview   # Preview production build
@@ -38,11 +39,11 @@ Uses `HashRouter` — all URLs begin with `#/`. Routes: `/` → `HomePage` (prot
 
 ### Auth flow
 
-`AuthContext` (`src/contexts/AuthContext.jsx`) wraps the app. `ProtectedRoute` redirects unauthenticated users to `/login`. Auth methods: Google OAuth popup, email/password.
+`AuthContext` (`src/contexts/AuthContext.jsx`) wraps the app. `ProtectedRoute` redirects unauthenticated users to `/login`. Auth methods: Google OAuth popup, email/password. While auth state initializes, `LoadingScreen` (blinking dots) is shown.
 
 ### Main editor (`src/pages/HomePage.jsx`)
 
-The entire editor UI lives here. It owns all state and passes handlers down. Key state:
+The entire editor UI lives here (~1100 lines). It owns all state and passes handlers down. Key state:
 
 - **Project level**: `projectId`, `projectName`, `maps[]`
 - **Active map**: `activeMapId`, `mapConfig`, `mapTiles`, `tileset`
@@ -55,13 +56,15 @@ The main content area renders one of four views based on state priority:
 3. `NoMaps` — project loaded but no maps
 4. `TilemapGrid` — normal map editing mode
 
-Inline components `Sidebar`, `SidebarSection`, `SidebarBtn`, `MapItem`, `SpriteItem` are defined in this file.
+Inline components `NavDropdown`, `NavItem`, `NavSep`, `NavMapItem`, `SpriteItem`, `EmptyWorkspace`, and `NoMaps` are defined in this file.
 
 Map undo is fully implemented: `historyRef` stores previous `mapTiles` snapshots (max 50), `pushHistory` is called before every tile mutation, `handleUndo` pops and restores, Ctrl+Z is wired globally, and the toolbar exposes an UNDO button (`canUndo`/`onUndo` props).
 
 **Map editor keyboard shortcuts:** `S` → Stamp, `F` → Fill, `E` → Eraser, `D` → Toggle doubleWidth, `Ctrl+Z` → Undo, `Ctrl++`/`Ctrl+-` → Zoom in/out.
 
 Auto-save fires 2 seconds after the last tile paint, using refs (`projectIdRef_`, `activeMapIdRef_`, `mapConfigRef_`, `tilesetRef_`, `mapTilesRef_`) to capture current values inside the async callback without stale closures.
+
+**Top navigation** (`TopNav`): PROJECTS menu (New, Load, Close), MAPS menu (list with delete, New, Import/Export TMX, Export Tileset, Close), SPRITES menu (list with delete, New, Import PNG, Close). Center breadcrumb shows map name and dimensions.
 
 ### Firestore data model
 
@@ -85,15 +88,22 @@ users/{uid}/projects/{pid}/sprites/{sid}
   createdAt, updatedAt
 ```
 
-Old schema (pre-restructure) stored map config directly on the project doc. `migrateOldProject()` in `projectService.js` auto-migrates on load.
+Old schema (pre-restructure) stored map config directly on the project doc with the tileset at `projects/{pid}/assets/tileset`. `migrateOldProject()` in `projectService.js` auto-migrates on load.
 
 ### TilemapGrid (`src/components/TilemapGrid.jsx`)
 
-Renders the map as a CSS grid of tile-sized cells. Left-drag paints, right-click erases. Flood-fill replaces all contiguous cells with the same tile. Hover shows a preview overlay of the selected tile or eraser indicator. Scroll wheel zooms. Empty cells render as a checkerboard (CSS background, `image-rendering: pixelated`).
+Renders the map as a CSS grid of tile-sized cells. Left-drag paints, right-click erases. Flood-fill replaces all contiguous cells with the same tile (BFS). Hover shows a preview overlay of the selected tile or eraser indicator. Scroll wheel zooms. Empty cells render as a checkerboard (CSS background, `image-rendering: pixelated`).
+
+**Zoom levels:** `[0.25, 0.5, 1, 2, 4, 8]` (map editor, in `Toolbar.jsx`).
 
 ### RightSidebar (`src/components/RightSidebar.jsx`)
 
-Displays the tileset image as a grid; clicking a tile selects it as the active stamp. Also contains per-tile info, a pixel-level tile editor for editing individual tileset tiles, and tileset import/export buttons (PNG).
+Displays the tileset image as a grid; clicking a tile selects it as the active stamp. Also contains a minimap canvas (~56px wide), per-tile pixel editor for editing individual tileset tiles directly, and tileset import/export buttons (PNG).
+
+**Tileset object structure:**
+```javascript
+{ url, img, canvas, cols, rows, naturalW, naturalH }
+```
 
 ### TMX import/export
 
@@ -101,7 +111,7 @@ Displays the tileset image as a grid; clicking a tile selects it as the active s
 
 ### Tile encoding
 
-`mapTiles` in memory is a 2D array of `{col, row, idx} | null`. Firestore stores it as a flat int array: `-1` = empty, `tileRow * 1000 + tileCol` = tile. Encode/decode in `projectService.js`.
+`mapTiles` in memory is a 2D array of `{col, row, idx} | null`. Firestore stores it as a flat int array: `-1` = empty, `tileRow * 1000 + tileCol` = tile. Encode/decode in `projectService.js`. Assumes tilesets are fewer than 1000 columns wide.
 
 The tileset image is stored as a base64 data URL in a separate Firestore sub-document to stay within document size limits.
 
@@ -155,7 +165,7 @@ Large self-contained component (~1700 lines). Key internals:
 
 **Erase & fill respect selection:** when a selection is active, both erase strokes and fill propagation are restricted to the selection rectangle.
 
-**Canvas rendering (`renderSpriteToCanvas`):** draws checkerboard background at 1 cell-per-sprite-pixel, then pixels, then the amber custom grid overlay. Green per-pixel grid removed.
+**Canvas rendering (`renderSpriteToCanvas`):** draws checkerboard background at 1 cell-per-sprite-pixel, then pixels, then the amber custom grid overlay.
 
 **Custom paint cursor:** `useMemo` builds a canvas data-URL cursor sized `cellW × cellH` (capped 128 px): filled with active ink color for pencil, checkerboard for eraser/ink-0.
 
@@ -172,3 +182,7 @@ Large self-contained component (~1700 lines). Key internals:
 **PNG import/export:**
 - Export: renders current frame at 1:1 (transparent background) as PNG download
 - Import: scales PNG to sprite dimensions on an offscreen canvas, maps each pixel to nearest palette ink by RGB distance; transparent pixels (alpha < 128) become ink 0
+
+### ImportSpriteModal (`src/components/ImportSpriteModal.jsx`)
+
+Handles PNG import into the sprite system. Accepts a PNG file, quantizes its pixels to the current palette by nearest-color RGB distance, then creates a new sprite with the imported pixel data.
