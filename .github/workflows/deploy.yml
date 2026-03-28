@@ -3,7 +3,11 @@ name: Deploy React App
 on:
   push:
     branches:
-      - main  # Se activa al subir cambios a la rama main
+      - main  # Revisa si tu rama es 'main' o 'master'
+
+# Añadimos esto para silenciar el aviso de Node 20 y usar la 24
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-and-deploy:
@@ -12,10 +16,10 @@ jobs:
       - name: 1. Descargar código
         uses: actions/checkout@v4
 
-      - name: 2. Instalar Node y dependencias
+      - name: 2. Instalar Node 24 y dependencias
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24 # Actualizamos a la versión recomendada
           cache: 'npm'
 
       - name: 3. Construir aplicación (Build)
@@ -30,6 +34,6 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           source: "dist/*"
-          # CAMBIA ESTO a la carpeta que Nginx esté mirando en tu VPS
           target: "/home/ubuntu/docker/projects/mi-app-react/"
-          strip_components: 1 # Para que no cree la carpeta 'dist' dentro del destino
+          strip_components: 1
+          overwrite: true # Forzamos que sobrescriba lo anterior
