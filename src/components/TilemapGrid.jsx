@@ -159,6 +159,18 @@ export default function TilemapGrid({
           <span>CANVAS <span style={{ color: 'var(--green)' }}>{mapW * tileW}×{mapH * tileH}</span> PX</span>
         </div>
 
+        {/* Status bar */}
+        <div style={{
+          fontFamily: "'Roboto Mono', 'Roboto', monospace", fontSize: '11px', fontWeight: 400,
+          color: 'var(--text-dim)', marginBottom: '8px',
+          display: 'flex', gap: '20px', alignItems: 'center', minHeight: '18px',
+        }}>
+          {hoveredCell
+            ? <span>tile <span style={{ color: 'var(--text)', fontWeight: 600 }}>{hoveredCell.col}, {hoveredCell.row}</span></span>
+            : <span style={{ opacity: 0.4 }}>—</span>
+          }
+        </div>
+
         {/* Grid wrapper — position:relative so the hover overlay is anchored here */}
         <div style={{ position: 'relative' }}>
           <div

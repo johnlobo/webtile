@@ -9,11 +9,12 @@ import RightSidebar from '../components/RightSidebar'
 import Toolbar from '../components/Toolbar'
 import SpriteEditor from '../components/SpriteEditor'
 import NewSpriteModal from '../components/NewSpriteModal'
+import ImportSpriteModal from '../components/ImportSpriteModal'
 import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
-import { createSprite, listSprites, deleteSprite } from '../services/spriteService'
+import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from '../services/spriteService'
 
 // ── TMX helpers ───────────────────────────────────────────────────────────────
 
@@ -37,7 +38,7 @@ function parseTMX(xmlText) {
     let mapTiles = Array.from({ length: mapH }, () => Array(mapW).fill(null))
 
     if (dataEl && tilesetCols > 0) {
-      const rawIds = dataEl.textContent.trim().split(',').map(s => parseInt(s.trim()))
+      const rawIds = dataEl.textContent.trim().split(',').map(s => s.trim()).filter(s => s !== '').map(s => parseInt(s))
       for (let r = 0; r < mapH; r++) {
         for (let c = 0; c < mapW; c++) {
           const gid = rawIds[r * mapW + c]
@@ -199,7 +200,7 @@ function NavMapItem({ map, active, onClick, onDelete }) {
   )
 }
 
-function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
+function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, spritePngInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
   const hasActiveMap = !!activeMapId
@@ -257,9 +258,7 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
         )}
         <NavSep />
         <NavItem label="+ NEW MAP"       icon="✦" onClick={() => { onAction('maps', 'new'); close() }} />
-        <NavItem label="↑ IMPORT .TMX"  icon="" onClick={() => { tmxInputRef.current?.click(); close() }} />
-        <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
-          onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
+        <NavItem label="↑ IMPORT .TMX"  icon="" onClick={() => { close(); setTimeout(() => tmxInputRef.current?.click(), 0) }} />
         <NavSep />
         <NavItem label="⬇ EXPORT .TMX"     icon="" disabled={!hasActiveMap} onClick={() => { onAction('export', 'tmx'); close() }} />
         <NavItem label="⬇ EXPORT TILESET"  icon="" disabled={!hasActiveMap || !hasTileset} onClick={() => { onAction('export', 'tileset-png'); close() }} />
@@ -289,7 +288,8 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
           </div>
         )}
         <NavSep />
-        <NavItem label="+ NEW SPRITE" icon="✦" onClick={() => { onAction('sprites', 'new'); close() }} />
+        <NavItem label="+ NEW SPRITE"  icon="✦" onClick={() => { onAction('sprites', 'new'); close() }} />
+        <NavItem label="↑ LOAD PNG"   icon="↑" onClick={() => { onAction('sprites', 'import-png'); close() }} />
         {selectedSpriteId && (
           <>
             <NavSep />
@@ -297,6 +297,9 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
           </>
         )}
       </NavDropdown>
+
+      <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
+        onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
 
     </div>
   )
@@ -466,6 +469,8 @@ export default function HomePage() {
   const [sprites,            setSprites]            = useState([])
   const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
+  const [importSpriteFile,   setImportSpriteFile]   = useState(null)
+  const spritePngInputRef = useRef(null)
 
   // Modals
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
@@ -547,6 +552,22 @@ export default function HomePage() {
     }
   }
 
+  const handleImportSprite = async ({ name, videoMode, width, height, palette, pixels }) => {
+    setImportSpriteFile(null)
+    setSaveStatus('saving')
+    try {
+      const sid = await createSpriteFromImport(user.uid, projectId, { name, videoMode, width, height, palette, pixels })
+      setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
+      setSelectedSpriteId(sid)
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(null), 2000)
+    } catch (err) {
+      console.error('Failed to import sprite:', err)
+      setSaveStatus('error')
+      setTimeout(() => setSaveStatus(null), 4000)
+    }
+  }
+
   const handleSelectSprite = (spriteId) => {
     setSelectedSpriteId(spriteId)
   }
@@ -613,6 +634,7 @@ export default function HomePage() {
 
   const handleAction = useCallback(async (group, item, payload) => {
     if (group === 'sprites' && item === 'new') { if (projectId) setShowNewSpriteModal(true); return }
+    if (group === 'sprites' && item === 'import-png') { if (projectId) spritePngInputRef.current?.click(); return }
     if (group === 'project' && item === 'new')  { setShowNewProjectModal(true); return }
     if (group === 'project' && item === 'load') { setShowLoadModal(true); return }
 
@@ -926,16 +948,17 @@ export default function HomePage() {
         height: '48px',
       }}>
         {/* Logo */}
-        <div style={{
+        <a href="/" style={{
           display: 'flex', alignItems: 'center',
           padding: '0 20px 0 24px',
           borderRight: '1px solid var(--border)',
           fontFamily: "'Press Start 2P', monospace", fontSize: '11px',
           letterSpacing: '2px', flexShrink: 0,
           background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+          textDecoration: 'none', cursor: 'pointer',
         }}>
           WEBTILE
-        </div>
+        </a>
 
         {/* Dropdown nav */}
         <TopNav
@@ -946,6 +969,7 @@ export default function HomePage() {
           onSelectMap={handleSelectMap}
           onDeleteMap={handleDeleteMap}
           tmxInputRef={tmxInputRef}
+          spritePngInputRef={spritePngInputRef}
           sprites={sprites}
           selectedSpriteId={selectedSpriteId}
           onSelectSprite={handleSelectSprite}
@@ -1062,6 +1086,24 @@ export default function HomePage() {
         <NewSpriteModal
           onConfirm={handleNewSprite}
           onCancel={() => setShowNewSpriteModal(false)}
+        />
+      )}
+      <input
+        ref={spritePngInputRef}
+        type="file"
+        accept="image/png"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) setImportSpriteFile(f)
+          e.target.value = ''
+        }}
+      />
+      {importSpriteFile && (
+        <ImportSpriteModal
+          file={importSpriteFile}
+          onConfirm={handleImportSprite}
+          onCancel={() => setImportSpriteFile(null)}
         />
       )}
     </div>

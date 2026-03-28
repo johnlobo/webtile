@@ -83,6 +83,25 @@ export async function listSprites(userId, projectId) {
 }
 
 /**
+ * Create a sprite from an imported PNG (pre-quantized pixel data).
+ * Returns the generated Firestore sprite ID.
+ */
+export async function createSpriteFromImport(userId, projectId, { name, videoMode, width, height, palette, pixels }) {
+  const ref = doc(spritesCol(userId, projectId))
+  await setDoc(ref, {
+    name,
+    videoMode,
+    width,
+    height,
+    palette,
+    frames: [{ pixels }],
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+  return ref.id
+}
+
+/**
  * Delete a sprite document.
  */
 export async function deleteSprite(userId, projectId, spriteId) {

@@ -362,7 +362,7 @@ function bresenhamLine(x0, y0, x1, y1) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection }) {
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onCursorPos }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
@@ -445,6 +445,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseMove = useCallback((e) => {
     const cell = getCellFromEvent(e)
+    onCursorPos?.(cell)
     if (isPasting) { setPastePos(cell); return }
     if (activeTool === 'select') {
       if (selAnchor.current && cell) onSelectionChange(normalizeSelection(selAnchor.current, cell))
@@ -453,7 +454,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     if (erasing.current) { eraseCell(cell); return }
     if (!painting.current || activeTool === 'picker') return
     if (cell) paintCell(e, cell)
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, isPasting, onSelectionChange])
+  }, [getCellFromEvent, paintCell, eraseCell, activeTool, isPasting, onSelectionChange, onCursorPos])
 
   const handleMouseUp = useCallback(() => {
     selAnchor.current = null
@@ -512,7 +513,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { handleMouseUp(); setPastePos(null) }}
+          onMouseLeave={() => { handleMouseUp(); setPastePos(null); onCursorPos?.(null) }}
           onContextMenu={e => e.preventDefault()}
         />
         {/* Selection overlay */}
@@ -1128,6 +1129,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [selection,    setSelection]    = useState(null)
   const [clipboard,    setClipboard]    = useState(null)
   const [isPasting,    setIsPasting]    = useState(false)
+  const [cursorPos,    setCursorPos]    = useState(null)
 
   const saveTimer   = useRef(null)
   const spriteRef   = useRef(null)
@@ -1647,6 +1649,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onStrokeStart={pushHistory}
           onPaintLine={handlePaintLine}
           onEraseSelection={handleEraseSelection}
+          onCursorPos={setCursorPos}
         />
 
         {/* RIGHT PANEL */}
@@ -1789,6 +1792,28 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         </div>
       </div>
 
+      {/* Status bar */}
+      <div style={{
+        height: '28px', flexShrink: 0,
+        borderTop: '1px solid var(--border)',
+        background: 'var(--panel)',
+        display: 'flex', alignItems: 'center',
+        padding: '0 16px', gap: '24px',
+        fontFamily: "'Roboto Mono', 'Roboto', monospace", fontSize: '11px', fontWeight: 400,
+        color: 'var(--text-dim)',
+      }}>
+        {cursorPos
+          ? <span>px <span style={{ color: 'var(--text)', fontWeight: 600 }}>{cursorPos.x}, {cursorPos.y}</span></span>
+          : <span style={{ opacity: 0.4 }}>—</span>
+        }
+        {selection && (
+          <span>
+            sel <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{selection.x}, {selection.y}</span>
+            <span style={{ opacity: 0.5 }}> + </span>
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{selection.w} × {selection.h}</span>
+          </span>
+        )}
+      </div>
 
       {/* Export Modal */}
       {showExport && (
