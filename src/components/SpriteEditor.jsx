@@ -1223,6 +1223,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         handleCopyRef.current?.()
         return
       }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
+        e.preventDefault()
+        handleCutRef.current?.()
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
         e.preventDefault()
         setIsPasting(true)
@@ -1359,6 +1364,29 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   }, [selection, sprite, currentFrame])
 
   useEffect(() => { handleCopyRef.current = handleCopy }, [handleCopy])
+
+  const handleCutRef = useRef(null)
+
+  const handleCut = useCallback(() => {
+    if (!selection || !sprite) return
+    handleCopyRef.current?.()
+    // eraseSelection runs its own pushHistory — skip a second push here
+    const { x, y, w, h } = selection
+    updateSprite(prev => {
+      const frames = prev.frames.map((f, fi) => {
+        if (fi !== currentFrame) return f
+        const pixels = [...f.pixels]
+        for (let py = y; py < y + h; py++)
+          for (let px = x; px < x + w; px++)
+            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
+              pixels[py * prev.width + px] = 0
+        return { ...f, pixels }
+      })
+      return { ...prev, frames }
+    })
+  }, [selection, sprite, currentFrame, updateSprite])
+
+  useEffect(() => { handleCutRef.current = handleCut }, [handleCut])
 
   const handlePasteCommit = useCallback((px, py) => {
     if (!clipboard) return
@@ -1596,8 +1624,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
           <div style={dividerStyle} />
 
-          <ToolBtn label="⎘" name="COPY"  title="Copy selection [Ctrl+C]" active={false} disabled={!selection} onClick={handleCopy} />
-          <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]"           active={isPasting} disabled={!clipboard} onClick={() => { setIsPasting(true); setActiveTool('select') }} />
+          <ToolBtn label="⎘" name="COPY"  title="Copy selection [Ctrl+C]"  active={false}     disabled={!selection} onClick={handleCopy} />
+          <ToolBtn label="✂" name="CUT"   title="Cut selection [Ctrl+X]"   active={false}     disabled={!selection} onClick={handleCut} />
+          <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]"            active={isPasting} disabled={!clipboard} onClick={() => { setIsPasting(true); setActiveTool('select') }} />
 
           <div style={dividerStyle} />
 
