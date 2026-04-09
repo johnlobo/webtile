@@ -1294,7 +1294,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.target.tagName === 'INPUT') return
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleUndoRef.current?.(); return }
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
-      if (e.key === 'f' || e.key === 'F') { setActiveTool('fill'); setIsPasting(false); return }
+      if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
+      if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); setIsPasting(false); return }
+      if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
       if (e.key === 'r' || e.key === 'R') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 'Escape') { setSelection(null); setIsPasting(false); setActiveTool(t => t === 'select' ? 'pencil' : t); return }
