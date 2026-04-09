@@ -384,6 +384,32 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const cellW = CELL_W_BASE[videoMode] * zoom * (doubleWidth ? 2 : 1)
   const cellH = CELL_H_BASE * zoom
 
+  // Global mouse listeners so selection drag keeps working outside the canvas
+  useEffect(() => {
+    const onGlobalMove = (e) => {
+      if (!selAnchor.current) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const x = Math.max(0, Math.min(width - 1, Math.floor((e.clientX - rect.left) / cellW)))
+      const y = Math.max(0, Math.min(height - 1, Math.floor((e.clientY - rect.top)  / cellH)))
+      onSelectionChange(normalizeSelection(selAnchor.current, { x, y }))
+    }
+    const onGlobalUp = () => {
+      if (!selAnchor.current) return
+      selAnchor.current = null
+      painting.current  = false
+      erasing.current   = false
+      lastCell.current  = null
+    }
+    window.addEventListener('mousemove', onGlobalMove)
+    window.addEventListener('mouseup',   onGlobalUp)
+    return () => {
+      window.removeEventListener('mousemove', onGlobalMove)
+      window.removeEventListener('mouseup',   onGlobalUp)
+    }
+  }, [cellW, cellH, width, height, onSelectionChange])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -548,7 +574,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={() => { handleMouseUp(); setPastePos(null); onCursorPos?.(null) }}
+          onMouseLeave={() => { if (!selAnchor.current) handleMouseUp(); setPastePos(null); onCursorPos?.(null) }}
           onContextMenu={e => e.preventDefault()}
         />
         {/* Selection overlay */}
