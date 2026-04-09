@@ -361,15 +361,23 @@ function bresenhamLine(x0, y0, x1, y1) {
   return cells
 }
 
-function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onCursorPos }) {
+function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
   const lastCell    = useRef(null)
   const selAnchor   = useRef(null)
   const lineAnchor  = useRef(null)
-  const [pastePos, setPastePos] = useState(null)
+  const moveAnchor  = useRef(null)
+  const moveSel     = useRef(null)
+  const movePixels  = useRef(null)
+  const [pastePos,  setPastePos]  = useState(null)
+  const [movePos,   setMovePos]   = useState(null)
+
+  useEffect(() => {
+    if (activeTool !== 'move') { moveAnchor.current = null; setMovePos(null) }
+  }, [activeTool])
 
   useEffect(() => { lineAnchor.current = null }, [activeTool])
 
@@ -410,8 +418,8 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     const key = `${cell.x},${cell.y}`
     if (key === lastCell.current) return
     lastCell.current = key
-    onPaint(cell.x, cell.y, 0, false)
-  }, [onPaint, selection])
+    onPaint(cell.x, cell.y, bgInk, false)
+  }, [onPaint, selection, bgInk])
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
@@ -420,10 +428,24 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (isPasting && cell) { onPasteCommit(cell.x, cell.y); return }
 
-    if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y); return }
+    if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk); return }
 
     if (activeTool === 'select') {
       if (cell) { selAnchor.current = cell; onSelectionChange(normalizeSelection(cell, cell)) }
+      return
+    }
+
+    if (activeTool === 'move' && selection && cell) {
+      const { x, y, w, h } = selection
+      const captured = []
+      for (let py = 0; py < h; py++)
+        for (let px = 0; px < w; px++)
+          captured.push(pixels[(y + py) * width + (x + px)] ?? 0)
+      moveAnchor.current = cell
+      moveSel.current    = selection
+      movePixels.current = captured
+      setMovePos({ x: selection.x, y: selection.y })
+      onMoveStart(selection, captured)
       return
     }
 
@@ -441,12 +463,18 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         lineAnchor.current = cell
       }
     }
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, selection])
+  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width])
 
   const handleMouseMove = useCallback((e) => {
     const cell = getCellFromEvent(e)
     onCursorPos?.(cell)
     if (isPasting) { setPastePos(cell); return }
+    if (moveAnchor.current && cell) {
+      const dx = cell.x - moveAnchor.current.x
+      const dy = cell.y - moveAnchor.current.y
+      setMovePos({ x: moveSel.current.x + dx, y: moveSel.current.y + dy })
+      return
+    }
     if (activeTool === 'select') {
       if (selAnchor.current && cell) onSelectionChange(normalizeSelection(selAnchor.current, cell))
       return
@@ -461,7 +489,12 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     painting.current = false
     erasing.current  = false
     lastCell.current = null
-  }, [])
+    if (moveAnchor.current) {
+      onMoveCommit(movePos, movePixels.current, moveSel.current)
+      moveAnchor.current = null
+      setMovePos(null)
+    }
+  }, [movePos, onMoveCommit])
 
   const handleWheel = useCallback((e) => {
     e.preventDefault()
@@ -498,11 +531,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     return `url(${canvas.toDataURL()}) ${hx} ${hy}, crosshair`
   }, [activeTool, activeInk, palette, cellW, cellH])
 
-  const cursor = isPasting      ? 'copy'
-    : activeTool === 'select'   ? 'crosshair'
-    : activeTool === 'picker'   ? 'crosshair'
-    : activeTool === 'fill'     ? 'crosshair'
-    : paintCursor               ?? 'default'
+  const cursor = isPasting                    ? 'copy'
+    : movePos !== null                        ? 'grabbing'
+    : activeTool === 'move'                   ? (selection ? 'grab' : 'default')
+    : activeTool === 'select'                 ? 'crosshair'
+    : activeTool === 'picker'                 ? 'crosshair'
+    : activeTool === 'fill'                   ? 'crosshair'
+    : paintCursor                             ?? 'default'
 
   return (
     <div style={{ overflow: 'auto', flex: 1, padding: '16px', background: 'var(--bg)' }} onWheel={handleWheel}>
@@ -517,7 +552,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
           onContextMenu={e => e.preventDefault()}
         />
         {/* Selection overlay */}
-        {selection && (
+        {selection && !movePos && (
           <div style={{
             position: 'absolute',
             left: selection.x * cellW, top: selection.y * cellH,
@@ -525,6 +560,23 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
             border: '2px dashed rgba(0,232,122,0.9)',
             boxSizing: 'border-box', pointerEvents: 'none', zIndex: 5,
           }} />
+        )}
+        {/* Move preview */}
+        {movePos && movePixels.current && moveSel.current && (
+          <>
+            <div style={{
+              position: 'absolute',
+              left: movePos.x * cellW, top: movePos.y * cellH,
+              width: moveSel.current.w * cellW, height: moveSel.current.h * cellH,
+              border: '2px dashed rgba(0,232,122,0.9)',
+              boxSizing: 'border-box', pointerEvents: 'none', zIndex: 5,
+            }} />
+            <PasteOverlay
+              x={movePos.x * cellW} y={movePos.y * cellH}
+              clipboard={{ w: moveSel.current.w, h: moveSel.current.h, pixels: movePixels.current }}
+              palette={palette} cellW={cellW} cellH={cellH}
+            />
+          </>
         )}
         {/* Paste preview */}
         {isPasting && pastePos && clipboard && (
@@ -1118,6 +1170,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [currentFrame, setCurrentFrame] = useState(0)
   const [activeTool,   setActiveTool]   = useState('pencil')
   const [activeInk,    setActiveInk]    = useState(1)
+  const [bgInk,        setBgInk]        = useState(0)
   const [doubleWidth,  setDoubleWidth]  = useState(false)
   const [zoom,         setZoom]         = useState(2)
   const [playFps,      setPlayFps]      = useState(6)
@@ -1217,6 +1270,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'f' || e.key === 'F') { setActiveTool('fill'); setIsPasting(false); return }
       if (e.key === 'r' || e.key === 'R') { setActiveTool('select'); setIsPasting(false); return }
+      if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 'Escape') { setSelection(null); setIsPasting(false); setActiveTool(t => t === 'select' ? 'pencil' : t); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault()
@@ -1415,12 +1469,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   // ── Fill ────────────────────────────────────────────────────────────────────
 
-  const handleFill = useCallback((cx, cy) => {
+  const handleFill = useCallback((cx, cy, ink) => {
     pushHistory()
+    const fillInk = ink ?? activeInk
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
-        const pixels = spriteFill(f.pixels, cx, cy, prev.width, prev.height, activeInk, selection)
+        const pixels = spriteFill(f.pixels, cx, cy, prev.width, prev.height, fillInk, selection)
         return { ...f, pixels }
       })
       return { ...prev, frames }
@@ -1446,6 +1501,46 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       return { ...prev, frames }
     })
   }, [selection, currentFrame, updateSprite, pushHistory])
+
+  // ── Move ─────────────────────────────────────────────────────────────────────
+
+  const handleMoveStart = useCallback((sel, _capturedPixels) => {
+    pushHistory()
+    updateSprite(prev => {
+      const { x, y, w, h } = sel
+      const frames = prev.frames.map((f, fi) => {
+        if (fi !== currentFrame) return f
+        const pixels = [...f.pixels]
+        for (let py = y; py < y + h; py++)
+          for (let px = x; px < x + w; px++)
+            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
+              pixels[py * prev.width + px] = bgInk
+        return { ...f, pixels }
+      })
+      return { ...prev, frames }
+    })
+  }, [bgInk, currentFrame, updateSprite, pushHistory])
+
+  const handleMoveCommit = useCallback((newPos, capturedPixels, origSel) => {
+    if (!newPos || !capturedPixels || !origSel) return
+    const { w, h } = origSel
+    updateSprite(prev => {
+      const frames = prev.frames.map((f, fi) => {
+        if (fi !== currentFrame) return f
+        const pixels = [...f.pixels]
+        for (let py = 0; py < h; py++)
+          for (let px = 0; px < w; px++) {
+            const nx = newPos.x + px
+            const ny = newPos.y + py
+            if (nx >= 0 && nx < prev.width && ny >= 0 && ny < prev.height)
+              pixels[ny * prev.width + nx] = capturedPixels[py * w + px]
+          }
+        return { ...f, pixels }
+      })
+      return { ...prev, frames }
+    })
+    setSelection({ x: newPos.x, y: newPos.y, w: origSel.w, h: origSel.h })
+  }, [currentFrame, updateSprite])
 
   // ── Properties apply ───────────────────────────────────────────────────────
 
@@ -1616,11 +1711,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           alignContent: 'start', padding: '10px 6px', gap: '6px',
           overflowY: 'auto',
         }}>
-          <ToolBtn label="✏" name="PENCIL" title="Pencil (draw)"  active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
-          <ToolBtn label="⌫" name="ERASE"  title="Eraser"         active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
-          <ToolBtn label="⊕" name="PICK"   title="Color Picker"   active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label="⬚" name="SELECT" title="Select [R]"      active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="▪" name="FILL"   title="Fill [F]"        active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
+          <ToolBtn label="✏" name="PENCIL" title="Pencil (draw)"       active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
+          <ToolBtn label="⌫" name="ERASE"  title="Eraser"              active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
+          <ToolBtn label="⊕" name="PICK"   title="Color Picker"        active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
+          <ToolBtn label="⬚" name="SELECT" title="Select [R]"           active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
+          <ToolBtn label="▪" name="FILL"   title="Fill [F]"             active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
+          <ToolBtn label="✥" name="MOVE"   title="Move selection [M]"  active={activeTool === 'move'}    disabled={!selection} onClick={() => { setActiveTool('move');   setIsPasting(false) }} />
 
           <div style={dividerStyle} />
 
@@ -1657,6 +1753,46 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             style={{ display: 'none' }}
             onChange={e => { importPNG(e.target.files?.[0]); e.target.value = '' }}
           />
+
+          {/* Color swatches */}
+          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '6px 0 2px' }}>
+            <div style={{ position: 'relative', width: '50px', height: '46px', flexShrink: 0 }}>
+              {/* Background ink (bottom-right) */}
+              <div
+                title={`Background ink ${bgInk} — right-click ink slot to set`}
+                style={{
+                  position: 'absolute', right: 0, bottom: 0,
+                  width: '28px', height: '28px',
+                  background: bgInk === 0
+                    ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
+                    : CPC_COLORS[palette[bgInk] ?? 0],
+                  border: '2px solid var(--border)',
+                }}
+              />
+              {/* Foreground ink (top-left) */}
+              <div
+                title={`Foreground ink ${activeInk} — left-click ink slot to set`}
+                style={{
+                  position: 'absolute', left: 0, top: 0,
+                  width: '28px', height: '28px',
+                  background: activeInk === 0
+                    ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
+                    : CPC_COLORS[palette[activeInk] ?? 0],
+                  border: '2px solid var(--green)',
+                }}
+              />
+            </div>
+            <button
+              title="Swap foreground / background"
+              onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}
+              style={{
+                background: 'transparent', border: '1px solid var(--border)',
+                color: 'var(--text-dim)', cursor: 'pointer',
+                fontFamily: "'VT323', monospace", fontSize: '18px', lineHeight: 1,
+                padding: '2px 4px',
+              }}
+            >⇄</button>
+          </div>
         </div>
 
         {/* CANVAS */}
@@ -1670,6 +1806,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           doubleWidth={doubleWidth}
           activeTool={activeTool}
           activeInk={activeInk}
+          bgInk={bgInk}
           onPaint={handlePaint}
           onZoomChange={setZoom}
           gridCellW={gridCellW}
@@ -1683,6 +1820,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onStrokeStart={pushHistory}
           onPaintLine={handlePaintLine}
           onEraseSelection={handleEraseSelection}
+          onMoveStart={handleMoveStart}
+          onMoveCommit={handleMoveCommit}
           onCursorPos={setCursorPos}
         />
 
@@ -1727,17 +1866,19 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
               {palette.slice(0, inkCount).map((cpcIdx, inkIdx) => {
-                const isInk0      = inkIdx === 0
-                const isActive    = inkIdx === activeInk
-                const colorHex    = CPC_COLORS[cpcIdx] ?? '#000'
+                const isInk0    = inkIdx === 0
+                const isActive  = inkIdx === activeInk
+                const isBg      = inkIdx === bgInk
+                const colorHex  = CPC_COLORS[cpcIdx] ?? '#000'
                 return (
                   <div
                     key={inkIdx}
                     onClick={() => setActiveInk(inkIdx)}
-                    title={`Ink ${inkIdx} = CPC ${cpcIdx} (${colorHex})`}
+                    onContextMenu={e => { e.preventDefault(); setBgInk(inkIdx) }}
+                    title={`Ink ${inkIdx} = CPC ${cpcIdx} (${colorHex})\nLeft-click → set as foreground\nRight-click → set as background`}
                     style={{
                       width: '24px', height: '24px', cursor: 'pointer',
-                      border: isActive ? '2px solid var(--green)' : '1px solid var(--border)',
+                      border: isActive ? '2px solid var(--green)' : isBg ? '2px solid var(--amber)' : '1px solid var(--border)',
                       position: 'relative', flexShrink: 0,
                       background: isInk0
                         ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
