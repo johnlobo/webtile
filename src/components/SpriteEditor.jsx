@@ -1596,6 +1596,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
           <div style={dividerStyle} />
 
+          <ToolBtn label="⎘" name="COPY"  title="Copy selection [Ctrl+C]" active={false} disabled={!selection} onClick={handleCopy} />
+          <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]"           active={isPasting} disabled={!clipboard} onClick={() => { setIsPasting(true); setActiveTool('select') }} />
+
+          <div style={dividerStyle} />
+
           <ToolBtn label="↔" name="FLIP H" title="Flip Horizontal" active={false} onClick={flipH} />
           <ToolBtn label="↕" name="FLIP V" title="Flip Vertical"   active={false} onClick={flipV} />
           <ToolBtn label="↩" name="UNDO"   title="Undo [Ctrl+Z]"   active={false} onClick={handleUndo} disabled={!canUndo} />

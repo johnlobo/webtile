@@ -27,7 +27,7 @@ VITE_FIREBASE_APP_ID
 
 ## Vite / code-server proxy
 
-The app runs behind a code-server reverse proxy. `vite.config.js` sets `base: '/proxy/5173/'` and includes a custom middleware (`codeServerProxyPlugin`) that rewrites incoming request URLs to re-add the proxy prefix before Vite processes them. HMR is intentionally disabled — reload manually after changes.
+The app runs behind a code-server reverse proxy. `vite.config.js` sets `base: '/proxy/5173/'` in dev and `base: './'` in production builds. The custom `codeServerProxyPlugin` middleware rewrites incoming request URLs to re-add the proxy prefix before Vite processes them. HMR is intentionally disabled — reload manually after changes.
 
 ## Architecture
 
@@ -186,3 +186,7 @@ Large self-contained component (~1700 lines). Key internals:
 ### ImportSpriteModal (`src/components/ImportSpriteModal.jsx`)
 
 Handles PNG import into the sprite system. Accepts a PNG file, quantizes its pixels to the current palette by nearest-color RGB distance, then creates a new sprite with the imported pixel data.
+
+### spriteService (`src/services/spriteService.js`)
+
+Thin Firestore CRUD layer for sprites. Key functions: `createSprite`, `loadSprite`, `saveSprite`, `listSprites` (summary only — no pixel data), `createSpriteFromImport`, `deleteSprite`. Default palettes per video mode are defined here (`DEFAULT_PALETTES`). `listSprites` returns summaries ordered by `createdAt`; pixel data is only fetched via `loadSprite`.
