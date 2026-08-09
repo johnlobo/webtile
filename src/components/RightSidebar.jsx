@@ -418,8 +418,8 @@ function EntityPropertiesPanel({ entity, onUpdateProperty, onDelete }) {
 
     if (isSelect) {
       const options = key === 'behavior'
-        ? ['patrol', 'chase', 'static', 'random']
-        : ['none', 'open_door', 'spawn', 'win', 'message']
+        ? ENTITY_BEHAVIORS
+        : ENTITY_EVENTS
       return (
         <div key={key} style={{ marginBottom: '8px' }}>
           <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginBottom: '2px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
@@ -668,6 +668,8 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
     </div>
   )
 }
+
+import { ENTITY_TYPES, ENTITY_DEFAULT_PROPERTIES, ENTITY_BEHAVIORS, ENTITY_EVENTS } from '../services/entityTypes'
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
 export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity }) {

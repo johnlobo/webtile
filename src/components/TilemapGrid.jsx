@@ -59,12 +59,7 @@ function EdgeOverlay({ direction, color, label }) {
   )
 }
 
-const ENTITY_TYPES = {
-  enemy:   { label: 'E', color: 'rgba(255,60,60,0.85)',   bg: 'rgba(255,60,60,0.2)' },
-  object:  { label: 'O', color: 'rgba(60,255,60,0.85)',   bg: 'rgba(60,255,60,0.2)' },
-  portal:  { label: 'P', color: 'rgba(180,60,255,0.85)',  bg: 'rgba(180,60,255,0.2)' },
-  trigger: { label: 'T', color: 'rgba(255,180,60,0.85)',  bg: 'rgba(255,180,60,0.2)' },
-}
+import { ENTITY_TYPES } from '../services/entityTypes'
 
 export default function TilemapGrid({
   tileW, tileH, mapW, mapH, doubleWidth,

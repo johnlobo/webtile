@@ -152,6 +152,8 @@ const IconEntity = () => (
   </svg>
 )
 
+import { ENTITY_TYPES } from '../services/entityTypes'
+
 const TOOLS = [
   { id: 'stamp',  label: 'STAMP',  shortcut: 'S', Icon: IconStamp  },
   { id: 'fill',   label: 'FILL',   shortcut: 'F', Icon: IconFill   },
