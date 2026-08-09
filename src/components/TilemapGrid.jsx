@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { ZOOM_LEVELS } from './Toolbar'
+import { ZOOM_LEVELS } from '../services/constants'
 
 function floodFill(mapTiles, startCol, startRow, mapW, mapH) {
   const targetTile = mapTiles[startRow][startCol]

@@ -1,4 +1,5 @@
 import { ENTITY_TYPES } from '../services/entityTypes'
+import { ZOOM_LEVELS } from '../services/constants'
 
 /* Pixel-art SVG icons */
 const IconStamp = () => (
@@ -177,8 +178,6 @@ const TOOLS = [
   { id: 'select', label: 'SELECT', shortcut: 'V', Icon: IconSelect },
   { id: 'entity', label: 'ENTITY', shortcut: 'X', Icon: IconEntity },
 ]
-
-export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8]
 
 function ToolBtn({ id, label, shortcut, badge, Icon, active, onClick }) {
   return (
