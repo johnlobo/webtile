@@ -99,6 +99,21 @@ const IconUndo = () => (
   </svg>
 )
 
+const IconRedo = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor" style={{ transform: 'scaleX(-1)' }}>
+    <rect x="4"  y="8"  width="10" height="2"/>
+    <rect x="4"  y="10" width="8"  height="2"/>
+    <rect x="4"  y="12" width="6"  height="2"/>
+    <rect x="2"  y="8"  width="2"  height="2"/>
+    <rect x="1"  y="9"  width="2"  height="2"/>
+    <rect x="2"  y="10" width="2"  height="2"/>
+    <rect x="6"  y="4"  width="8"  height="2"/>
+    <rect x="4"  y="6"  width="2"  height="2"/>
+    <rect x="14" y="6"  width="2"  height="2"/>
+    <rect x="14" y="8"  width="2"  height="2"/>
+  </svg>
+)
+
 const IconConnection = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
     {/* Map A */}
@@ -148,7 +163,7 @@ const TOOLS = [
 
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8]
 
-function ToolBtn({ id, label, shortcut, Icon, active, onClick }) {
+function ToolBtn({ id, label, shortcut, badge, Icon, active, onClick }) {
   return (
     <button
       title={`${label}${shortcut ? ` [${shortcut}]` : ''}`}
@@ -184,13 +199,13 @@ function ToolBtn({ id, label, shortcut, Icon, active, onClick }) {
       <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>
         {label}
       </span>
-      {shortcut && (
+      {(badge || shortcut) && (
         <span style={{
           position: 'absolute', top: '2px', right: '3px',
           fontFamily: "'Roboto', sans-serif", fontSize: '9px', fontWeight: 600,
           color: active ? 'rgba(0,0,0,0.5)' : 'var(--text-dim)', opacity: 0.7,
         }}>
-          {shortcut}
+          {badge || shortcut}
         </span>
       )}
     </button>
@@ -201,7 +216,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, doubleWidth, onToggleDoubleWidth, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -258,7 +273,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
 
       {/* Zoom out */}
       <ToolBtn
-        id="zoom-out" label="OUT" Icon={IconZoomOut}
+        id="zoom-out" label="OUT" shortcut="Ctrl+-" badge="−" Icon={IconZoomOut}
         active={false}
         onClick={onZoomOut}
         style={{ opacity: canZoomOut ? 1 : 0.3 }}
@@ -275,7 +290,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
 
       {/* Zoom in */}
       <ToolBtn
-        id="zoom-in" label="IN" Icon={IconZoomIn}
+        id="zoom-in" label="IN" shortcut="Ctrl++" badge="+" Icon={IconZoomIn}
         active={false}
         onClick={onZoomIn}
       />
@@ -304,6 +319,30 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       >
         <IconUndo />
         <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>UNDO</span>
+      </button>
+
+      {/* Redo */}
+      <button
+        title="REDO [Ctrl+Shift+Z]"
+        onClick={onRedo}
+        disabled={!canRedo}
+        style={{
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: '4px', width: '48px', height: '48px',
+          background: 'transparent',
+          border: '1px solid var(--border)',
+          borderRadius: '8px',
+          color: canRedo ? 'var(--text-dim)' : 'var(--border)',
+          cursor: canRedo ? 'pointer' : 'default',
+          transition: 'all 0.1s', flexShrink: 0,
+          opacity: canRedo ? 1 : 0.35,
+        }}
+        onMouseEnter={e => { if (canRedo) { e.currentTarget.style.borderColor = 'var(--amber)'; e.currentTarget.style.color = 'var(--amber)' } }}
+        onMouseLeave={e => { if (canRedo) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' } }}
+      >
+        <IconRedo />
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>REDO</span>
       </button>
 
       <Divider />

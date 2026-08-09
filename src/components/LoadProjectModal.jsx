@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { listProjects, deleteProject } from '../services/projectService'
+import ConfirmDialog from './ConfirmDialog'
+import PixelHeading from './PixelHeading'
 
 function fmt(date) {
   if (!date) return '—'
@@ -12,6 +14,7 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
   const [loading,  setLoading]  = useState(true)
   const [deleting, setDeleting] = useState(null)
   const [error,    setError]    = useState(null)
+  const [pendingDeleteId, setPendingDeleteId] = useState(null)
 
   const refresh = async () => {
     setLoading(true)
@@ -27,9 +30,8 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
 
   useEffect(() => { refresh() }, [userId])
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation()
-    if (!confirm('Delete this project and all its maps? This cannot be undone.')) return
+  const handleDeleteConfirmed = async (id) => {
+    setPendingDeleteId(null)
     setDeleting(id)
     try {
       await deleteProject(userId, id)
@@ -65,11 +67,8 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' }}
         >✕</button>
 
-        <div style={{ marginBottom: '24px', flexShrink: 0 }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
-            LOAD PROJECT
-          </div>
-          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
+        <div style={{ flexShrink: 0 }}>
+          <PixelHeading>LOAD PROJECT</PixelHeading>
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto' }}>
@@ -108,7 +107,7 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
                 </div>
               </div>
               <button
-                onClick={e => handleDelete(e, p.id)}
+                onClick={e => { e.stopPropagation(); setPendingDeleteId(p.id) }}
                 disabled={deleting === p.id}
                 style={{
                   flexShrink: 0, padding: '4px 10px',
@@ -130,6 +129,16 @@ export default function LoadProjectModal({ userId, onLoad, onCancel }) {
           <button className="btn-ghost" onClick={onCancel} style={{ width: '100%' }}>Cancel</button>
         </div>
       </div>
+      {pendingDeleteId && (
+        <ConfirmDialog
+          title="DELETE PROJECT"
+          message="Delete this project and all its maps? This cannot be undone."
+          danger
+          confirmLabel="Delete"
+          onConfirm={() => handleDeleteConfirmed(pendingDeleteId)}
+          onCancel={() => setPendingDeleteId(null)}
+        />
+      )}
     </div>
   )
 }

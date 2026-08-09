@@ -1213,7 +1213,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const saveTimer   = useRef(null)
   const spriteRef   = useRef(null)
   const historyRef  = useRef([])
+  const redoRef     = useRef([])
   const [canUndo,  setCanUndo]  = useState(false)
+  const [canRedo,  setCanRedo]  = useState(false)
 
   // Keep ref in sync for autosave
   useEffect(() => { spriteRef.current = sprite }, [sprite])
@@ -1228,7 +1230,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         setSprite(data)
         setLoading(false)
         historyRef.current = []
+        redoRef.current = []
         setCanUndo(false)
+        setCanRedo(false)
       })
       .catch(err => {
         console.error('Failed to load sprite:', err)
@@ -1274,24 +1278,44 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     if (!current) return
     historyRef.current.push(current)
     if (historyRef.current.length > 50) historyRef.current.shift()
+    redoRef.current = []
     setCanUndo(true)
+    setCanRedo(false)
   }, [])
 
   const handleUndo = useCallback(() => {
     const prev = historyRef.current.pop()
     if (!prev) return
+    redoRef.current.push(spriteRef.current)
+    if (redoRef.current.length > 50) redoRef.current.shift()
     setSprite(prev)
     scheduleAutoSave(prev)
     setCanUndo(historyRef.current.length > 0)
+    setCanRedo(true)
+  }, [scheduleAutoSave])
+
+  const handleRedo = useCallback(() => {
+    const next = redoRef.current.pop()
+    if (!next) return
+    historyRef.current.push(spriteRef.current)
+    if (historyRef.current.length > 50) historyRef.current.shift()
+    setSprite(next)
+    scheduleAutoSave(next)
+    setCanUndo(true)
+    setCanRedo(redoRef.current.length > 0)
   }, [scheduleAutoSave])
 
   const handleUndoRef = useRef(null)
+  const handleRedoRef = useRef(null)
   useEffect(() => { handleUndoRef.current = handleUndo }, [handleUndo])
+  useEffect(() => { handleRedoRef.current = handleRedo }, [handleRedo])
 
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleRedoRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleUndoRef.current?.(); return }
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
@@ -1757,6 +1781,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="↔" name="FLIP H" title="Flip Horizontal" active={false} onClick={flipH} />
           <ToolBtn label="↕" name="FLIP V" title="Flip Vertical"   active={false} onClick={flipV} />
           <ToolBtn label="↩" name="UNDO"   title="Undo [Ctrl+Z]"   active={false} onClick={handleUndo} disabled={!canUndo} />
+          <ToolBtn label="↪" name="REDO"   title="Redo [Ctrl+Shift+Z]" active={false} onClick={handleRedo} disabled={!canRedo} />
 
           <div style={dividerStyle} />
 

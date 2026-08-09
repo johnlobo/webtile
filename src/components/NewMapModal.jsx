@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { getProjectProfile, MODEL01_PROFILE_ID } from '../model01Profile'
+import PixelHeading from './PixelHeading'
 
 function FIELD({ label, value, onChange, min = 1, max = 256, disabled = false }) {
   const [draft, setDraft] = useState(null)
@@ -73,12 +74,7 @@ export default function NewMapModal({ onConfirm, onCancel, profileId }) {
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' }}
         >✕</button>
 
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '11px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '1px' }}>
-            NEW MAP
-          </div>
-          <div style={{ width: '36px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', marginTop: '12px' }} />
-        </div>
+        <PixelHeading>NEW MAP</PixelHeading>
 
         <div style={{ marginBottom: '20px' }}>
           <label className="pixel-label">Map Name</label>

@@ -10,6 +10,8 @@ import Toolbar from '../components/Toolbar'
 import SpriteEditor from '../components/SpriteEditor'
 import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
+import ConfirmDialog from '../components/ConfirmDialog'
+import PixelHeading from '../components/PixelHeading'
 import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
@@ -485,10 +487,7 @@ function EmptyWorkspace() {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
       <div className="pixel-panel fade-up" style={{ padding: '52px 44px', textAlign: 'center', maxWidth: '420px', width: '100%' }}>
-        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '10px', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', letterSpacing: '2px', marginBottom: '16px' }}>
-          WEBTILE
-        </div>
-        <div style={{ width: '40px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <PixelHeading size={10} letterSpacing="2px" center marginBottom={20} underlineWidth={40}>WEBTILE</PixelHeading>
         <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '15px', fontWeight: 300, color: 'var(--text-dim)', lineHeight: 1.8 }}>
           Create or load a project<br />from the menu above
         </div>
@@ -510,10 +509,7 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
       <div className="pixel-panel fade-up" style={{ padding: '48px 44px', textAlign: 'center', maxWidth: '380px', width: '100%' }}>
-        <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 700, color: 'var(--text)', letterSpacing: '1px', marginBottom: '10px', textTransform: 'uppercase' }}>
-          No Maps Yet
-        </div>
-        <div style={{ width: '40px', height: '3px', background: 'var(--accent-gradient)', borderRadius: '2px', margin: '0 auto 20px' }} />
+        <PixelHeading plain center marginBottom={20} underlineWidth={40}>No Maps Yet</PixelHeading>
         <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '14px', fontWeight: 300, color: 'var(--text-dim)', lineHeight: 1.8, marginBottom: '28px' }}>
           Add a map to this project<br/>to start editing
         </div>
@@ -570,6 +566,7 @@ export default function HomePage() {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
   const [showLoadModal,       setShowLoadModal]       = useState(false)
   const [showNewMapModal,     setShowNewMapModal]     = useState(false)
+  const [dialog,              setDialog]              = useState(null) // {title,message,danger,confirmLabel,cancelLabel,isConfirm,resolve}
 
   // Refs
   const projectIdRef_   = useRef(null)
@@ -579,6 +576,8 @@ export default function HomePage() {
   const mapTilesRef_    = useRef(null)
   const autoSaveTimer   = useRef(null)
   const historyRef      = useRef([])
+  const redoRef         = useRef([])
+  const [canRedo, setCanRedo] = useState(false)
   const tmxInputRef     = useRef(null)
   const packageInputRef = useRef(null)
 
@@ -597,37 +596,30 @@ export default function HomePage() {
   const pushHistory = useCallback(() => {
     if (!mapTilesRef_.current) return
     historyRef.current.push(mapTilesRef_.current)
+    if (historyRef.current.length > 50) historyRef.current.shift()
+    redoRef.current = []
     setCanUndo(true)
-  }, [])
-
-  const handleUndo = useCallback(() => {
-    const prev = historyRef.current.pop()
-    if (!prev) return
-    setMapTiles(prev)
-    setCanUndo(historyRef.current.length > 0)
+    setCanRedo(false)
   }, [])
 
   const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8]
   const zoomIn  = () => setZoom(z => { const i = ZOOM_LEVELS.indexOf(z); return i < ZOOM_LEVELS.length - 1 ? ZOOM_LEVELS[i + 1] : z })
   const zoomOut = () => setZoom(z => { const i = ZOOM_LEVELS.indexOf(z); return i > 0 ? ZOOM_LEVELS[i - 1] : z })
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e) => {
-      if (e.target.tagName === 'INPUT') return
-      if (e.key === 's' || e.key === 'S') setActiveTool('stamp')
-      if (e.key === 'f' || e.key === 'F') setActiveTool('fill')
-      if (e.key === 'e' || e.key === 'E') setActiveTool('eraser')
-      if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
-      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleUndo() }
-      if ((e.key === '+' || e.key === '=') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); zoomIn() }
-      if (e.key === '-' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); zoomOut() }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [handleUndo])
-
   const handleLogout = async () => { await logout(); navigate('/login') }
+
+  const showAlert = useCallback((message, title) => new Promise(resolve => {
+    setDialog({ title, message, resolve: () => { setDialog(null); resolve() } })
+  }), [])
+
+  const showConfirm = useCallback((message, opts = {}) => new Promise(resolve => {
+    setDialog({
+      title: opts.title, message, danger: opts.danger,
+      confirmLabel: opts.confirmLabel, cancelLabel: opts.cancelLabel,
+      isConfirm: true,
+      resolve: (v) => { setDialog(null); resolve(v) },
+    })
+  }), [])
 
   // ── Sprite handlers ────────────────────────────────────────────────────────
 
@@ -668,7 +660,7 @@ export default function HomePage() {
   }
 
   const handleDeleteSprite = async (spriteId) => {
-    if (!confirm('Delete this sprite? Cannot be undone.')) return
+    if (!await showConfirm('Delete this sprite? Cannot be undone.', { danger: true, confirmLabel: 'Delete', title: 'DELETE SPRITE' })) return
     try {
       await deleteSprite(user.uid, projectId, spriteId)
       setSprites(prev => prev.filter(s => s.id !== spriteId))
@@ -710,6 +702,47 @@ export default function HomePage() {
     }, 2000)
   }, [user.uid, connections, entryPositions, spawns, entities])
 
+  const handleUndo = useCallback(() => {
+    const prev = historyRef.current.pop()
+    if (!prev) return
+    redoRef.current.push(mapTilesRef_.current)
+    setMapTiles(prev)
+    scheduleAutoSave(prev)
+    setCanUndo(historyRef.current.length > 0)
+    setCanRedo(true)
+  }, [scheduleAutoSave])
+
+  const handleRedo = useCallback(() => {
+    const next = redoRef.current.pop()
+    if (!next) return
+    historyRef.current.push(mapTilesRef_.current)
+    setMapTiles(next)
+    scheduleAutoSave(next)
+    setCanUndo(true)
+    setCanRedo(redoRef.current.length > 0)
+  }, [scheduleAutoSave])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT') return
+      if (e.key === 's' || e.key === 'S') setActiveTool('stamp')
+      if (e.key === 'f' || e.key === 'F') setActiveTool('fill')
+      if (e.key === 'e' || e.key === 'E') setActiveTool('eraser')
+      if (e.key === 'l' || e.key === 'L') setActiveTool('conn')
+      if (e.key === 'p' || e.key === 'P') setActiveTool('spawn')
+      if (e.key === 'x' || e.key === 'X') setActiveTool('entity')
+      if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
+      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) { e.preventDefault(); handleRedo(); return }
+      if ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRedo(); return }
+      if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleUndo() }
+      if ((e.key === '+' || e.key === '=') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); zoomIn() }
+      if (e.key === '-' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); zoomOut() }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [handleUndo, handleRedo])
+
   // ── Activate a map (load its data) ────────────────────────────────────────
 
   const activateMap = useCallback(async (pid, mapId) => {
@@ -718,6 +751,8 @@ export default function HomePage() {
       if (!data) return
       historyRef.current = []
       setCanUndo(false)
+      setCanRedo(false)
+      redoRef.current = []
       setActiveMapId(data.id)
       setMapConfig({ ...data.config, name: data.name })
       setTileset(data.tileset)
@@ -762,7 +797,7 @@ export default function HomePage() {
         setActiveMapId(null); setMapConfig(null); setMapTiles(null); setTileset(null); setSelectedTile(null)
         if (mapList.length) await activateMap(imported.projectId, mapList[0].id)
         setSaveStatus('saved'); setTimeout(() => setSaveStatus(null), 2000)
-      } catch (err) { console.error(err); alert(err.message); setSaveStatus('error') }
+      } catch (err) { console.error(err); showAlert(err.message, 'IMPORT FAILED'); setSaveStatus('error') }
       return
     }
 
@@ -776,7 +811,7 @@ export default function HomePage() {
       if (!projectId || !payload) return
       const text   = await payload.text()
       const parsed = parseTMX(text)
-      if (!parsed) { alert('Could not parse TMX file.'); return }
+      if (!parsed) { showAlert('Could not parse TMX file.', 'IMPORT FAILED'); return }
       const { mapW, mapH, tileW, tileH, mapTiles: importedTiles } = parsed
       const mapName = payload.name.replace(/\.tmx$/i, '')
       setSaveStatus('saving')
@@ -792,6 +827,8 @@ export default function HomePage() {
         setMapTiles(importedTiles)
         historyRef.current = []
         setCanUndo(false)
+        setCanRedo(false)
+        redoRef.current = []
         await saveMap(user.uid, projectId, mid, {
           name:    mapName,
           config:  { tileW, tileH, mapW, mapH, doubleWidth: false },
@@ -847,6 +884,8 @@ export default function HomePage() {
       setSelectedTile(null)
       historyRef.current = []
       setCanUndo(false)
+      setCanRedo(false)
+      redoRef.current = []
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch (err) {
@@ -880,6 +919,8 @@ export default function HomePage() {
       setSelectedTile(null)
       historyRef.current = []
       setCanUndo(false)
+      setCanRedo(false)
+      redoRef.current = []
 
       // Auto-activate the first map if any
       if (mapList.length > 0) {
@@ -914,6 +955,8 @@ export default function HomePage() {
       const emptyTiles = Array.from({ length: config.mapH }, () => Array(config.mapW).fill(null))
       historyRef.current = []
       setCanUndo(false)
+      setCanRedo(false)
+      redoRef.current = []
       setActiveMapId(mid)
       setMapConfig({ ...config })
       setTileset(null)
@@ -947,6 +990,8 @@ export default function HomePage() {
     setSelectedSpriteId(null)
     historyRef.current = []
     setCanUndo(false)
+    setCanRedo(false)
+    redoRef.current = []
     setSaveStatus(null)
   }, [])
 
@@ -962,6 +1007,8 @@ export default function HomePage() {
     setEntities([])
     historyRef.current = []
     setCanUndo(false)
+    setCanRedo(false)
+    redoRef.current = []
   }, [])
 
   const handleCloseSprite = useCallback(() => {
@@ -1011,8 +1058,8 @@ export default function HomePage() {
 
   const handleDeletePage = async (pageId) => {
     if (!projectId) return
-    if (pages.length <= 1) { alert('Cannot delete the last page.'); return }
-    if (!confirm('Delete this page? Maps in it will become unassigned.')) return
+    if (pages.length <= 1) { showAlert('Cannot delete the last page.', 'NOTICE'); return }
+    if (!await showConfirm('Delete this page? Maps in it will become unassigned.', { danger: true, confirmLabel: 'Delete', title: 'DELETE PAGE' })) return
     await deletePage(user.uid, projectId, pageId)
     const remaining = pages.filter(p => p.id !== pageId)
     setPages(remaining)
@@ -1053,7 +1100,7 @@ export default function HomePage() {
       URL.revokeObjectURL(url)
     } catch (err) {
       console.error(err)
-      alert(err.message)
+      showAlert(err.message, 'EXPORT FAILED')
     }
   }
 
@@ -1167,7 +1214,7 @@ export default function HomePage() {
 
   const handleDeleteMap = useCallback(async (mapId) => {
     if (!projectId) return
-    if (!confirm('Delete this map? This cannot be undone.')) return
+    if (!await showConfirm('Delete this map? This cannot be undone.', { danger: true, confirmLabel: 'Delete', title: 'DELETE MAP' })) return
     try {
       const map = maps.find(m => m.id === mapId)
       await deleteMap(user.uid, projectId, mapId)
@@ -1189,6 +1236,8 @@ export default function HomePage() {
           setSelectedTile(null)
           historyRef.current = []
           setCanUndo(false)
+          setCanRedo(false)
+          redoRef.current = []
         }
       }
       setSaveStatus('saved')
@@ -1378,6 +1427,7 @@ export default function HomePage() {
               activeTool={activeTool} onSelectTool={setActiveTool}
               zoom={zoom} onZoomIn={zoomIn} onZoomOut={zoomOut}
               canUndo={canUndo} onUndo={handleUndo}
+              canRedo={canRedo} onRedo={handleRedo}
               doubleWidth={mapConfig.doubleWidth}
               onToggleDoubleWidth={() => setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)}
               selectedEntityType={selectedEntityType}
@@ -1531,6 +1581,17 @@ export default function HomePage() {
           file={importSpriteFile}
           onConfirm={handleImportSprite}
           onCancel={() => setImportSpriteFile(null)}
+        />
+      )}
+      {dialog && (
+        <ConfirmDialog
+          title={dialog.title}
+          message={dialog.message}
+          danger={dialog.danger}
+          confirmLabel={dialog.confirmLabel}
+          cancelLabel={dialog.cancelLabel}
+          onConfirm={() => dialog.resolve(true)}
+          onCancel={dialog.isConfirm ? () => dialog.resolve(false) : undefined}
         />
       )}
     </div>
