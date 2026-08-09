@@ -676,13 +676,14 @@ export default function HomePage() {
     autoSaveTimer.current = setTimeout(async () => {
       const cfg = mapConfigRef_.current
       const ts  = tilesetRef_.current
-      if (!cfg || !tiles) return
+      const mt  = tiles ?? mapTilesRef_.current
+      if (!cfg || !mt) return
       setSaveStatus('saving')
       try {
         await saveMap(user.uid, pid, mid, {
           name:    cfg.name,
           config:  cfg,
-          mapTiles: tiles,
+          mapTiles: mt,
           tileset: ts,
           tilesetBlobUrl: ts?.url,
           connections,
@@ -697,6 +698,12 @@ export default function HomePage() {
       }
     }, 2000)
   }, [user.uid, connections, entryPositions, spawns, entities])
+
+  // Auto-save on overlay changes
+  useEffect(() => {
+    if (!projectId || !activeMapId) return
+    scheduleAutoSave()
+  }, [projectId, activeMapId, connections, entryPositions, spawns, entities, scheduleAutoSave])
 
   const handleUndo = useCallback(() => {
     const prev = historyRef.current.pop()
@@ -1017,24 +1024,22 @@ export default function HomePage() {
   const handleSelectMap = useCallback(async (mapId) => {
     setSelectedSpriteId(null)  // switch to map view
     if (mapId === activeMapId) return
-    await handleSaveMapMeta()
     const map = maps.find(m => m.id === mapId)
     if (map?.pageId && map.pageId !== activePageId) {
       setActivePageId(map.pageId)
     }
     if (projectId) await activateMap(projectId, mapId)
-  }, [activeMapId, projectId, activateMap, maps, activePageId, handleSaveMapMeta])
+  }, [activeMapId, projectId, activateMap, maps, activePageId])
 
   // ── Pages ───────────────────────────────────────────────────────────────────
 
   const handleSelectPage = useCallback(async (pageId) => {
     setActivePageId(pageId)
-    await handleSaveMapMeta()
     const pageMaps = maps.filter(m => m.pageId === pageId)
     if (pageMaps.length > 0 && pageMaps[0].id !== activeMapId) {
       await activateMap(projectId, pageMaps[0].id)
     }
-  }, [maps, activePageId, activeMapId, projectId, activateMap, handleSaveMapMeta])
+  }, [maps, activePageId, activeMapId, projectId, activateMap])
 
   const handleAddPage = async () => {
     if (!projectId) return
