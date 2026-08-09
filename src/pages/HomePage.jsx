@@ -14,7 +14,11 @@ import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
+import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage } from '../services/pageService'
 import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from '../services/spriteService'
+import { exportProjectPackage, importProjectPackage } from '../services/packageService'
+import { generateModel01Manifest } from '../services/manifestService'
+import { GENERIC_PROFILE_ID, MODEL01_PROFILE_ID, getProjectProfile } from '../model01Profile'
 
 // ── TMX helpers ───────────────────────────────────────────────────────────────
 
@@ -200,7 +204,14 @@ function NavMapItem({ map, active, onClick, onDelete }) {
   )
 }
 
-function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, spritePngInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite }) {
+const iconBtnStyle = {
+  padding: '2px 6px', background: 'transparent',
+  border: '1px solid transparent', color: 'var(--text-dim)', cursor: 'pointer',
+  fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 600,
+  transition: 'border-color 0.12s, color 0.12s',
+}
+
+function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, spritePngInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite, pages, activePageId, onSelectPage, onAddPage, onRenamePage, onDeletePage, onMoveMapToPage, onExportManifest }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
   const hasActiveMap = !!activeMapId
@@ -231,12 +242,69 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
         <NavSep />
         <NavItem label="NEW PROJECT"  icon="✦" onClick={() => { onAction('project', 'new');  close() }} />
         <NavItem label="LOAD PROJECT" icon="▶" onClick={() => { onAction('project', 'load'); close() }} />
+        <NavItem label="↑ IMPORT PACKAGE" icon="" onClick={() => { close(); setTimeout(() => packageInputRef.current?.click(), 0) }} />
+        <NavItem label="⬇ EXPORT PACKAGE" icon="" disabled={!projectName} onClick={() => { onAction('project', 'export-package'); close() }} />
         {projectName && (
           <>
             <NavSep />
+            <NavItem label="EXPORT MANIFEST" icon="📄" onClick={() => { onExportManifest(); close() }} />
             <NavItem label="CLOSE PROJECT" icon="✕" accent="red" onClick={() => { onCloseProject(); close() }} />
           </>
         )}
+      </NavDropdown>
+
+      {/* PAGES */}
+      <NavDropdown label="PAGES" open={activeMenu === 'pages'} disabled={!projectName} onToggle={() => toggle('pages')}>
+        <div style={{ padding: '10px 16px 4px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Pages</div>
+        {pages.length === 0 && (
+          <div style={{ padding: '4px 16px 8px', fontFamily: "'Roboto', sans-serif", fontSize: '13px', color: 'var(--text-dim)', opacity: 0.6 }}>No pages</div>
+        )}
+        {pages.map(p => (
+          <div
+            key={p.id}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '7px 12px 7px 16px',
+              background: p.id === activePageId ? 'rgba(33,82,255,0.07)' : 'transparent',
+              borderLeft: p.id === activePageId ? '2px solid var(--accent)' : '2px solid transparent',
+              marginLeft: '-1px', cursor: 'pointer',
+            }}
+          >
+            <button
+              onClick={() => { onSelectPage(p.id); close() }}
+              style={{
+                flex: 1, background: 'transparent', border: 'none', color: p.id === activePageId ? 'var(--accent)' : 'var(--text)',
+                fontSize: '13px', fontWeight: p.id === activePageId ? 600 : 400, cursor: 'pointer', textAlign: 'left',
+                fontFamily: "'Roboto', sans-serif",
+              }}
+            >
+              {p.label} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>({(maps.filter(m => m.pageId === p.id)).length})</span>
+            </button>
+            <button onClick={() => { onRenamePage(p.id); }} style={{ ...iconBtnStyle, fontSize: '10px' }} title="Rename">✎</button>
+            {pages.length > 1 && (
+              <button onClick={() => { onDeletePage(p.id); }} style={{ ...iconBtnStyle, color: 'var(--red)' }} title="Delete">✕</button>
+            )}
+          </div>
+        ))}
+        <NavSep />
+        <NavItem label="+ NEW PAGE" icon="✦" onClick={() => { onAddPage(); close() }} />
+        <NavSep />
+        <div style={{ padding: '6px 16px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Move Map</div>
+        {maps.length === 0 && (
+          <div style={{ padding: '4px 16px 8px', fontSize: '12px', color: 'var(--text-dim)', opacity: 0.6 }}>No maps yet</div>
+        )}
+        {maps.map(m => (
+          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 12px' }}>
+            <span style={{ flex: 1, fontSize: '12px', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</span>
+            <select
+              value={m.pageId ?? 'base'}
+              onChange={e => { onMoveMapToPage(m.id, e.target.value) }}
+              style={{ fontSize: '11px', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px' }}
+            >
+              {pages.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+            </select>
+          </div>
+        ))}
       </NavDropdown>
 
       {/* MAPS */}
@@ -300,6 +368,8 @@ function TopNav({ projectName, maps, activeMapId, hasTileset, onAction, onSelect
 
       <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
         onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
+
+      <input ref={packageInputRef} type="file" accept=".json,.webtile.json" style={{ display: 'none' }} onChange={e => { const file = e.target.files?.[0]; if (file) onAction('project', 'import-package', file); e.target.value = '' }} />
 
     </div>
   )
@@ -450,7 +520,10 @@ export default function HomePage() {
   // Project level
   const [projectId,   setProjectId]   = useState(null)
   const [projectName, setProjectName] = useState(null)
+  const [projectProfileId, setProjectProfileId] = useState(GENERIC_PROFILE_ID)
   const [maps,        setMaps]        = useState([])
+  const [pages,       setPages]       = useState([])
+  const [activePageId, setActivePageId] = useState('base')
 
   // Active map
   const [activeMapId, setActiveMapId] = useState(null)
@@ -464,6 +537,11 @@ export default function HomePage() {
   const [zoom,         setZoom]         = useState(1)
   const [saveStatus,   setSaveStatus]   = useState(null)
   const [canUndo,      setCanUndo]      = useState(false)
+  const [connections,  setConnections]  = useState({})
+  const [entryPositions, setEntryPositions] = useState([])
+  const [spawns, setSpawns] = useState([])
+  const [entities, setEntities] = useState([])
+  const [selectedEntityType, setSelectedEntityType] = useState('enemy')
 
   // Sprites
   const [sprites,            setSprites]            = useState([])
@@ -486,6 +564,7 @@ export default function HomePage() {
   const autoSaveTimer   = useRef(null)
   const historyRef      = useRef([])
   const tmxInputRef     = useRef(null)
+  const packageInputRef = useRef(null)
 
   useEffect(() => { projectIdRef_.current   = projectId   }, [projectId])
   useEffect(() => { activeMapIdRef_.current = activeMapId }, [activeMapId])
@@ -601,6 +680,11 @@ export default function HomePage() {
           config:  cfg,
           mapTiles: tiles,
           tileset: ts,
+          tilesetBlobUrl: ts?.url,
+          connections,
+          entryPositions,
+          spawns,
+          entities,
         })
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus(null), 2000)
@@ -608,7 +692,7 @@ export default function HomePage() {
         setSaveStatus('error')
       }
     }, 2000)
-  }, [user.uid])
+  }, [user.uid, connections, entryPositions, spawns, entities])
 
   // ── Activate a map (load its data) ────────────────────────────────────────
 
@@ -623,6 +707,10 @@ export default function HomePage() {
       setTileset(data.tileset)
       setSelectedTile(null)
       setMapTiles(data.mapTiles)
+      setConnections(data.connections ?? {})
+      setEntryPositions(data.entryPositions ?? [])
+      setSpawns(data.spawns ?? [])
+      setEntities(data.entities ?? [])
     } catch (err) {
       console.error('Failed to load map:', err)
       setSaveStatus('error')
@@ -637,6 +725,30 @@ export default function HomePage() {
     if (group === 'sprites' && item === 'import-png') { if (projectId) spritePngInputRef.current?.click(); return }
     if (group === 'project' && item === 'new')  { setShowNewProjectModal(true); return }
     if (group === 'project' && item === 'load') { setShowLoadModal(true); return }
+    if (group === 'project' && item === 'export-package') {
+      if (!projectId) return
+      clearTimeout(autoSaveTimer.current)
+      if (activeMapIdRef_.current && mapConfigRef_.current && mapTilesRef_.current) {
+        await saveMap(user.uid, projectId, activeMapIdRef_.current, { name: mapConfigRef_.current.name, config: mapConfigRef_.current, mapTiles: mapTilesRef_.current, tileset: tilesetRef_.current })
+      }
+      const pkg = await exportProjectPackage(user.uid, projectId)
+      downloadText((projectName || 'project') + '.webtile.json', JSON.stringify(pkg, null, 2))
+      return
+    }
+    if (group === 'project' && item === 'import-package') {
+      if (!payload) return
+      setSaveStatus('saving')
+      try {
+        const pkg = JSON.parse(await payload.text())
+        const imported = await importProjectPackage(user.uid, pkg)
+        const mapList = await listMaps(user.uid, imported.projectId)
+        setProjectId(imported.projectId); setProjectName(imported.name); setProjectProfileId(imported.profileId); setMaps(mapList)
+        setActiveMapId(null); setMapConfig(null); setMapTiles(null); setTileset(null); setSelectedTile(null)
+        if (mapList.length) await activateMap(imported.projectId, mapList[0].id)
+        setSaveStatus('saved'); setTimeout(() => setSaveStatus(null), 2000)
+      } catch (err) { console.error(err); alert(err.message); setSaveStatus('error') }
+      return
+    }
 
     if (group === 'maps' && item === 'new') {
       if (!projectId) return
@@ -699,15 +811,19 @@ export default function HomePage() {
 
   // ── New project ────────────────────────────────────────────────────────────
 
-  const handleNewProject = async ({ name }) => {
+  const handleNewProject = async ({ name, profileId }) => {
     setShowNewProjectModal(false)
     clearTimeout(autoSaveTimer.current)
     setSaveStatus('saving')
     try {
-      const pid = await createProject(user.uid, { name })
+      const pid = await createProject(user.uid, { name, profileId })
+      const pageList = await loadPages(user.uid, pid)
       setProjectId(pid)
       setProjectName(name)
+      setProjectProfileId(profileId)
       setMaps([])
+      setPages(pageList)
+      setActivePageId(pageList[0]?.id ?? 'base')
       setActiveMapId(null)
       setMapConfig(null)
       setMapTiles(null)
@@ -733,10 +849,14 @@ export default function HomePage() {
       const proj = await loadProject(user.uid, pid)
       if (!proj) return
       const mapList = await listMaps(user.uid, pid)
+      const pageList = await loadPages(user.uid, pid)
 
       setProjectId(pid)
       setProjectName(proj.name)
+      setProjectProfileId(proj.profileId)
       setMaps(mapList)
+      setPages(pageList)
+      setActivePageId(pageList[0]?.id ?? 'base')
       setActiveMapId(null)
       setMapConfig(null)
       setMapTiles(null)
@@ -766,9 +886,14 @@ export default function HomePage() {
     if (!projectId) return
     setSaveStatus('saving')
     try {
-      const mid = await createMap(user.uid, projectId, config)
-      const newMap = { id: mid, name: config.name, tileW: config.tileW, tileH: config.tileH, mapW: config.mapW, mapH: config.mapH }
+      const maxRoomId = maps.reduce((max, m) => Math.max(max, m.roomId ?? -1), -1)
+      const roomId = maxRoomId + 1
+      const pageId = activePageId ?? 'base'
+      const mid = await createMap(user.uid, projectId, { ...config, roomId, pageId })
+      const newMap = { id: mid, name: config.name, tileW: config.tileW, tileH: config.tileH, mapW: config.mapW, mapH: config.mapH, roomId, pageId }
       setMaps(ms => [...ms, newMap])
+      await assignRoomToPage(user.uid, projectId, pageId, roomId)
+      setPages(await loadPages(user.uid, projectId))
       // Directly activate without a Firestore round-trip (avoids null-return race)
       const emptyTiles = Array.from({ length: config.mapH }, () => Array(config.mapW).fill(null))
       historyRef.current = []
@@ -778,6 +903,10 @@ export default function HomePage() {
       setTileset(null)
       setSelectedTile(null)
       setMapTiles(emptyTiles)
+      setConnections({})
+      setEntryPositions([])
+      setSpawns([])
+      setEntities([])
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch (_) {
@@ -791,6 +920,7 @@ export default function HomePage() {
     clearTimeout(autoSaveTimer.current)
     setProjectId(null)
     setProjectName(null)
+    setProjectProfileId(GENERIC_PROFILE_ID)
     setMaps([])
     setActiveMapId(null)
     setMapConfig(null)
@@ -810,6 +940,10 @@ export default function HomePage() {
     setMapTiles(null)
     setTileset(null)
     setSelectedTile(null)
+    setConnections({})
+    setEntryPositions([])
+    setSpawns([])
+    setEntities([])
     historyRef.current = []
     setCanUndo(false)
   }, [])
@@ -823,8 +957,173 @@ export default function HomePage() {
   const handleSelectMap = useCallback(async (mapId) => {
     setSelectedSpriteId(null)  // switch to map view
     if (mapId === activeMapId) return
+    const map = maps.find(m => m.id === mapId)
+    if (map?.pageId && map.pageId !== activePageId) {
+      setActivePageId(map.pageId)
+    }
     if (projectId) await activateMap(projectId, mapId)
-  }, [activeMapId, projectId, activateMap])
+  }, [activeMapId, projectId, activateMap, maps, activePageId])
+
+  // ── Pages ───────────────────────────────────────────────────────────────────
+
+  const handleSelectPage = useCallback(async (pageId) => {
+    setActivePageId(pageId)
+    const pageMaps = maps.filter(m => m.pageId === pageId)
+    if (pageMaps.length > 0 && pageMaps[0].id !== activeMapId) {
+      await activateMap(projectId, pageMaps[0].id)
+    }
+  }, [maps, activePageId, activeMapId, projectId, activateMap])
+
+  const handleAddPage = async () => {
+    if (!projectId) return
+    const label = prompt('Page name:')
+    if (!label?.trim()) return
+    const page = await addPage(user.uid, projectId, { label: label.trim() })
+    setPages(prev => [...prev, page])
+    setActivePageId(page.id)
+  }
+
+  const handleRenamePage = async (pageId) => {
+    if (!projectId) return
+    const page = pages.find(p => p.id === pageId)
+    if (!page) return
+    const label = prompt('Rename page:', page.label)
+    if (!label?.trim() || label === page.label) return
+    await renamePage(user.uid, projectId, pageId, label.trim())
+    setPages(prev => prev.map(p => p.id === pageId ? { ...p, label: label.trim() } : p))
+  }
+
+  const handleDeletePage = async (pageId) => {
+    if (!projectId) return
+    if (pages.length <= 1) { alert('Cannot delete the last page.'); return }
+    if (!confirm('Delete this page? Maps in it will become unassigned.')) return
+    await deletePage(user.uid, projectId, pageId)
+    const remaining = pages.filter(p => p.id !== pageId)
+    setPages(remaining)
+    if (activePageId === pageId) {
+      setActivePageId(remaining[0]?.id ?? 'base')
+    }
+  }
+
+  const handleMoveMapToPage = async (mapId, targetPageId) => {
+    if (!projectId) return
+    const map = maps.find(m => m.id === mapId)
+    if (!map) return
+    const oldPageId = map.pageId
+    if (oldPageId === targetPageId) return
+    await removeRoomFromPage(user.uid, projectId, oldPageId, map.roomId)
+    await assignRoomToPage(user.uid, projectId, targetPageId, map.roomId)
+    await saveMap(user.uid, projectId, mapId, { pageId: targetPageId })
+    setMaps(prev => prev.map(m => m.id === mapId ? { ...m, pageId: targetPageId } : m))
+    setPages(await loadPages(user.uid, projectId))
+  }
+
+  const handleExportManifest = async () => {
+    if (!projectId) return
+    try {
+      const proj = await loadProject(user.uid, projectId)
+      const allMaps = await listMaps(user.uid, projectId)
+      const fullMaps = await Promise.all(allMaps.map(async (m) => {
+        const data = await loadMap(user.uid, projectId, m.id)
+        return data ? { ...m, ...data } : m
+      }))
+      const manifest = generateModel01Manifest(proj, fullMaps)
+      const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${projectName || 'model01'}-manifest.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error(err)
+      alert(err.message)
+    }
+  }
+
+  const handleConnectionClick = useCallback((direction, targetRoomId) => {
+    setConnections(prev => {
+      const next = { ...prev }
+      if (targetRoomId == null) {
+        delete next[direction]
+      } else {
+        next[direction] = { direction, targetRoomId }
+      }
+      return next
+    })
+  }, [])
+
+  const handleEntryClick = useCallback((col, row) => {
+    setEntryPositions(prev => {
+      const exists = prev.find(ep => ep.col === col && ep.row === row)
+      if (exists) return prev.filter(ep => !(ep.col === col && ep.row === row))
+      return [...prev, { col, row }]
+    })
+  }, [])
+
+  const handleSpawnClick = useCallback((col, row) => {
+    setSpawns(prev => {
+      const exists = prev.find(sp => sp.col === col && sp.row === row)
+      if (exists) return prev.filter(sp => !(sp.col === col && sp.row === row))
+      if (prev.length >= 12) return prev
+      return [...prev, { col, row }]
+    })
+  }, [])
+
+  const handleEntityClick = useCallback((col, row) => {
+    setEntities(prev => {
+      const exists = prev.find(e => e.col === col && e.row === row)
+      if (exists) return prev.filter(e => !(e.col === col && e.row === row))
+      return [...prev, { type: selectedEntityType, col, row, id: Date.now() }]
+    })
+  }, [selectedEntityType])
+
+  const handleSaveMapMeta = useCallback(async () => {
+    if (!projectId || !activeMapId || !mapConfigRef_.current) return
+    const cfg = mapConfigRef_.current
+    const pid = projectIdRef_.current
+    const mid = activeMapIdRef_.current
+    if (!pid || !mid) return
+    clearTimeout(autoSaveTimer.current)
+    setSaveStatus('saving')
+    try {
+      await saveMap(user.uid, pid, mid, {
+        name: cfg.name,
+        config: cfg,
+        mapTiles: mapTilesRef_.current,
+        tileset: tilesetRef_.current,
+        tilesetBlobUrl: tilesetRef_.current?.url,
+        connections,
+        entryPositions,
+        spawns,
+        entities,
+      })
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(null), 2000)
+    } catch (_) {
+      setSaveStatus('error')
+    }
+  }, [projectId, activeMapId, connections, entryPositions, spawns, entities, user.uid])
+
+  const getPageCapacity = (pageId) => {
+    const profile = getProjectProfile(projectProfileId)
+    if (profile.id !== 'model01') return null
+    const pageRooms = maps.filter(m => m.pageId === pageId)
+    const roomCount = pageRooms.length
+    const spawns = pageRooms.reduce((sum, m) => sum + (m.spawns ?? 0), 0)
+    const estimatedMapBytes = roomCount * 50
+    const spawnBytes = spawns * 8
+    const directoryBytes = roomCount * 6
+    const used = estimatedMapBytes + spawnBytes + directoryBytes
+    const budget = 5632
+    return {
+      rooms: roomCount,
+      target: profile.targetScreensPerBank,
+      used,
+      free: Math.max(0, budget - used),
+      budget,
+    }
+  }
 
   // ── Delete map ────────────────────────────────────────────────────────────
 
@@ -832,9 +1131,14 @@ export default function HomePage() {
     if (!projectId) return
     if (!confirm('Delete this map? This cannot be undone.')) return
     try {
+      const map = maps.find(m => m.id === mapId)
       await deleteMap(user.uid, projectId, mapId)
       const remaining = maps.filter(m => m.id !== mapId)
       setMaps(remaining)
+      if (map?.roomId != null && map?.pageId) {
+        await removeRoomFromPage(user.uid, projectId, map.pageId, map.roomId)
+        setPages(await loadPages(user.uid, projectId))
+      }
       if (mapId === activeMapId) {
         // Load another map or clear editor
         if (remaining.length > 0) {
@@ -849,6 +1153,8 @@ export default function HomePage() {
           setCanUndo(false)
         }
       }
+      setSaveStatus('saved')
+      setTimeout(() => setSaveStatus(null), 2000)
     } catch (_) {
       setSaveStatus('error')
     }
@@ -963,6 +1269,8 @@ export default function HomePage() {
         {/* Dropdown nav */}
         <TopNav
           projectName={projectName}
+          packageInputRef={packageInputRef}
+          manifestInputRef={null}
           maps={maps}
           activeMapId={activeMapId}
           onAction={handleAction}
@@ -978,6 +1286,14 @@ export default function HomePage() {
           onCloseMap={handleCloseMap}
           onCloseSprite={handleCloseSprite}
           hasTileset={!!tileset}
+          pages={pages}
+          activePageId={activePageId}
+          onSelectPage={handleSelectPage}
+          onAddPage={handleAddPage}
+          onRenamePage={handleRenamePage}
+          onDeletePage={handleDeletePage}
+          onMoveMapToPage={handleMoveMapToPage}
+          onExportManifest={handleExportManifest}
         />
 
         {/* Centre breadcrumb */}
@@ -1026,6 +1342,8 @@ export default function HomePage() {
               canUndo={canUndo} onUndo={handleUndo}
               doubleWidth={mapConfig.doubleWidth}
               onToggleDoubleWidth={() => setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)}
+              selectedEntityType={selectedEntityType}
+              onSelectEntityType={setSelectedEntityType}
             />
           )}
           {!hasProject
@@ -1046,20 +1364,84 @@ export default function HomePage() {
                     zoom={zoom} onZoomChange={setZoom}
                     tileset={tileset} selectedTile={selectedTile}
                     mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
+                    connections={connections}
+                    entryPositions={entryPositions}
+                    roomId={maps.find(m => m.id === activeMapId)?.roomId}
+                    onConnectionClick={handleConnectionClick}
+                    onEntryClick={handleEntryClick}
+                    spawns={spawns}
+                    onSpawnClick={handleSpawnClick}
+                    entities={entities}
+                    onEntityClick={handleEntityClick}
+                    selectedEntityType={activeTool === 'entity' ? selectedEntityType : null}
                   />
           }
         </div>
 
         {!selectedSpriteId && (
-          <RightSidebar
-            project={mapConfig}
-            mapTiles={mapTiles}
-            tileset={tileset}
-            selectedTile={selectedTile}
-            onLoadTileset={handleLoadTileset}
-            onSelectTile={setSelectedTile}
-            onEditTile={handleEditTile}
-          />
+          <>
+            <RightSidebar
+              project={mapConfig}
+              mapTiles={mapTiles}
+              tileset={tileset}
+              selectedTile={selectedTile}
+              onLoadTileset={handleLoadTileset}
+              onSelectTile={setSelectedTile}
+              onEditTile={handleEditTile}
+              connections={connections}
+              entryPositions={entryPositions}
+              spawns={spawns}
+              entities={entities}
+              roomId={maps.find(m => m.id === activeMapId)?.roomId}
+            />
+            {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
+              const capacity = getPageCapacity(activePageId)
+              if (!capacity) return null
+              const pct = Math.round((capacity.used / capacity.budget) * 100)
+              return (
+                <div style={{
+                  width: '220px', borderLeft: '1px solid var(--border)',
+                  background: 'var(--panel)', padding: '16px', overflowY: 'auto',
+                  fontFamily: "'Roboto', sans-serif", fontSize: '12px', color: 'var(--text)',
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '12px' }}>
+                    Page Capacity
+                  </div>
+                  <div style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--accent)' }}>
+                    {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                    <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Rooms</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
+                    </div>
+                    <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Used</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '10px', color: 'var(--text-dim)' }}> B</span></div>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
+                      <span>Budget</span>
+                      <span>{capacity.budget} B</span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                      <span>Free: {capacity.free} B</span>
+                      <span>{pct}%</span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                    <div>Maps (est.): {capacity.rooms * 50} B</div>
+                    <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
+                    <div>Directory: {capacity.rooms * 6} B</div>
+                  </div>
+                </div>
+              )
+            })()}
+          </>
         )}
       </div>
 
@@ -1078,6 +1460,7 @@ export default function HomePage() {
       )}
       {showNewMapModal && (
         <NewMapModal
+          profileId={projectProfileId}
           onConfirm={handleNewMap}
           onCancel={() => setShowNewMapModal(false)}
         />

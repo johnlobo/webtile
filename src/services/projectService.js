@@ -3,6 +3,7 @@ import {
   deleteDoc, serverTimestamp, query, orderBy,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { GENERIC_PROFILE_ID, normalizeProfileId } from '../model01Profile'
 
 // ── Tile encoding ──────────────────────────────────────────────────────────────
 // Flat int array: -1 = empty, otherwise (tileRow * 1000 + tileCol)
@@ -100,11 +101,13 @@ async function migrateOldProject(userId, projectId, oldData) {
 
 // ── Project API ────────────────────────────────────────────────────────────────
 
-/** Create a new project (name only). Returns generated Firestore ID. */
-export async function createProject(userId, { name }) {
+/** Create a new project. Returns generated Firestore ID. */
+export async function createProject(userId, { name, profileId = GENERIC_PROFILE_ID }) {
   const ref = doc(projectsCol(userId))
   await setDoc(ref, {
     name,
+    profileId: normalizeProfileId(profileId),
+    pages: [{ id: 'base', label: 'Base', roomIds: [] }],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -120,7 +123,12 @@ export async function loadProject(userId, projectId) {
   if (d.tileW != null) {
     await migrateOldProject(userId, projectId, d)
   }
-  return { id: projectId, name: d.name }
+  return {
+    id: projectId,
+    name: d.name,
+    profileId: normalizeProfileId(d.profileId),
+    pages: d.pages ?? [],
+  }
 }
 
 /** List all projects for a user, newest first. */
@@ -152,12 +160,19 @@ export async function deleteProject(userId, projectId) {
 // ── Map API ────────────────────────────────────────────────────────────────────
 
 /** Create a new map in a project. Returns mapId. */
-export async function createMap(userId, projectId, { name, tileW, tileH, mapW, mapH, doubleWidth = false }) {
+export async function createMap(userId, projectId, { name, tileW, tileH, mapW, mapH, doubleWidth = false, roomId, pageId, spawns = 0, connections = {}, entryPositions = [], entities = [], scripts = {} }) {
   const ref = doc(mapsCol(userId, projectId))
   await setDoc(ref, {
     name,
     tileW, tileH, mapW, mapH,
     doubleWidth,
+    roomId: roomId ?? null,
+    pageId: pageId ?? null,
+    spawns,
+    connections,
+    entryPositions,
+    entities,
+    scripts,
     mapTiles:   Array(mapW * mapH).fill(-1),
     hasTileset: false,
     createdAt:  serverTimestamp(),
@@ -168,13 +183,21 @@ export async function createMap(userId, projectId, { name, tileW, tileH, mapW, m
 }
 
 /** Save (update) a map's tile data and config. */
-export async function saveMap(userId, projectId, mapId, { name, config, mapTiles, tileset, tilesetBlobUrl }) {
+export async function saveMap(userId, projectId, mapId, { name, config, mapTiles, tileset, tilesetBlobUrl, roomId, pageId, spawns, connections, entryPositions, entities, scripts }) {
   const updates = {
     name,
     ...config,
     mapTiles:  encodeTiles(mapTiles),
     updatedAt: serverTimestamp(),
   }
+
+  if (roomId !== undefined)       updates.roomId = roomId
+  if (pageId !== undefined)       updates.pageId = pageId
+  if (spawns !== undefined)       updates.spawns = spawns
+  if (connections !== undefined)  updates.connections = connections
+  if (entryPositions !== undefined) updates.entryPositions = entryPositions
+  if (entities !== undefined)     updates.entities = entities
+  if (scripts !== undefined)      updates.scripts = scripts
 
   if (tilesetBlobUrl) {
     const base64 = await toBase64DataUrl(tilesetBlobUrl)
@@ -219,7 +242,20 @@ export async function loadMap(userId, projectId, mapId) {
   }
 
   const mapTiles = decodeTiles(d.mapTiles, d.mapW, d.mapH, tileset?.cols ?? 1)
-  return { id: mapId, name: d.name, config, mapTiles, tileset }
+  return {
+    id: mapId,
+    name: d.name,
+    config,
+    mapTiles,
+    tileset,
+    roomId: d.roomId ?? null,
+    pageId: d.pageId ?? null,
+    spawns: d.spawns ?? [],
+    connections: d.connections ?? {},
+    entryPositions: d.entryPositions ?? [],
+    entities: d.entities ?? [],
+    scripts: d.scripts ?? {},
+  }
 }
 
 /** List all maps in a project (summaries only, no tile data). Ordered by creation. */
@@ -233,6 +269,10 @@ export async function listMaps(userId, projectId) {
     tileH:     d.data().tileH,
     mapW:      d.data().mapW,
     mapH:      d.data().mapH,
+    roomId:    d.data().roomId ?? null,
+    pageId:    d.data().pageId ?? null,
+    spawns:    d.data().spawns ?? 0,
+    entities:  d.data().entities ?? [],
     updatedAt: d.data().updatedAt?.toDate?.() ?? null,
   }))
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { getProjectProfile, MODEL01_PROFILE_ID } from '../model01Profile'
 
-function FIELD({ label, value, onChange, min = 1, max = 256 }) {
+function FIELD({ label, value, onChange, min = 1, max = 256, disabled = false }) {
   const [draft, setDraft] = useState(null)
   const displayed = draft !== null ? draft : String(value)
   const commit = (raw) => {
@@ -14,6 +15,7 @@ function FIELD({ label, value, onChange, min = 1, max = 256 }) {
       <input
         className="pixel-input"
         type="number"
+        disabled={disabled}
         min={min} max={max}
         value={displayed}
         onChange={e => setDraft(e.target.value)}
@@ -25,7 +27,9 @@ function FIELD({ label, value, onChange, min = 1, max = 256 }) {
   )
 }
 
-export default function NewMapModal({ onConfirm, onCancel }) {
+export default function NewMapModal({ onConfirm, onCancel, profileId }) {
+  const profile = getProjectProfile(profileId)
+  const locked = profileId === MODEL01_PROFILE_ID
   const [name,        setName]        = useState('')
   const [tileW,       setTileW]       = useState(8)
   const [tileH,       setTileH]       = useState(8)
@@ -36,7 +40,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
   const displayTileW = doubleWidth ? tileW * 2 : tileW
 
   const handleConfirm = () => {
-    onConfirm({ name: name.trim() || 'Untitled Map', tileW, tileH, mapW, mapH, doubleWidth })
+    onConfirm({ name: name.trim() || 'Untitled Map', tileW: locked ? profile.tileWidth : tileW, tileH: locked ? profile.tileHeight : tileH, mapW: locked ? profile.mapWidth : mapW, mapH: locked ? profile.mapHeight : mapH, doubleWidth: locked ? false : doubleWidth })
   }
 
   const sectionLabel = {
@@ -93,8 +97,8 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <div style={{ marginBottom: '16px' }}>
           <div style={sectionLabel}>Tile Size (px)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FIELD label="Width"  value={tileW} onChange={setTileW} min={1} max={256} />
-            <FIELD label="Height" value={tileH} onChange={setTileH} min={1} max={256} />
+            <FIELD label="Width"  value={locked ? profile.tileWidth : tileW} disabled={locked} onChange={setTileW} min={1} max={256} />
+            <FIELD label="Height" value={locked ? profile.tileHeight : tileH} disabled={locked} onChange={setTileH} min={1} max={256} />
           </div>
         </div>
 
@@ -117,7 +121,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
           }}>
             {doubleWidth && <span style={{ color: '#fff', fontSize: '10px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>}
           </span>
-          <input type="checkbox" checked={doubleWidth} onChange={e => setDoubleWidth(e.target.checked)} style={{ display: 'none' }} />
+          <input type="checkbox" disabled={locked} checked={locked ? false : doubleWidth} onChange={e => setDoubleWidth(e.target.checked)} style={{ display: 'none' }} />
           <div>
             <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', fontWeight: 600, color: doubleWidth ? 'var(--accent)' : 'var(--text)', letterSpacing: '0.3px' }}>
               Double Pixel Width
@@ -133,8 +137,8 @@ export default function NewMapModal({ onConfirm, onCancel }) {
         <div style={{ marginBottom: '24px' }}>
           <div style={sectionLabel}>Map Size (tiles)</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FIELD label="Columns" value={mapW} onChange={setMapW} min={1} max={256} />
-            <FIELD label="Rows"    value={mapH} onChange={setMapH} min={1} max={256} />
+            <FIELD label="Columns" value={locked ? profile.mapWidth : mapW} disabled={locked} onChange={setMapW} min={1} max={256} />
+            <FIELD label="Rows"    value={locked ? profile.mapHeight : mapH} disabled={locked} onChange={setMapH} min={1} max={256} />
           </div>
         </div>
 
@@ -144,7 +148,7 @@ export default function NewMapModal({ onConfirm, onCancel }) {
           fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400,
           color: 'var(--text-dim)', lineHeight: 1.7,
         }}>
-          <div>Tiles: {tileW}×{tileH} px stored{doubleWidth && <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {displayTileW}×{tileH} px displayed</span>}</div>
+          <div>Tiles: {locked ? profile.tileWidth : tileW}×{tileH} px stored{doubleWidth && <span style={{ color: 'var(--accent)', fontWeight: 600 }}> · {displayTileW}×{tileH} px displayed</span>}</div>
           <div>Map: {mapW}×{mapH} tiles · <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{mapW * displayTileW}×{mapH * tileH} px</span> on screen</div>
         </div>
 

@@ -99,10 +99,51 @@ const IconUndo = () => (
   </svg>
 )
 
+const IconConnection = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    {/* Map A */}
+    <rect x="1" y="4" width="7" height="5"/>
+    <rect x="2" y="1" width="2" height="2"/>
+    <rect x="5" y="1" width="2" height="2"/>
+    {/* Arrow */}
+    <rect x="9" y="6" width="2" height="2"/>
+    {/* Map B */}
+    <rect x="12" y="4" width="7" height="5"/>
+    <rect x="15" y="1" width="2" height="2"/>
+  </svg>
+)
+
+const IconSpawn = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <rect x="9" y="1" width="2" height="2"/>
+    <rect x="7" y="3" width="6" height="2"/>
+    <rect x="5" y="5" width="10" height="2"/>
+    <rect x="3" y="7" width="14" height="2"/>
+    <rect x="1" y="9" width="18" height="2"/>
+    <rect x="3" y="11" width="14" height="2"/>
+    <rect x="5" y="13" width="10" height="2"/>
+    <rect x="7" y="15" width="6" height="2"/>
+    <rect x="9" y="17" width="2" height="2"/>
+  </svg>
+)
+
+const IconEntity = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <rect x="8" y="1" width="4" height="4"/>
+    <rect x="6" y="5" width="8" height="3"/>
+    <rect x="4" y="8" width="12" height="3"/>
+    <rect x="2" y="11" width="16" height="3"/>
+    <rect x="1" y="14" width="18" height="2"/>
+  </svg>
+)
+
 const TOOLS = [
   { id: 'stamp',  label: 'STAMP',  shortcut: 'S', Icon: IconStamp  },
   { id: 'fill',   label: 'FILL',   shortcut: 'F', Icon: IconFill   },
   { id: 'eraser', label: 'ERASE',  shortcut: 'E', Icon: IconEraser },
+  { id: 'conn',   label: 'LINK',   shortcut: 'L', Icon: IconConnection },
+  { id: 'spawn',  label: 'SPAWN',  shortcut: 'P', Icon: IconSpawn },
+  { id: 'entity', label: 'ENTITY', shortcut: 'X', Icon: IconEntity },
 ]
 
 export const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8]
@@ -160,7 +201,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, doubleWidth, onToggleDoubleWidth }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, doubleWidth, onToggleDoubleWidth, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -182,6 +223,36 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
           onClick={() => onSelectTool(id)}
         />
       ))}
+
+      {activeTool === 'entity' && onSelectEntityType && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '2px',
+          padding: '0 4px', marginLeft: '4px',
+        }}>
+          {Object.entries(ENTITY_TYPES).map(([type, def]) => (
+            <button
+              key={type}
+              onClick={() => onSelectEntityType(type)}
+              style={{
+                padding: '3px 7px',
+                background: selectedEntityType === type ? def.color : 'transparent',
+                border: `1px solid ${selectedEntityType === type ? def.color : 'var(--border)'}`,
+                borderRadius: '4px',
+                color: selectedEntityType === type ? '#000' : 'var(--text-dim)',
+                cursor: 'pointer',
+                fontFamily: "'Roboto', sans-serif",
+                fontSize: '10px',
+                fontWeight: 700,
+                letterSpacing: '0.5px',
+                transition: 'all 0.1s',
+              }}
+              title={type}
+            >
+              {def.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <Divider />
 

@@ -30,17 +30,60 @@ function floodFill(mapTiles, startCol, startRow, mapW, mapH) {
   return result
 }
 
+function EdgeOverlay({ direction, color, label }) {
+  const style = {
+    position: 'absolute',
+    background: color,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '10px',
+    fontWeight: 700,
+    color: '#000',
+    pointerEvents: 'none',
+    zIndex: 5,
+    opacity: 0.85,
+  }
+
+  const sizes = {
+    north: { left: 0, top: -14, width: '100%', height: 14 },
+    south: { left: 0, bottom: -14, width: '100%', height: 14 },
+    west:  { left: -14, top: 0, width: 14, height: '100%' },
+    east:  { right: -14, top: 0, width: 14, height: '100%' },
+  }
+
+  return (
+    <div style={{ ...style, ...sizes[direction] }}>
+      {label}
+    </div>
+  )
+}
+
+const ENTITY_TYPES = {
+  enemy:   { label: 'E', color: 'rgba(255,60,60,0.85)',   bg: 'rgba(255,60,60,0.2)' },
+  object:  { label: 'O', color: 'rgba(60,255,60,0.85)',   bg: 'rgba(60,255,60,0.2)' },
+  portal:  { label: 'P', color: 'rgba(180,60,255,0.85)',  bg: 'rgba(180,60,255,0.2)' },
+  trigger: { label: 'T', color: 'rgba(255,180,60,0.85)',  bg: 'rgba(255,180,60,0.2)' },
+}
+
 export default function TilemapGrid({
   tileW, tileH, mapW, mapH, doubleWidth,
   activeTool, zoom, onZoomChange,
   tileset, selectedTile,
   mapTiles, onPaintCell, onFillCells,
+  connections, entryPositions,
+  onConnectionClick, onEntryClick, roomId,
+  spawns, onSpawnClick,
+  entities, onEntityClick, selectedEntityType,
 }) {
   const displayW   = (doubleWidth ? tileW * 2 : tileW) * zoom
   const displayH   = tileH * zoom
   const isPainting = useRef(false)
   const isErasing  = useRef(false)
   const [hoveredCell, setHoveredCell] = useState(null)
+
+  const connectionDirections = ['north', 'south', 'east', 'west'].filter(d => connections?.[d] != null)
+  const hasActiveConnection = activeTool === 'conn' && connectionDirections.length > 0
 
   // Release both drag modes on mouse up anywhere
   useEffect(() => {
@@ -57,23 +100,33 @@ export default function TilemapGrid({
   }, [zoom, onZoomChange])
 
   const tryPaint = useCallback((col, row) => {
+    if (activeTool === 'entity') {
+      if (onEntityClick) onEntityClick(col, row)
+      return
+    }
+    if (activeTool === 'spawn') {
+      if (onSpawnClick) onSpawnClick(col, row)
+      return
+    }
+    if (activeTool === 'conn') {
+      if (onEntryClick) onEntryClick(col, row)
+      return
+    }
     if (activeTool === 'eraser') {
       onPaintCell(col, row, null)
     } else if (activeTool === 'fill' && selectedTile && tileset) {
       const cells = floodFill(mapTiles, col, row, mapW, mapH)
-      // Skip if the clicked cell already has the selected tile
       if (cells.length === 1 && mapTiles[row][col]?.idx === selectedTile.idx) return
       onFillCells(cells, selectedTile)
     } else if (activeTool === 'stamp' && selectedTile && tileset) {
       onPaintCell(col, row, selectedTile)
     }
-  }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells])
+  }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells, onEntryClick, onSpawnClick, onEntityClick])
 
   const tryErase = useCallback((col, row) => {
     onPaintCell(col, row, null)
   }, [onPaintCell])
 
-  // Background style for a cell — only shows the painted tile
   const getCellStyle = (col, row) => {
     const checker     = (col + row) % 2 === 0
     const paintedTile = mapTiles?.[row]?.[col]
@@ -94,7 +147,6 @@ export default function TilemapGrid({
     }
   }
 
-  // Single overlay rendered on top of the entire grid at the hovered cell position
   const renderHoverOverlay = () => {
     if (!hoveredCell) return null
     const { col, row } = hoveredCell
@@ -108,6 +160,17 @@ export default function TilemapGrid({
           ...base,
           background: 'rgba(255,60,60,0.18)',
           outline: '2px solid var(--red, #ff3c3c)',
+          outlineOffset: '-2px',
+        }} />
+      )
+    }
+
+    if (activeTool === 'conn') {
+      return (
+        <div style={{
+          ...base,
+          background: 'rgba(33,82,255,0.15)',
+          outline: '2px solid var(--accent)',
           outlineOffset: '-2px',
         }} />
       )
@@ -136,6 +199,104 @@ export default function TilemapGrid({
     )
   }
 
+  const renderConnectionOverlay = (dir) => {
+    if (!connections?.[dir]) return null
+    const target = connections[dir]
+    const color = 'rgba(33,82,255,0.35)'
+    const label = `→ ${target.targetRoomId ?? '?'}`
+    return <EdgeOverlay key={dir} direction={dir} color={color} label={label} />
+  }
+
+  const renderEntryPoints = () => {
+    if (!entryPositions || entryPositions.length === 0) return null
+    return entryPositions.map((ep, i) => {
+      const left = ep.col * displayW
+      const top = ep.row * displayH
+      return (
+        <div key={i} style={{
+          position: 'absolute',
+          left, top,
+          width: displayW, height: displayH,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none', zIndex: 6,
+          fontSize: '10px', fontWeight: 700, color: 'var(--amber)',
+        }}>
+          ▶
+        </div>
+      )
+    })
+  }
+
+  const renderSpawns = () => {
+    if (!spawns || spawns.length === 0) return null
+    return spawns.map((sp, i) => {
+      const left = sp.col * displayW
+      const top = sp.row * displayH
+      const size = Math.min(displayW, displayH) * 0.6
+      return (
+        <div key={i} style={{
+          position: 'absolute',
+          left: left + (displayW - size) / 2,
+          top: top + (displayH - size) / 2,
+          width: size, height: size,
+          borderRadius: '50%',
+          background: 'rgba(255, 170, 0, 0.85)',
+          border: '2px solid #000',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none', zIndex: 7,
+          fontFamily: "'Roboto', sans-serif",
+          fontSize: Math.max(8, size * 0.4),
+          fontWeight: 800,
+          color: '#000',
+          boxShadow: '0 0 4px rgba(255,170,0,0.6)',
+        }}>
+          {i + 1}
+        </div>
+      )
+    })
+  }
+
+  const renderEntities = () => {
+    if (!entities || entities.length === 0) return null
+    return entities.map((ent, i) => {
+      const def = ENTITY_TYPES[ent.type] ?? ENTITY_TYPES.object
+      const left = ent.col * displayW
+      const top = ent.row * displayH
+      const size = Math.min(displayW, displayH) * 0.7
+      const isSelected = activeTool === 'entity' && selectedEntityType === ent.type
+      return (
+        <div key={ent.id ?? i} style={{
+          position: 'absolute',
+          left: left + (displayW - size) / 2,
+          top: top + (displayH - size) / 2,
+          width: size, height: size,
+          borderRadius: '4px',
+          background: def.bg,
+          border: `2px solid ${def.color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          pointerEvents: 'none', zIndex: 8,
+          fontFamily: "'Roboto', sans-serif",
+          fontSize: Math.max(8, size * 0.35),
+          fontWeight: 800,
+          color: def.color,
+          boxShadow: `0 0 4px ${def.color}`,
+          outline: isSelected ? '2px solid #fff' : 'none',
+          outlineOffset: '-2px',
+        }}>
+          {def.label}
+        </div>
+      )
+    })
+  }
+
+  const getCursorForTool = () => {
+    if (activeTool === 'eraser') return 'none'
+    if (activeTool === 'conn') return 'crosshair'
+    if (activeTool === 'spawn') return 'crosshair'
+    if (tileset && selectedTile && activeTool === 'stamp') return 'none'
+    return 'crosshair'
+  }
+
   return (
     <div
       style={{
@@ -145,7 +306,7 @@ export default function TilemapGrid({
       }}
       onWheel={handleWheel}
     >
-      <div style={{ margin: 'auto' }}>
+      <div style={{ margin: 'auto', position: 'relative' }}>
 
         {/* Info bar */}
         <div style={{
@@ -157,6 +318,7 @@ export default function TilemapGrid({
           <span>TILE <span style={{ color: 'var(--amber)' }}>{tileW}×{tileH}</span> PX</span>
           {doubleWidth && <span>DISPLAY <span style={{ color: 'var(--green)' }}>{tileW * 2}×{tileH}</span> PX</span>}
           <span>CANVAS <span style={{ color: 'var(--green)' }}>{mapW * tileW}×{mapH * tileH}</span> PX</span>
+          {roomId != null && <span>ROOM <span style={{ color: 'var(--accent)' }}>{roomId}</span></span>}
         </div>
 
         {/* Status bar */}
@@ -169,9 +331,14 @@ export default function TilemapGrid({
             ? <span>tile <span style={{ color: 'var(--text)', fontWeight: 600 }}>{hoveredCell.col}, {hoveredCell.row}</span></span>
             : <span style={{ opacity: 0.4 }}>—</span>
           }
+          {activeTool === 'conn' && (
+            <span style={{ color: 'var(--accent)' }}>
+              LINK MODE: click a border or cell
+            </span>
+          )}
         </div>
 
-        {/* Grid wrapper — position:relative so the hover overlay is anchored here */}
+        {/* Grid wrapper */}
         <div style={{ position: 'relative' }}>
           <div
             style={{
@@ -180,7 +347,7 @@ export default function TilemapGrid({
               gridTemplateRows:    `repeat(${mapH}, ${displayH}px)`,
               border: '1px solid var(--green-dim)',
               boxShadow: '0 0 20px var(--green-glow)',
-              cursor: activeTool === 'eraser' || (tileset && selectedTile && activeTool === 'stamp') ? 'none' : 'crosshair',
+              cursor: getCursorForTool(),
               userSelect: 'none',
             }}
             onContextMenu={e => e.preventDefault()}
@@ -213,12 +380,36 @@ export default function TilemapGrid({
                     isPainting.current = true
                     tryPaint(col, row)
                   }}
+                  onDoubleClick={() => {
+                    if (activeTool === 'conn' && onEntryClick) {
+                      onEntryClick(col, row)
+                    }
+                  }}
                 />
               )
             })}
           </div>
 
-          {/* Single hover overlay, always on top of the grid */}
+          {/* Connection edges */}
+          {activeTool === 'conn' && (
+            <>
+              {renderConnectionOverlay('north')}
+              {renderConnectionOverlay('south')}
+              {renderConnectionOverlay('east')}
+              {renderConnectionOverlay('west')}
+            </>
+          )}
+
+          {/* Entry points */}
+          {activeTool === 'conn' && renderEntryPoints()}
+
+          {/* Spawns */}
+          {renderSpawns()}
+
+          {/* Entities */}
+          {renderEntities()}
+
+          {/* Hover overlay */}
           {renderHoverOverlay()}
         </div>
       </div>

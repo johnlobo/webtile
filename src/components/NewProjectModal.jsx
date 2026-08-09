@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { MODEL01_PROFILE_ID, GENERIC_PROFILE_ID } from '../model01Profile'
 
 export default function NewProjectModal({ onConfirm, onCancel }) {
   const [name, setName] = useState('')
+  const [profileId, setProfileId] = useState(MODEL01_PROFILE_ID)
 
   return (
     <div style={{
@@ -43,7 +45,7 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
             placeholder="Untitled"
             value={name}
             onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') onConfirm({ name: name.trim() || 'Untitled' }) }}
+            onKeyDown={e => { if (e.key === 'Enter') onConfirm({ name: name.trim() || 'Untitled', profileId }) }}
             autoFocus
             style={{ width: '100%' }}
           />
@@ -52,8 +54,19 @@ export default function NewProjectModal({ onConfirm, onCancel }) {
           </div>
         </div>
 
+        <div style={{ marginBottom: '28px' }}>
+          <label className="pixel-label">Project Profile</label>
+          <select className="pixel-input" value={profileId} onChange={e => setProfileId(e.target.value)} style={{ width: '100%' }}>
+            <option value={MODEL01_PROFILE_ID}>Model01 CPC (recommended)</option>
+            <option value={GENERIC_PROFILE_ID}>Generic</option>
+          </select>
+          <div style={{ fontFamily: "'Roboto', sans-serif", fontSize: '12px', color: 'var(--text-dim)', marginTop: '8px' }}>
+            Model01 fixes maps at 16×20 tiles, 8×8 px, with up to 48 tile IDs.
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button className="btn-pixel" onClick={() => onConfirm({ name: name.trim() || 'Untitled' })} style={{ flex: 1 }}>
+          <button className="btn-pixel" onClick={() => onConfirm({ name: name.trim() || 'Untitled', profileId })} style={{ flex: 1 }}>
             Create
           </button>
           <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>
