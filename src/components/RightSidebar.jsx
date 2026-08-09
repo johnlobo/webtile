@@ -304,7 +304,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
 }
 
 /* ── Map Data Section ───────────────────────────────────────────────── */
-function MapDataSection({ roomId, connections, entryPositions, spawns, entities, mapW, mapH }) {
+function MapDataSection({ roomId, connections, entryPositions, spawns, entities, mapW, mapH, maps, onConnectionTargetChange }) {
   const directions = ['north', 'south', 'east', 'west']
   const dirLabels = { north: 'North ↑', south: 'South ↓', east: 'East →', west: 'West ←' }
 
@@ -321,14 +321,30 @@ function MapDataSection({ roomId, connections, entryPositions, spawns, entities,
       {/* Connections */}
       <div style={{ marginBottom: '10px' }}>
         <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px', letterSpacing: '1px' }}>CONNECTIONS</div>
-        {directions.map(d => (
-          <div key={d} style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
-            <span style={{ fontSize: '10px', color: 'var(--text-dim)', width: '42px' }}>{dirLabels[d]}</span>
-            <span style={{ fontSize: '11px', color: connections?.[d]?.targetRoomId != null ? 'var(--accent)' : 'var(--text-dim)' }}>
-              {connections?.[d]?.targetRoomId ?? '—'}
-            </span>
-          </div>
-        ))}
+        {directions.map(d => {
+          const target = connections?.[d]
+          return (
+            <div key={d} style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '3px' }}>
+              <span style={{ fontSize: '10px', color: 'var(--text-dim)', width: '42px' }}>{dirLabels[d]}</span>
+              <select
+                value={target?.targetRoomId ?? ''}
+                onChange={e => {
+                  const value = e.target.value
+                  onConnectionTargetChange(d, value === '' ? null : Number(value))
+                }}
+                style={{ fontSize: '11px', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2px 4px', flex: 1 }}
+              >
+                <option value="">—</option>
+                {maps
+                  .filter(m => m.roomId != null && m.roomId !== roomId)
+                  .sort((a, b) => (a.roomId ?? 0) - (b.roomId ?? 0))
+                  .map(m => (
+                    <option key={m.id} value={m.roomId}>{m.roomId} — {m.name}</option>
+                  ))}
+              </select>
+            </div>
+          )
+        })}
       </div>
 
       {/* Entry positions */}
@@ -672,7 +688,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 import { ENTITY_TYPES, ENTITY_DEFAULT_PROPERTIES, ENTITY_BEHAVIORS, ENTITY_EVENTS } from '../services/entityTypes'
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
-export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity }) {
+export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange }) {
   return (
     <aside style={{
       width: '220px',
@@ -708,6 +724,8 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
           entities={entities}
           mapW={project.mapW}
           mapH={project.mapH}
+          maps={maps}
+          onConnectionTargetChange={onConnectionTargetChange}
         />
       )}
 

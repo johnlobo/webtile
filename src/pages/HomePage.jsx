@@ -1099,7 +1099,11 @@ export default function HomePage() {
     setConnections(prev => {
       const next = { ...prev }
       if (targetRoomId == null) {
-        delete next[direction]
+        if (next[direction]) {
+          delete next[direction]
+        } else {
+          next[direction] = { direction, targetRoomId: null }
+        }
       } else {
         next[direction] = { direction, targetRoomId }
       }
@@ -1490,10 +1494,12 @@ export default function HomePage() {
               spawns={spawns}
               entities={entities}
               roomId={maps.find(m => m.id === activeMapId)?.roomId}
+              maps={maps.filter(m => m.roomId != null)}
               selectedEntityId={selectedEntityId}
               selectedEntity={getSelectedEntity()}
               onUpdateEntityProperty={handleUpdateEntityProperty}
               onDeleteSelectedEntity={handleDeleteSelectedEntity}
+              onConnectionTargetChange={handleConnectionClick}
             />
             {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
               const capacity = getPageCapacity(activePageId)

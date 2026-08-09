@@ -30,6 +30,14 @@ function floodFill(mapTiles, startCol, startRow, mapW, mapH) {
   return result
 }
 
+function getBorderDirection(col, row, mapW, mapH) {
+  if (row === 0) return 'north'
+  if (row === mapH - 1) return 'south'
+  if (col === 0) return 'west'
+  if (col === mapW - 1) return 'east'
+  return null
+}
+
 function EdgeOverlay({ direction, color, label }) {
   const style = {
     position: 'absolute',
@@ -133,6 +141,13 @@ export default function TilemapGrid({
       return
     }
     if (activeTool === 'conn') {
+      if (onConnectionClick) {
+        const direction = getBorderDirection(col, row, mapW, mapH)
+        if (direction) {
+          onConnectionClick(direction)
+          return
+        }
+      }
       if (onEntryClick) onEntryClick(col, row)
       return
     }
