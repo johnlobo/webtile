@@ -1,3 +1,5 @@
+import { ENTITY_TYPES } from '../services/entityTypes'
+
 /* Pixel-art SVG icons */
 const IconStamp = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
