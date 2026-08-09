@@ -75,6 +75,7 @@ export default function TilemapGrid({
   onConnectionClick, onEntryClick, roomId,
   spawns, onSpawnClick,
   entities, onEntityClick, selectedEntityType,
+  selectedEntityId, onSelectEntity,
 }) {
   const displayW   = (doubleWidth ? tileW * 2 : tileW) * zoom
   const displayH   = tileH * zoom
