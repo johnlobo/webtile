@@ -1011,22 +1011,24 @@ export default function HomePage() {
   const handleSelectMap = useCallback(async (mapId) => {
     setSelectedSpriteId(null)  // switch to map view
     if (mapId === activeMapId) return
+    await handleSaveMapMeta()
     const map = maps.find(m => m.id === mapId)
     if (map?.pageId && map.pageId !== activePageId) {
       setActivePageId(map.pageId)
     }
     if (projectId) await activateMap(projectId, mapId)
-  }, [activeMapId, projectId, activateMap, maps, activePageId])
+  }, [activeMapId, projectId, activateMap, maps, activePageId, handleSaveMapMeta])
 
   // ── Pages ───────────────────────────────────────────────────────────────────
 
   const handleSelectPage = useCallback(async (pageId) => {
     setActivePageId(pageId)
+    await handleSaveMapMeta()
     const pageMaps = maps.filter(m => m.pageId === pageId)
     if (pageMaps.length > 0 && pageMaps[0].id !== activeMapId) {
       await activateMap(projectId, pageMaps[0].id)
     }
-  }, [maps, activePageId, activeMapId, projectId, activateMap])
+  }, [maps, activePageId, activeMapId, projectId, activateMap, handleSaveMapMeta])
 
   const handleAddPage = async () => {
     if (!projectId) return
