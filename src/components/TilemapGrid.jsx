@@ -102,7 +102,14 @@ export default function TilemapGrid({
 
   const tryPaint = useCallback((col, row) => {
     if (activeTool === 'entity') {
-      if (onEntityClick) onEntityClick(col, row)
+      if (onEntityClick) {
+        const existing = entities.find(e => e.col === col && e.row === row)
+        if (existing && onSelectEntity) {
+          onSelectEntity(existing.id)
+          return
+        }
+        onEntityClick(col, row)
+      }
       return
     }
     if (activeTool === 'spawn') {
@@ -122,7 +129,7 @@ export default function TilemapGrid({
     } else if (activeTool === 'stamp' && selectedTile && tileset) {
       onPaintCell(col, row, selectedTile)
     }
-  }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells, onEntryClick, onSpawnClick, onEntityClick])
+  }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells, onEntryClick, onSpawnClick, onEntityClick, onSelectEntity, entities])
 
   const tryErase = useCallback((col, row) => {
     onPaintCell(col, row, null)
@@ -264,7 +271,8 @@ export default function TilemapGrid({
       const left = ent.col * displayW
       const top = ent.row * displayH
       const size = Math.min(displayW, displayH) * 0.7
-      const isSelected = activeTool === 'entity' && selectedEntityType === ent.type
+      const isSelected = selectedEntityId === ent.id
+      const isTypeSelected = activeTool === 'entity' && selectedEntityType === ent.type
       return (
         <div key={ent.id ?? i} style={{
           position: 'absolute',
@@ -281,7 +289,7 @@ export default function TilemapGrid({
           fontWeight: 800,
           color: def.color,
           boxShadow: `0 0 4px ${def.color}`,
-          outline: isSelected ? '2px solid #fff' : 'none',
+          outline: isSelected ? '2px solid #fff' : isTypeSelected ? '2px solid var(--accent)' : 'none',
           outlineOffset: '-2px',
         }}>
           {def.label}

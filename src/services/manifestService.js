@@ -28,6 +28,7 @@ export function generateModel01Manifest(project, maps) {
           type: e.type,
           col: e.col,
           row: e.row,
+          properties: e.properties ?? {},
         })),
       }))
 

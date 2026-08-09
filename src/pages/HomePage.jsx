@@ -466,6 +466,21 @@ function SpriteItem({ sprite, active, onClick, onDelete }) {
 
 // ── Empty states ──────────────────────────────────────────────────────────────
 
+function getDefaultProperties(type) {
+  switch (type) {
+    case 'enemy':
+      return { speed: 1, behavior: 'patrol', health: 1 }
+    case 'object':
+      return { collectible: true, respawn: false }
+    case 'portal':
+      return { targetRoomId: null, targetEntry: 0 }
+    case 'trigger':
+      return { event: 'none', once: true }
+    default:
+      return {}
+  }
+}
+
 function EmptyWorkspace() {
   return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
@@ -542,6 +557,7 @@ export default function HomePage() {
   const [spawns, setSpawns] = useState([])
   const [entities, setEntities] = useState([])
   const [selectedEntityType, setSelectedEntityType] = useState('enemy')
+  const [selectedEntityId, setSelectedEntityId] = useState(null)
 
   // Sprites
   const [sprites,            setSprites]            = useState([])
@@ -1072,11 +1088,33 @@ export default function HomePage() {
 
   const handleEntityClick = useCallback((col, row) => {
     setEntities(prev => {
-      const exists = prev.find(e => e.col === col && e.row === row)
-      if (exists) return prev.filter(e => !(e.col === col && e.row === row))
-      return [...prev, { type: selectedEntityType, col, row, id: Date.now() }]
+      const existing = prev.find(e => e.col === col && e.row === row)
+      if (existing) {
+        setSelectedEntityId(existing.id)
+        return prev
+      }
+      const newEntity = { type: selectedEntityType, col, row, id: Date.now(), properties: getDefaultProperties(selectedEntityType) }
+      return [...prev, newEntity]
     })
   }, [selectedEntityType])
+
+  const handleSelectEntity = useCallback((id) => {
+    setSelectedEntityId(id)
+  }, [])
+
+  const handleUpdateEntityProperty = useCallback((id, key, value) => {
+    setEntities(prev => prev.map(e => e.id === id ? { ...e, properties: { ...e.properties, [key]: value } } : e))
+  }, [])
+
+  const handleDeleteSelectedEntity = useCallback(() => {
+    if (!selectedEntityId) return
+    setEntities(prev => prev.filter(e => e.id !== selectedEntityId))
+    setSelectedEntityId(null)
+  }, [selectedEntityId])
+
+  const getSelectedEntity = useCallback(() => {
+    return entities.find(e => e.id === selectedEntityId) || null
+  }, [entities, selectedEntityId])
 
   const handleSaveMapMeta = useCallback(async () => {
     if (!projectId || !activeMapId || !mapConfigRef_.current) return
@@ -1373,7 +1411,9 @@ export default function HomePage() {
                     onSpawnClick={handleSpawnClick}
                     entities={entities}
                     onEntityClick={handleEntityClick}
+                    onSelectEntity={handleSelectEntity}
                     selectedEntityType={activeTool === 'entity' ? selectedEntityType : null}
+                    selectedEntityId={selectedEntityId}
                   />
           }
         </div>
@@ -1393,6 +1433,10 @@ export default function HomePage() {
               spawns={spawns}
               entities={entities}
               roomId={maps.find(m => m.id === activeMapId)?.roomId}
+              selectedEntityId={selectedEntityId}
+              selectedEntity={getSelectedEntity()}
+              onUpdateEntityProperty={handleUpdateEntityProperty}
+              onDeleteSelectedEntity={handleDeleteSelectedEntity}
             />
             {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
               const capacity = getPageCapacity(activePageId)

@@ -405,6 +405,94 @@ function MapDataSection({ roomId, connections, entryPositions, spawns, entities,
   )
 }
 
+/* ── Entity Properties Panel ────────────────────────────────────────── */
+function EntityPropertiesPanel({ entity, onUpdateProperty, onDelete }) {
+  const props = entity.properties ?? {}
+  const ENTITY_LABELS = { enemy: 'Enemy', object: 'Object', portal: 'Portal', trigger: 'Trigger' }
+
+  const renderField = (key, label, value) => {
+    if (value == null) return null
+    const isNumber = typeof value === 'number'
+    const isBool = typeof value === 'boolean'
+    const isSelect = typeof value === 'string' && label.includes('behavior') || key === 'event'
+
+    if (isSelect) {
+      const options = key === 'behavior'
+        ? ['patrol', 'chase', 'static', 'random']
+        : ['none', 'open_door', 'spawn', 'win', 'message']
+      return (
+        <div key={key} style={{ marginBottom: '8px' }}>
+          <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginBottom: '2px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
+          <select
+            value={value}
+            onChange={e => onUpdateProperty(key, e.target.value)}
+            style={{ width: '100%', fontSize: '11px', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 6px' }}
+          >
+            {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+          </select>
+        </div>
+      )
+    }
+
+    if (isBool) {
+      return (
+        <div key={key} style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <input
+            type="checkbox"
+            checked={value}
+            onChange={e => onUpdateProperty(key, e.target.checked)}
+            style={{ accentColor: 'var(--accent)' }}
+          />
+          <span style={{ fontSize: '11px', color: 'var(--text)' }}>{label}</span>
+        </div>
+      )
+    }
+
+    return (
+      <div key={key} style={{ marginBottom: '8px' }}>
+        <div style={{ fontSize: '9px', color: 'var(--text-dim)', marginBottom: '2px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
+        <input
+          type={isNumber ? 'number' : 'text'}
+          value={value}
+          onChange={e => onUpdateProperty(key, isNumber ? Number(e.target.value) : e.target.value)}
+          style={{ width: '100%', fontSize: '11px', background: 'var(--bg)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 6px' }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', padding: '12px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+        <div style={{
+          fontFamily: "'Roboto', sans-serif", fontWeight: 700,
+          fontSize: '10px', color: 'var(--text-dim)',
+          letterSpacing: '2px',
+        }}>
+          {ENTITY_LABELS[entity.type] ?? entity.type} PROPERTIES
+        </div>
+        <button
+          onClick={onDelete}
+          style={{
+            fontSize: '9px', padding: '2px 6px', background: 'transparent',
+            border: '1px solid var(--red)', color: 'var(--red)',
+            borderRadius: '3px', cursor: 'pointer',
+            fontFamily: "'Roboto', sans-serif", fontWeight: 600,
+          }}
+        >
+          DELETE
+        </button>
+      </div>
+
+      <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '8px' }}>
+        Position: {entity.col}, {entity.row}
+      </div>
+
+      {Object.entries(props).map(([key, value]) => renderField(key, key, value))}
+    </div>
+  )
+}
+
 
 /* ── Tile Pixel Editor ───────────────────────────────────────────────── */
 // Amstrad CPC 27-color hardware palette (3×3×3 RGB cube: 0x00, 0x80, 0xFF per channel)
@@ -582,7 +670,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 }
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
-export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId }) {
+export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity }) {
   return (
     <aside style={{
       width: '220px',
@@ -618,6 +706,14 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
           entities={entities}
           mapW={project.mapW}
           mapH={project.mapH}
+        />
+      )}
+
+      {selectedEntity && (
+        <EntityPropertiesPanel
+          entity={selectedEntity}
+          onUpdateProperty={onUpdateEntityProperty}
+          onDelete={onDeleteSelectedEntity}
         />
       )}
 
