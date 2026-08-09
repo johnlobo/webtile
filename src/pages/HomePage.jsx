@@ -1136,6 +1136,19 @@ export default function HomePage() {
     })
   }, [selectedEntityType])
 
+  const handleRemoveEntity = useCallback((id) => {
+    setEntities(prev => prev.filter(e => e.id !== id))
+    setSelectedEntityId(prev => prev === id ? null : prev)
+  }, [])
+
+  const handleRemoveSpawn = useCallback((spawn) => {
+    setSpawns(prev => prev.filter(sp => !(sp.col === spawn.col && sp.row === spawn.row)))
+  }, [])
+
+  const handleRemoveEntry = useCallback((entry) => {
+    setEntryPositions(prev => prev.filter(ep => !(ep.col === entry.col && ep.row === entry.row)))
+  }, [])
+
   const handleSelectEntity = useCallback((id) => {
     setSelectedEntityId(id)
   }, [])
@@ -1455,6 +1468,9 @@ export default function HomePage() {
                     onSelectEntity={handleSelectEntity}
                     selectedEntityType={activeTool === 'entity' ? selectedEntityType : null}
                     selectedEntityId={selectedEntityId}
+                    onEntityRemove={handleRemoveEntity}
+                    onSpawnRemove={handleRemoveSpawn}
+                    onEntryRemove={handleRemoveEntry}
                   />
           }
         </div>

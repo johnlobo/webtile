@@ -71,6 +71,7 @@ export default function TilemapGrid({
   spawns, onSpawnClick,
   entities, onEntityClick, selectedEntityType,
   selectedEntityId, onSelectEntity,
+  onEntityRemove, onSpawnRemove, onEntryRemove, onConnectionRemove,
 }) {
   const displayW   = (doubleWidth ? tileW * 2 : tileW) * zoom
   const displayH   = tileH * zoom
@@ -136,6 +137,21 @@ export default function TilemapGrid({
       return
     }
     if (activeTool === 'eraser') {
+      const entity = entities.find(e => e.col === col && e.row === row)
+      if (entity && onEntityRemove) {
+        onEntityRemove(entity.id)
+        return
+      }
+      const spawn = spawns.find(sp => sp.col === col && sp.row === row)
+      if (spawn && onSpawnRemove) {
+        onSpawnRemove(spawn)
+        return
+      }
+      const entry = entryPositions.find(ep => ep.col === col && ep.row === row)
+      if (entry && onEntryRemove) {
+        onEntryRemove(entry)
+        return
+      }
       onPaintCell(col, row, null)
     } else if (activeTool === 'fill' && selectedTile && tileset) {
       const cells = floodFill(mapTiles, col, row, mapW, mapH)
@@ -147,8 +163,23 @@ export default function TilemapGrid({
   }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells, onEntryClick, onSpawnClick, onEntityClick, onSelectEntity, entities])
 
   const tryErase = useCallback((col, row) => {
+    const entity = entities.find(e => e.col === col && e.row === row)
+    if (entity && onEntityRemove) {
+      onEntityRemove(entity.id)
+      return
+    }
+    const spawn = spawns.find(sp => sp.col === col && sp.row === row)
+    if (spawn && onSpawnRemove) {
+      onSpawnRemove(spawn)
+      return
+    }
+    const entry = entryPositions.find(ep => ep.col === col && ep.row === row)
+    if (entry && onEntryRemove) {
+      onEntryRemove(entry)
+      return
+    }
     onPaintCell(col, row, null)
-  }, [onPaintCell])
+  }, [onPaintCell, entities, spawns, entryPositions, onEntityRemove, onSpawnRemove, onEntryRemove])
 
   const getCellStyle = (col, row) => {
     const checker     = (col + row) % 2 === 0
