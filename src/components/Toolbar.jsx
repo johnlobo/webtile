@@ -142,6 +142,20 @@ const IconSpawn = () => (
   </svg>
 )
 
+const IconSelect = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <rect x="1" y="1" width="2" height="18"/>
+    <rect x="3" y="3" width="2" height="16"/>
+    <rect x="5" y="5" width="2" height="14"/>
+    <rect x="7" y="7" width="2" height="12"/>
+    <rect x="9" y="9" width="2" height="10"/>
+    <rect x="11" y="11" width="2" height="8"/>
+    <rect x="13" y="13" width="2" height="6"/>
+    <rect x="15" y="15" width="2" height="4"/>
+    <rect x="17" y="17" width="2" height="2"/>
+  </svg>
+)
+
 const IconEntity = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
     <rect x="8" y="1" width="4" height="4"/>
@@ -152,14 +166,13 @@ const IconEntity = () => (
   </svg>
 )
 
-import { ENTITY_TYPES } from '../services/entityTypes'
-
 const TOOLS = [
   { id: 'stamp',  label: 'STAMP',  shortcut: 'S', Icon: IconStamp  },
   { id: 'fill',   label: 'FILL',   shortcut: 'F', Icon: IconFill   },
   { id: 'eraser', label: 'ERASE',  shortcut: 'E', Icon: IconEraser },
   { id: 'conn',   label: 'LINK',   shortcut: 'L', Icon: IconConnection },
   { id: 'spawn',  label: 'SPAWN',  shortcut: 'P', Icon: IconSpawn },
+  { id: 'select', label: 'SELECT', shortcut: 'V', Icon: IconSelect },
   { id: 'entity', label: 'ENTITY', shortcut: 'X', Icon: IconEntity },
 ]
 

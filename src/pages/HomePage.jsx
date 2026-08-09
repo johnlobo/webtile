@@ -721,6 +721,7 @@ export default function HomePage() {
       if (e.key === 'e' || e.key === 'E') setActiveTool('eraser')
       if (e.key === 'l' || e.key === 'L') setActiveTool('conn')
       if (e.key === 'p' || e.key === 'P') setActiveTool('spawn')
+      if (e.key === 'v' || e.key === 'V') setActiveTool('select')
       if (e.key === 'x' || e.key === 'X') setActiveTool('entity')
       if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) { e.preventDefault(); handleRedo(); return }

@@ -105,6 +105,17 @@ export default function TilemapGrid({
   }, [handleWheel])
 
   const tryPaint = useCallback((col, row) => {
+    if (activeTool === 'select') {
+      if (onSelectEntity) {
+        const existing = entities.find(e => e.col === col && e.row === row)
+        if (existing) {
+          onSelectEntity(existing.id)
+        } else {
+          onSelectEntity(null)
+        }
+      }
+      return
+    }
     if (activeTool === 'entity') {
       if (onEntityClick) {
         const existing = entities.find(e => e.col === col && e.row === row)
@@ -306,6 +317,8 @@ export default function TilemapGrid({
     if (activeTool === 'eraser') return 'none'
     if (activeTool === 'conn') return 'crosshair'
     if (activeTool === 'spawn') return 'crosshair'
+    if (activeTool === 'select') return 'default'
+    if (activeTool === 'entity') return 'crosshair'
     if (tileset && selectedTile && activeTool === 'stamp') return 'none'
     return 'crosshair'
   }
