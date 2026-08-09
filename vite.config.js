@@ -12,7 +12,7 @@ export default defineConfig(({ command }) => {
     plugins: [
       react(),
       // Solo activamos el plugin de fix si estamos desarrollando en code-server
-      !isProduction && codeServerProxyPlugin(PROXY_BASE)
+      // !isProduction && codeServerProxyPlugin(PROXY_BASE)
     ].filter(Boolean),
     
     base: baseConfig,

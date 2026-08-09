@@ -21,7 +21,13 @@ import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from 
 import { exportProjectPackage, importProjectPackage } from '../services/packageService'
 import { generateModel01Manifest } from '../services/manifestService'
 import { GENERIC_PROFILE_ID, MODEL01_PROFILE_ID, getProjectProfile } from '../model01Profile'
-import { ENTITY_DEFAULT_PROPERTIES } from '../services/entityTypes'
+
+const ENTITY_DEFAULT_PROPERTIES = {
+  enemy:   { speed: 1, behavior: 'patrol', health: 1 },
+  object:  { collectible: true, respawn: false },
+  portal:  { targetRoomId: null, targetEntry: 0 },
+  trigger: { event: 'none', once: true },
+}
 
 // ── TMX helpers ───────────────────────────────────────────────────────────────
 
