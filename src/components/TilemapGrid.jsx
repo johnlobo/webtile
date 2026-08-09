@@ -77,6 +77,7 @@ export default function TilemapGrid({
   const isPainting = useRef(false)
   const isErasing  = useRef(false)
   const [hoveredCell, setHoveredCell] = useState(null)
+  const gridRef = useRef(null)
 
   const connectionDirections = ['north', 'south', 'east', 'west'].filter(d => connections?.[d] != null)
   const hasActiveConnection = activeTool === 'conn' && connectionDirections.length > 0
@@ -94,6 +95,14 @@ export default function TilemapGrid({
     if (e.deltaY < 0 && idx < ZOOM_LEVELS.length - 1) onZoomChange(ZOOM_LEVELS[idx + 1])
     if (e.deltaY > 0 && idx > 0)                       onZoomChange(ZOOM_LEVELS[idx - 1])
   }, [zoom, onZoomChange])
+
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const handler = (e) => handleWheel(e)
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [handleWheel])
 
   const tryPaint = useCallback((col, row) => {
     if (activeTool === 'entity') {
@@ -301,15 +310,15 @@ export default function TilemapGrid({
     return 'crosshair'
   }
 
-  return (
-    <div
-      style={{
-        overflow: 'auto', flex: 1,
-        display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start',
-        padding: '24px', position: 'relative', zIndex: 1,
-      }}
-      onWheel={handleWheel}
-    >
+   return (
+     <div
+       ref={gridRef}
+       style={{
+         overflow: 'auto', flex: 1,
+         display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start',
+         padding: '24px', position: 'relative', zIndex: 1,
+       }}
+     >
       <div style={{ margin: 'auto', position: 'relative' }}>
 
         {/* Info bar */}
