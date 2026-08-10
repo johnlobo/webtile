@@ -1561,83 +1561,85 @@ export default function HomePage() {
               onConnectionTargetChange={handleConnectionClick}
               maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
             />
-            <MapDataSection
-              roomId={maps.find(m => m.id === activeMapId)?.roomId}
-              connections={connections}
-              entryPositions={entryPositions}
-              spawns={spawns}
-              entities={entities}
-              mapW={mapConfig?.mapW}
-              mapH={mapConfig?.mapH}
-              maps={maps.filter(m => m.roomId != null)}
-              onConnectionTargetChange={handleConnectionClick}
-              maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
-            />
-            {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
-              const capacity = getPageCapacity(activePageId)
-              if (!capacity) return null
-              const pct = Math.round((capacity.used / capacity.budget) * 100)
-              return (
-                <aside style={{
-                  width: '220px',
-                  flexShrink: 0,
-                  background: 'var(--panel)',
-                  borderLeft: '1px solid var(--border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    padding: '12px',
-                    borderBottom: '1px solid var(--border)',
-                    fontFamily: "'Roboto', sans-serif", fontWeight: 700,
-                    fontSize: '10px', color: 'var(--text-dim)',
-                    letterSpacing: '2px',
-                  }}>
-                    PAGE CAPACITY
+            <div style={{
+              width: '220px',
+              flexShrink: 0,
+              background: 'var(--panel)',
+              borderLeft: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}>
+              <MapDataSection
+                roomId={maps.find(m => m.id === activeMapId)?.roomId}
+                connections={connections}
+                entryPositions={entryPositions}
+                spawns={spawns}
+                entities={entities}
+                mapW={mapConfig?.mapW}
+                mapH={mapConfig?.mapH}
+                maps={maps.filter(m => m.roomId != null)}
+                onConnectionTargetChange={handleConnectionClick}
+                maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
+              />
+              {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
+                const capacity = getPageCapacity(activePageId)
+                if (!capacity) return null
+                const pct = Math.round((capacity.used / capacity.budget) * 100)
+                return (
+                  <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+                    <div style={{
+                      padding: '12px',
+                      borderBottom: '1px solid var(--border)',
+                      fontFamily: "'Roboto', sans-serif", fontWeight: 700,
+                      fontSize: '10px', color: 'var(--text-dim)',
+                      letterSpacing: '2px',
+                    }}>
+                      PAGE CAPACITY
+                    </div>
+                    <div style={{ padding: '12px', overflowY: 'auto', maxHeight: '260px' }}>
+                      <div style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--accent)' }}>
+                        {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Rooms</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
+                        </div>
+                        <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Used</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '10px', color: 'var(--text-dim)' }}> B</span></div>
+                        </div>
+                      </div>
+                      <div style={{ marginBottom: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
+                          <span>Budget</span>
+                          <span>{capacity.budget} B</span>
+                        </div>
+                        <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                          <span>Free: {capacity.free} B</span>
+                          <span>{pct}%</span>
+                        </div>
+                      </div>
+                      {pct >= 100 && (
+                        <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
+                          PAGE OVER BUDGET BY {capacity.used - capacity.budget} B
+                        </div>
+                      )}
+                      <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6, marginTop: '12px' }}>
+                        <div>Maps (est.): {capacity.rooms * 50} B</div>
+                        <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
+                        <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
+                        <div>Directory: {capacity.rooms * 6} B</div>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
-                    <div style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--accent)' }}>
-                      {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                      <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Rooms</div>
-                        <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
-                      </div>
-                      <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Used</div>
-                        <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '10px', color: 'var(--text-dim)' }}> B</span></div>
-                      </div>
-                    </div>
-                    <div style={{ marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
-                        <span>Budget</span>
-                        <span>{capacity.budget} B</span>
-                      </div>
-                      <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                        <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                        <span>Free: {capacity.free} B</span>
-                        <span>{pct}%</span>
-                      </div>
-                    </div>
-                    {pct >= 100 && (
-                      <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
-                        PAGE OVER BUDGET BY {capacity.used - capacity.budget} B
-                      </div>
-                    )}
-                    <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6, marginTop: '12px' }}>
-                      <div>Maps (est.): {capacity.rooms * 50} B</div>
-                      <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
-                      <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
-                      <div>Directory: {capacity.rooms * 6} B</div>
-                    </div>
-                  </div>
-                </aside>
-              )
-            })()}
+                )
+              })()}
+            </div>
           </div>
         )}
       </div>
