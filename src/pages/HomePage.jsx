@@ -567,6 +567,7 @@ export default function HomePage() {
   // Refs
   const projectIdRef_   = useRef(null)
   const activeMapIdRef_ = useRef(null)
+  const activePageIdRef_ = useRef(null)
   const mapConfigRef_   = useRef(null)
   const tilesetRef_     = useRef(null)
   const mapTilesRef_    = useRef(null)
@@ -583,6 +584,7 @@ export default function HomePage() {
 
   useEffect(() => { projectIdRef_.current   = projectId   }, [projectId])
   useEffect(() => { activeMapIdRef_.current = activeMapId }, [activeMapId])
+  useEffect(() => { activePageIdRef_.current = activePageId }, [activePageId])
   useEffect(() => { mapConfigRef_.current   = mapConfig   }, [mapConfig])
   useEffect(() => { tilesetRef_.current     = tileset     }, [tileset])
   useEffect(() => { mapTilesRef_.current    = mapTiles    }, [mapTiles])
@@ -993,7 +995,7 @@ export default function HomePage() {
       setActiveMapId(mid)
       setMapConfig({ ...config })
       if (projectId) {
-        const ts = await loadPageTileset(user.uid, projectId, pageId)
+        const ts = await loadPageTileset(user.uid, projectId, pageId, config.tileW, config.tileH)
         setTileset(ts)
       } else {
         setTileset(null)

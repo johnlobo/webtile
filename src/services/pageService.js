@@ -87,7 +87,7 @@ export async function savePageTileset(userId, projectId, pageId, tileset) {
   })
 }
 
-export async function loadPageTileset(userId, projectId, pageId) {
+export async function loadPageTileset(userId, projectId, pageId, tileW, tileH) {
   try {
     const tsSnap = await getDoc(pageTilesetDoc(userId, projectId, pageId))
     if (!tsSnap.exists()) return null
@@ -99,6 +99,8 @@ export async function loadPageTileset(userId, projectId, pageId) {
     canvas.getContext('2d').drawImage(img, 0, 0)
     return {
       url: ts.data, img, canvas,
+      cols: tileW ? Math.floor(ts.naturalW / tileW) : undefined,
+      rows: tileH ? Math.floor(ts.naturalH / tileH) : undefined,
       naturalW: ts.naturalW, naturalH: ts.naturalH,
     }
   } catch (_) {
