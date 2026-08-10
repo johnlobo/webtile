@@ -1595,6 +1595,11 @@ export default function HomePage() {
                       <span>{pct}%</span>
                     </div>
                   </div>
+                  {pct >= 100 && (
+                    <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
+                      PAGE OVER BUDGET BY {capacity.used - capacity.budget} B
+                    </div>
+                  )}
                   <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
                     <div>Maps (est.): {capacity.rooms * 50} B</div>
                     <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
