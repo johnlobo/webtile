@@ -59,6 +59,10 @@ export function validateProjectPackage(pkg) {
         mapW === profile.mapWidth && mapH === profile.mapHeight
       if (!validSize) throw new Error(`Map "${map.name}" does not match the Model01 profile.`)
       if (map.tiles.some(id => id >= profile.maxTiles)) throw new Error(`Map "${map.name}" exceeds the ${profile.maxTiles}-tile Model01 limit.`)
+      const entityCount = (map.entities ?? []).length
+      if (profile.maxEntitiesPerMap != null && entityCount > profile.maxEntitiesPerMap) {
+        throw new Error(`Map "${map.name}" exceeds the ${profile.maxEntitiesPerMap}-entity Model01 limit.`)
+      }
     }
     if (map.spawns !== undefined && (!Number.isInteger(map.spawns) && !Array.isArray(map.spawns))) {
       throw new Error(`Map "${map.name}" has invalid spawns.`)

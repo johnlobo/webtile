@@ -1173,6 +1173,8 @@ export default function HomePage() {
   }, [])
 
   const handleEntityClick = useCallback((col, row) => {
+    const maxEntities = getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null
+    if (maxEntities != null && entities.length >= maxEntities) return
     pushHistory()
     setEntities(prev => {
       const existing = prev.find(e => e.col === col && e.row === row)
@@ -1183,7 +1185,7 @@ export default function HomePage() {
       const newEntity = { type: selectedEntityType, col, row, id: Date.now(), properties: getDefaultProperties(selectedEntityType) }
       return [...prev, newEntity]
     })
-  }, [selectedEntityType])
+  }, [selectedEntityType, entities.length, projectProfileId])
 
   const handleRemoveEntity = useCallback((id) => {
     pushHistory()
@@ -1253,10 +1255,12 @@ export default function HomePage() {
     const pageRooms = maps.filter(m => m.pageId === pageId)
     const roomCount = pageRooms.length
     const spawns = pageRooms.reduce((sum, m) => sum + (m.spawns ?? 0), 0)
+    const entities = pageRooms.reduce((sum, m) => sum + (m.entities?.length ?? 0), 0)
     const estimatedMapBytes = roomCount * 50
     const spawnBytes = spawns * 8
+    const entityBytes = entities * 4
     const directoryBytes = roomCount * 6
-    const used = estimatedMapBytes + spawnBytes + directoryBytes
+    const used = estimatedMapBytes + spawnBytes + entityBytes + directoryBytes
     const budget = 5632
     return {
       rooms: roomCount,
@@ -1524,6 +1528,7 @@ export default function HomePage() {
                     onEntityRemove={handleRemoveEntity}
                     onSpawnRemove={handleRemoveSpawn}
                     onEntryRemove={handleRemoveEntry}
+                    maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
                   />
           }
         </div>
@@ -1549,6 +1554,7 @@ export default function HomePage() {
               onUpdateEntityProperty={handleUpdateEntityProperty}
               onDeleteSelectedEntity={handleDeleteSelectedEntity}
               onConnectionTargetChange={handleConnectionClick}
+              maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
             />
             {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
               const capacity = getPageCapacity(activePageId)
@@ -1592,6 +1598,7 @@ export default function HomePage() {
                   <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
                     <div>Maps (est.): {capacity.rooms * 50} B</div>
                     <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
+                    <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
                     <div>Directory: {capacity.rooms * 6} B</div>
                   </div>
                 </div>

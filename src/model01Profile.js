@@ -19,6 +19,7 @@ export const PROJECT_PROFILES = {
     maxTiles: 48,
     targetScreensPerBank: 40,
     maxActorsPerScreen: 12,
+    maxEntitiesPerMap: 50,
   },
 }
 

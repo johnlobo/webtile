@@ -398,8 +398,11 @@ function MapDataSection({ roomId, connections, entryPositions, spawns, entities,
       <div style={{ marginTop: '10px' }}>
         <div style={{ fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px', letterSpacing: '1px' }}>ENTITIES</div>
         <div style={{ fontSize: '11px', color: entities?.length ? 'var(--accent)' : 'var(--text-dim)' }}>
-          {entities.length ? `${entities.length} placed` : 'None'}
+          {entities.length ? `${entities.length}${maxEntities != null ? ` / ${maxEntities}` : ''} placed` : 'None'}
         </div>
+        {maxEntities != null && entities.length >= maxEntities && (
+          <div style={{ fontSize: '10px', color: 'var(--red)', marginTop: '4px' }}>MAX REACHED</div>
+        )}
         {entities.length > 0 && (
           <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
             {entities.slice(0, 8).map((ent, i) => (

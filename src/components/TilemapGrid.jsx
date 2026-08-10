@@ -80,6 +80,7 @@ export default function TilemapGrid({
   entities, onEntityClick, selectedEntityType,
   selectedEntityId, onSelectEntity,
   onEntityRemove, onSpawnRemove, onEntryRemove, onConnectionRemove,
+  maxEntities,
 }) {
   const displayW   = (doubleWidth ? tileW * 2 : tileW) * zoom
   const displayH   = tileH * zoom
@@ -130,6 +131,9 @@ export default function TilemapGrid({
         const existing = entities.find(e => e.col === col && e.row === row)
         if (existing && onSelectEntity) {
           onSelectEntity(existing.id)
+          return
+        }
+        if (maxEntities != null && entities.length >= maxEntities) {
           return
         }
         onEntityClick(col, row)
@@ -230,6 +234,39 @@ export default function TilemapGrid({
           background: 'rgba(255,60,60,0.18)',
           outline: '2px solid var(--red, #ff3c3c)',
           outlineOffset: '-2px',
+        }} />
+      )
+    }
+
+    if (activeTool === 'entity') {
+      if (maxEntities != null && entities.length >= maxEntities) {
+        return (
+          <div style={{
+            ...base,
+            background: 'rgba(255,60,60,0.25)',
+            outline: '2px dashed var(--red)',
+            outlineOffset: '-2px',
+          }} />
+        )
+      }
+      if (!tileset || !selectedTile) {
+        return (
+          <div style={{ ...base, outline: '1px solid var(--green)', outlineOffset: '-1px' }} />
+        )
+      }
+      const scaleX = displayW / tileW
+      const scaleY = displayH / tileH
+      const def = ENTITY_TYPES[selectedEntityType] ?? ENTITY_TYPES.object
+      return (
+        <div style={{
+          ...base,
+          backgroundImage:    `url(${tileset.url})`,
+          backgroundRepeat:   'no-repeat',
+          backgroundSize:     `${tileset.naturalW * scaleX}px ${tileset.naturalH * scaleY}px`,
+          backgroundPosition: `-${selectedTile.col * tileW * scaleX}px -${selectedTile.row * tileH * scaleY}px`,
+          imageRendering:     'pixelated',
+          outline:            '2px dashed var(--amber)',
+          outlineOffset:      '-2px',
         }} />
       )
     }
@@ -364,7 +401,10 @@ export default function TilemapGrid({
     if (activeTool === 'conn') return 'crosshair'
     if (activeTool === 'spawn') return 'crosshair'
     if (activeTool === 'select') return 'default'
-    if (activeTool === 'entity') return 'crosshair'
+    if (activeTool === 'entity') {
+      if (maxEntities != null && entities.length >= maxEntities) return 'not-allowed'
+      return 'crosshair'
+    }
     if (tileset && selectedTile && activeTool === 'stamp') return 'none'
     return 'crosshair'
   }
@@ -406,6 +446,16 @@ export default function TilemapGrid({
           {activeTool === 'conn' && (
             <span style={{ color: 'var(--accent)' }}>
               LINK MODE: click a border or cell
+            </span>
+          )}
+          {activeTool === 'entity' && maxEntities != null && (
+            <span style={{ color: entities.length >= maxEntities ? 'var(--red)' : 'var(--accent)' }}>
+              ENTITIES: {entities.length} / {maxEntities}
+            </span>
+          )}
+          {activeTool === 'entity' && maxEntities == null && (
+            <span style={{ color: 'var(--accent)' }}>
+              ENTITIES: {entities.length}
             </span>
           )}
         </div>
