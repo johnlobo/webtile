@@ -570,6 +570,10 @@ export default function HomePage() {
   const mapConfigRef_   = useRef(null)
   const tilesetRef_     = useRef(null)
   const mapTilesRef_    = useRef(null)
+  const connectionsRef_ = useRef(null)
+  const entryPositionsRef_ = useRef(null)
+  const spawnsRef_      = useRef(null)
+  const entitiesRef_    = useRef(null)
   const autoSaveTimer   = useRef(null)
   const historyRef      = useRef([])
   const redoRef         = useRef([])
@@ -582,6 +586,10 @@ export default function HomePage() {
   useEffect(() => { mapConfigRef_.current   = mapConfig   }, [mapConfig])
   useEffect(() => { tilesetRef_.current     = tileset     }, [tileset])
   useEffect(() => { mapTilesRef_.current    = mapTiles    }, [mapTiles])
+  useEffect(() => { connectionsRef_.current = connections }, [connections])
+  useEffect(() => { entryPositionsRef_.current = entryPositions }, [entryPositions])
+  useEffect(() => { spawnsRef_.current = spawns }, [spawns])
+  useEffect(() => { entitiesRef_.current = entities }, [entities])
 
   // Load sprites when project changes
   useEffect(() => {
@@ -589,14 +597,34 @@ export default function HomePage() {
     listSprites(user.uid, projectId).then(setSprites).catch(console.error)
   }, [projectId, user.uid])
 
+  const captureMapState = useCallback(() => {
+    return {
+      tiles: mapTilesRef_.current,
+      connections: connectionsRef_.current,
+      entryPositions: entryPositionsRef_.current,
+      spawns: spawnsRef_.current,
+      entities: entitiesRef_.current,
+    }
+  }, [])
+
+  const restoreMapState = useCallback((state) => {
+    if (!state) return
+    setMapTiles(state.tiles)
+    setConnections(state.connections ?? {})
+    setEntryPositions(state.entryPositions ?? [])
+    setSpawns(state.spawns ?? [])
+    setEntities(state.entities ?? [])
+  }, [])
+
   const pushHistory = useCallback(() => {
-    if (!mapTilesRef_.current) return
-    historyRef.current.push(mapTilesRef_.current)
+    const state = captureMapState()
+    if (!state.tiles) return
+    historyRef.current.push(state)
     if (historyRef.current.length > 50) historyRef.current.shift()
     redoRef.current = []
     setCanUndo(true)
     setCanRedo(false)
-  }, [])
+  }, [captureMapState])
 
   const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8]
   const zoomIn  = () => setZoom(z => { const i = ZOOM_LEVELS.indexOf(z); return i < ZOOM_LEVELS.length - 1 ? ZOOM_LEVELS[i + 1] : z })
@@ -708,22 +736,22 @@ export default function HomePage() {
   const handleUndo = useCallback(() => {
     const prev = historyRef.current.pop()
     if (!prev) return
-    redoRef.current.push(mapTilesRef_.current)
-    setMapTiles(prev)
-    scheduleAutoSave(prev)
+    const current = captureMapState()
+    redoRef.current.push(current)
+    restoreMapState(prev)
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(true)
-  }, [scheduleAutoSave])
+  }, [captureMapState, restoreMapState])
 
   const handleRedo = useCallback(() => {
     const next = redoRef.current.pop()
     if (!next) return
-    historyRef.current.push(mapTilesRef_.current)
-    setMapTiles(next)
-    scheduleAutoSave(next)
+    const current = captureMapState()
+    historyRef.current.push(current)
+    restoreMapState(next)
     setCanUndo(true)
     setCanRedo(redoRef.current.length > 0)
-  }, [scheduleAutoSave])
+  }, [captureMapState, restoreMapState])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1109,6 +1137,7 @@ export default function HomePage() {
   }
 
   const handleConnectionClick = useCallback((direction, targetRoomId) => {
+    pushHistory()
     setConnections(prev => {
       const next = { ...prev }
       if (targetRoomId == null) {
@@ -1125,6 +1154,7 @@ export default function HomePage() {
   }, [])
 
   const handleEntryClick = useCallback((col, row) => {
+    pushHistory()
     setEntryPositions(prev => {
       const exists = prev.find(ep => ep.col === col && ep.row === row)
       if (exists) return prev.filter(ep => !(ep.col === col && ep.row === row))
@@ -1133,6 +1163,7 @@ export default function HomePage() {
   }, [])
 
   const handleSpawnClick = useCallback((col, row) => {
+    pushHistory()
     setSpawns(prev => {
       const exists = prev.find(sp => sp.col === col && sp.row === row)
       if (exists) return prev.filter(sp => !(sp.col === col && sp.row === row))
@@ -1142,6 +1173,7 @@ export default function HomePage() {
   }, [])
 
   const handleEntityClick = useCallback((col, row) => {
+    pushHistory()
     setEntities(prev => {
       const existing = prev.find(e => e.col === col && e.row === row)
       if (existing) {
@@ -1154,15 +1186,18 @@ export default function HomePage() {
   }, [selectedEntityType])
 
   const handleRemoveEntity = useCallback((id) => {
+    pushHistory()
     setEntities(prev => prev.filter(e => e.id !== id))
     setSelectedEntityId(prev => prev === id ? null : prev)
   }, [])
 
   const handleRemoveSpawn = useCallback((spawn) => {
+    pushHistory()
     setSpawns(prev => prev.filter(sp => !(sp.col === spawn.col && sp.row === spawn.row)))
   }, [])
 
   const handleRemoveEntry = useCallback((entry) => {
+    pushHistory()
     setEntryPositions(prev => prev.filter(ep => !(ep.col === entry.col && ep.row === entry.row)))
   }, [])
 
@@ -1176,6 +1211,7 @@ export default function HomePage() {
 
   const handleDeleteSelectedEntity = useCallback(() => {
     if (!selectedEntityId) return
+    pushHistory()
     setEntities(prev => prev.filter(e => e.id !== selectedEntityId))
     setSelectedEntityId(null)
   }, [selectedEntityId])
