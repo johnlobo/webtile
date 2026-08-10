@@ -1560,62 +1560,64 @@ export default function HomePage() {
               onConnectionTargetChange={handleConnectionClick}
               maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
             />
-            {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
-              const capacity = getPageCapacity(activePageId)
-              if (!capacity) return null
-              const pct = Math.round((capacity.used / capacity.budget) * 100)
-              return (
-                <div style={{
-                  width: '220px', borderLeft: '1px solid var(--border)',
-                  background: 'var(--panel)', padding: '16px', overflowY: 'auto',
-                  fontFamily: "'Roboto', sans-serif", fontSize: '12px', color: 'var(--text)',
-                }}>
-                  <div style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: '12px' }}>
-                    Page Capacity
-                  </div>
-                  <div style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--accent)' }}>
-                    {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                    <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Rooms</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
-                    </div>
-                    <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Used</div>
-                      <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '10px', color: 'var(--text-dim)' }}> B</span></div>
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
-                      <span>Budget</span>
-                      <span>{capacity.budget} B</span>
-                    </div>
-                    <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                      <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                      <span>Free: {capacity.free} B</span>
-                      <span>{pct}%</span>
-                    </div>
-                  </div>
-                  {pct >= 100 && (
-                    <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
-                      PAGE OVER BUDGET BY {capacity.used - capacity.budget} B
-                    </div>
-                  )}
-                  <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
-                    <div>Maps (est.): {capacity.rooms * 50} B</div>
-                    <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
-                    <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
-                    <div>Directory: {capacity.rooms * 6} B</div>
-                  </div>
-                </div>
-              )
-            })()}
           </>
         )}
       </div>
+
+      {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
+        const capacity = getPageCapacity(activePageId)
+        if (!capacity) return null
+        const pct = Math.round((capacity.used / capacity.budget) * 100)
+        return (
+          <div style={{
+            width: '100%', borderTop: '1px solid var(--border)',
+            background: 'var(--panel)', padding: '10px 24px',
+            display: 'flex', alignItems: 'center', gap: '24px', flexShrink: 0,
+            fontFamily: "'Roboto', sans-serif", fontSize: '12px', color: 'var(--text)',
+          }}>
+            <div style={{ fontWeight: 700, fontSize: '10px', letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-dim)', marginRight: '8px' }}>
+              Page Capacity
+            </div>
+            <div style={{ fontWeight: 600, color: 'var(--accent)', minWidth: '60px' }}>
+              {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
+            </div>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{ background: 'var(--bg)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', minWidth: '70px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>Rooms</div>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '9px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
+              </div>
+              <div style={{ background: 'var(--bg)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border)', minWidth: '70px' }}>
+                <div style={{ fontSize: '9px', color: 'var(--text-dim)' }}>Used</div>
+                <div style={{ fontSize: '14px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '9px', color: 'var(--text-dim)' }}> B</span></div>
+              </div>
+              <div style={{ minWidth: '140px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-dim)', marginBottom: '4px' }}>
+                  <span>Budget</span>
+                  <span>{capacity.budget} B</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                  <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: 'var(--text-dim)', marginTop: '4px' }}>
+                  <span>Free: {capacity.free} B</span>
+                  <span>{pct}%</span>
+                </div>
+              </div>
+              {pct >= 100 && (
+                <div style={{ padding: '6px 10px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
+                  OVER BUDGET BY {capacity.used - capacity.budget} B
+                </div>
+              )}
+              <div style={{ fontSize: '9px', color: 'var(--text-dim)', lineHeight: 1.6, marginLeft: 'auto' }}>
+                <div>Maps (est.): {capacity.rooms * 50} B</div>
+                <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
+                <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
+                <div>Directory: {capacity.rooms * 6} B</div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {showNewProjectModal && (
         <NewProjectModal
