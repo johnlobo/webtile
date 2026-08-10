@@ -304,7 +304,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
 }
 
 /* ── Map Data Section ───────────────────────────────────────────────── */
-function MapDataSection({ roomId, connections, entryPositions, spawns, entities, mapW, mapH, maps, onConnectionTargetChange }) {
+function MapDataSection({ roomId, connections, entryPositions, spawns, entities, mapW, mapH, maps, onConnectionTargetChange, maxEntities }) {
   const directions = ['north', 'south', 'east', 'west']
   const dirLabels = { north: 'North ↑', south: 'South ↓', east: 'East →', west: 'West ←' }
 
@@ -729,6 +729,7 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
           mapH={project.mapH}
           maps={maps}
           onConnectionTargetChange={onConnectionTargetChange}
+          maxEntities={maxEntities}
         />
       )}
 

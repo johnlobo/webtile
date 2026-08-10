@@ -1,5 +1,5 @@
 import { createProject, loadProject, listMaps, loadMap, createMap, saveMap } from './projectService'
-import { addPage, DEFAULT_PAGE_ID } from './pageService'
+import { addPage, DEFAULT_PAGE_ID, assignRoomToPage } from './pageService'
 import { listSprites, loadSprite, createSprite, saveSprite } from './spriteService'
 import { getProjectProfile, MODEL01_PROFILE_ID, normalizeProfileId } from '../model01Profile'
 
