@@ -718,21 +718,6 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
         />
       )}
 
-      {project && roomId != null && (
-        <MapDataSection
-          roomId={roomId}
-          connections={connections}
-          entryPositions={entryPositions}
-          spawns={spawns}
-          entities={entities}
-          mapW={project.mapW}
-          mapH={project.mapH}
-          maps={maps}
-          onConnectionTargetChange={onConnectionTargetChange}
-          maxEntities={maxEntities}
-        />
-      )}
-
       {selectedEntity && (
         <EntityPropertiesPanel
           entity={selectedEntity}
