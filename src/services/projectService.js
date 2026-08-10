@@ -61,6 +61,7 @@ const mapsCol          = (uid, pid)      => collection(db, 'users', uid, 'projec
 const mapDoc           = (uid, pid, mid) => doc(mapsCol(uid, pid), mid)
 const mapTilesetDoc    = (uid, pid, mid) => doc(db, 'users', uid, 'projects', pid, 'maps', mid, 'assets', 'tileset')
 const oldTilesetDoc    = (uid, pid)      => doc(db, 'users', uid, 'projects', pid, 'assets', 'tileset')
+const pageTilesetDoc   = (uid, pid, pageId) => doc(db, 'users', uid, 'projects', pid, 'pages', pageId, 'assets', 'tileset')
 
 // ── Old-schema migration ────────────────────────────────────────────────────────
 // Pre-restructure projects stored map config inline in the project doc and tileset
@@ -144,16 +145,20 @@ export async function listProjects(userId) {
 
 /** Delete a project and all its maps. */
 export async function deleteProject(userId, projectId) {
-  // Best-effort: delete maps subcollection and old-schema assets
+  try {
+    const projSnap = await getDoc(projectDoc(userId, projectId))
+    const pages = projSnap.data()?.pages ?? []
+    for (const p of pages) {
+      try { await deleteDoc(pageTilesetDoc(userId, projectId, p.id)) } catch (_) {}
+    }
+  } catch (_) {}
   try {
     const msnap = await getDocs(mapsCol(userId, projectId))
     for (const md of msnap.docs) {
-      try { await deleteDoc(mapTilesetDoc(userId, projectId, md.id)) } catch (_) {}
       try { await deleteDoc(md.ref) } catch (_) {}
     }
   } catch (_) {}
   try { await deleteDoc(oldTilesetDoc(userId, projectId)) } catch (_) {}
-  // Critical: delete the project document itself
   await deleteDoc(projectDoc(userId, projectId))
 }
 
@@ -183,7 +188,7 @@ export async function createMap(userId, projectId, { name, tileW, tileH, mapW, m
 }
 
 /** Save (update) a map's tile data and config. */
-export async function saveMap(userId, projectId, mapId, { name, config, mapTiles, tileset, tilesetBlobUrl, roomId, pageId, spawns, connections, entryPositions, entities, scripts }) {
+export async function saveMap(userId, projectId, mapId, { name, config, mapTiles, roomId, pageId, spawns, connections, entryPositions, entities, scripts }) {
   const updates = {
     name,
     ...config,
@@ -198,16 +203,6 @@ export async function saveMap(userId, projectId, mapId, { name, config, mapTiles
   if (entryPositions !== undefined) updates.entryPositions = entryPositions
   if (entities !== undefined)     updates.entities = entities
   if (scripts !== undefined)      updates.scripts = scripts
-
-  if (tilesetBlobUrl) {
-    const base64 = await toBase64DataUrl(tilesetBlobUrl)
-    await setDoc(mapTilesetDoc(userId, projectId, mapId), {
-      data:     base64,
-      naturalW: tileset.naturalW,
-      naturalH: tileset.naturalH,
-    })
-    updates.hasTileset = true
-  }
 
   await setDoc(mapDoc(userId, projectId, mapId), updates, { merge: true })
   await setDoc(projectDoc(userId, projectId), { updatedAt: serverTimestamp() }, { merge: true })
@@ -226,7 +221,21 @@ export async function loadMap(userId, projectId, mapId) {
   }
 
   let tileset = null
-  if (d.hasTileset) {
+  if (d.pageId) {
+    const tsSnap = await getDoc(pageTilesetDoc(userId, projectId, d.pageId))
+    if (tsSnap.exists()) {
+      const ts   = tsSnap.data()
+      const img  = await loadImage(ts.data)
+      const cols = Math.floor(ts.naturalW / d.tileW)
+      const rows = Math.floor(ts.naturalH / d.tileH)
+      const canvas = document.createElement('canvas')
+      canvas.width  = ts.naturalW
+      canvas.height = ts.naturalH
+      canvas.getContext('2d').drawImage(img, 0, 0)
+      tileset = { url: ts.data, img, canvas, cols, rows, naturalW: ts.naturalW, naturalH: ts.naturalH }
+    }
+  }
+  if (!tileset) {
     const tsSnap = await getDoc(mapTilesetDoc(userId, projectId, mapId))
     if (tsSnap.exists()) {
       const ts   = tsSnap.data()
@@ -277,8 +286,7 @@ export async function listMaps(userId, projectId) {
   }))
 }
 
-/** Delete a map and its tileset sub-document. */
+/** Delete a map. */
 export async function deleteMap(userId, projectId, mapId) {
-  try { await deleteDoc(mapTilesetDoc(userId, projectId, mapId)) } catch (_) {}
   await deleteDoc(mapDoc(userId, projectId, mapId))
 }

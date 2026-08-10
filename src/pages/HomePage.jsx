@@ -16,7 +16,7 @@ import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
-import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage } from '../services/pageService'
+import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage, savePageTileset, loadPageTileset } from '../services/pageService'
 import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from '../services/spriteService'
 import { exportProjectPackage, importProjectPackage } from '../services/packageService'
 import { generateModel01Manifest } from '../services/manifestService'
@@ -703,7 +703,6 @@ export default function HomePage() {
     clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(async () => {
       const cfg = mapConfigRef_.current
-      const ts  = tilesetRef_.current
       const mt  = tiles ?? mapTilesRef_.current
       if (!cfg || !mt) return
       setSaveStatus('saving')
@@ -712,8 +711,6 @@ export default function HomePage() {
           name:    cfg.name,
           config:  cfg,
           mapTiles: mt,
-          tileset: ts,
-          tilesetBlobUrl: ts?.url,
           connections,
           entryPositions,
           spawns,
@@ -812,7 +809,11 @@ export default function HomePage() {
       if (!projectId) return
       clearTimeout(autoSaveTimer.current)
       if (activeMapIdRef_.current && mapConfigRef_.current && mapTilesRef_.current) {
-        await saveMap(user.uid, projectId, activeMapIdRef_.current, { name: mapConfigRef_.current.name, config: mapConfigRef_.current, mapTiles: mapTilesRef_.current, tileset: tilesetRef_.current })
+        await saveMap(user.uid, projectId, activeMapIdRef_.current, {
+          name: mapConfigRef_.current.name,
+          config: mapConfigRef_.current,
+          mapTiles: mapTilesRef_.current,
+        })
       }
       const pkg = await exportProjectPackage(user.uid, projectId)
       downloadText((projectName || 'project') + '.webtile.json', JSON.stringify(pkg, null, 2))
@@ -991,7 +992,12 @@ export default function HomePage() {
       redoRef.current = []
       setActiveMapId(mid)
       setMapConfig({ ...config })
-      setTileset(null)
+      if (projectId) {
+        const ts = await loadPageTileset(user.uid, projectId, pageId)
+        setTileset(ts)
+      } else {
+        setTileset(null)
+      }
       setSelectedTile(null)
       setMapTiles(emptyTiles)
       setConnections({})
@@ -1031,7 +1037,6 @@ export default function HomePage() {
     setActiveMapId(null)
     setMapConfig(null)
     setMapTiles(null)
-    setTileset(null)
     setSelectedTile(null)
     setConnections({})
     setEntryPositions([])
@@ -1066,8 +1071,19 @@ export default function HomePage() {
     const pageMaps = maps.filter(m => m.pageId === pageId)
     if (pageMaps.length > 0 && pageMaps[0].id !== activeMapId) {
       await activateMap(projectId, pageMaps[0].id)
+    } else if (pageMaps.length === 0 && projectId) {
+      setActiveMapId(null)
+      setMapConfig(null)
+      setMapTiles(null)
+      setSelectedTile(null)
+      setConnections({})
+      setEntryPositions([])
+      setSpawns([])
+      setEntities([])
+      const ts = await loadPageTileset(user.uid, projectId, pageId)
+      setTileset(ts)
     }
-  }, [maps, activePageId, activeMapId, projectId, activateMap])
+  }, [maps, activePageId, activeMapId, projectId, activateMap, user.uid])
 
   const handleAddPage = async () => {
     if (!projectId) return
@@ -1313,18 +1329,11 @@ export default function HomePage() {
   const handleLoadTileset = useCallback(async (ts) => {
     setTileset(ts)
     const pid = projectIdRef_.current
-    const mid = activeMapIdRef_.current
-    const cfg = mapConfigRef_.current
-    if (!pid || !mid || !cfg) return
+    const pageId = activePageIdRef_.current
+    if (!pid || !pageId) return
     setSaveStatus('saving')
     try {
-      await saveMap(user.uid, pid, mid, {
-        name:           cfg.name,
-        config:         cfg,
-        mapTiles:       mapTilesRef_.current,
-        tileset:        ts,
-        tilesetBlobUrl: ts.url,
-      })
+      await savePageTileset(user.uid, pid, pageId, ts)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch (_) {
@@ -1336,22 +1345,15 @@ export default function HomePage() {
     const url = canvas.toDataURL()
     setTileset(ts => ts ? { ...ts, url } : ts)
     const pid = projectIdRef_.current
-    const mid = activeMapIdRef_.current
-    if (!pid || !mid) return
+    const pageId = activePageIdRef_.current
+    if (!pid || !pageId) return
     clearTimeout(autoSaveTimer.current)
     setSaveStatus('saving')
     autoSaveTimer.current = setTimeout(async () => {
-      const cfg = mapConfigRef_.current
-      const ts  = tilesetRef_.current
-      if (!cfg || !ts) return
+      const ts = tilesetRef_.current
+      if (!ts) return
       try {
-        await saveMap(user.uid, pid, mid, {
-          name:           cfg.name,
-          config:         cfg,
-          mapTiles:       mapTilesRef_.current,
-          tileset:        ts,
-          tilesetBlobUrl: ts.canvas ? ts.canvas.toDataURL() : ts.url,
-        })
+        await savePageTileset(user.uid, pid, pageId, ts)
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus(null), 2000)
       } catch (_) {

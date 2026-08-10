@@ -1,10 +1,12 @@
 import {
-  collection, doc, setDoc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove,
+  collection, doc, setDoc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove, deleteDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
 const projectsCol = (uid) => collection(db, 'users', uid, 'projects')
 const projectDoc  = (uid, pid) => doc(projectsCol(uid), pid)
+const pageDoc     = (uid, pid, pageId) => doc(db, 'users', uid, 'projects', pid, 'pages', pageId)
+const pageTilesetDoc = (uid, pid, pageId) => doc(pageDoc(uid, pid, pageId), 'assets', 'tileset')
 
 export const DEFAULT_PAGE_ID = 'base'
 
@@ -66,4 +68,53 @@ export async function deletePage(userId, projectId, pageId) {
   const snap = await getDoc(projectDoc(userId, projectId))
   const pages = (snap.data()?.pages ?? []).filter(p => p.id !== pageId)
   await updateDoc(projectDoc(userId, projectId), { pages })
+}
+
+export async function savePageTileset(userId, projectId, pageId, tileset) {
+  if (!tileset) return
+  const base64 = tileset.url?.startsWith('data:')
+    ? tileset.url
+    : await fetch(tileset.url).then(r => r.blob()).then(blob => new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload  = () => resolve(reader.result)
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      }))
+  await setDoc(pageTilesetDoc(userId, projectId, pageId), {
+    data:     base64,
+    naturalW: tileset.naturalW,
+    naturalH: tileset.naturalH,
+  })
+}
+
+export async function loadPageTileset(userId, projectId, pageId) {
+  try {
+    const tsSnap = await getDoc(pageTilesetDoc(userId, projectId, pageId))
+    if (!tsSnap.exists()) return null
+    const ts = tsSnap.data()
+    const img = await loadImage(ts.data)
+    const canvas = document.createElement('canvas')
+    canvas.width  = ts.naturalW
+    canvas.height = ts.naturalH
+    canvas.getContext('2d').drawImage(img, 0, 0)
+    return {
+      url: ts.data, img, canvas,
+      naturalW: ts.naturalW, naturalH: ts.naturalH,
+    }
+  } catch (_) {
+    return null
+  }
+}
+
+export async function deletePageTileset(userId, projectId, pageId) {
+  try { await deleteDoc(pageTilesetDoc(userId, projectId, pageId)) } catch (_) {}
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Invalid tileset image.'))
+    img.src = src
+  })
 }
