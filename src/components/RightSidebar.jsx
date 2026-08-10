@@ -691,7 +691,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 import { ENTITY_TYPES, ENTITY_DEFAULT_PROPERTIES, ENTITY_BEHAVIORS, ENTITY_EVENTS } from '../services/entityTypes'
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
-export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange }) {
+export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange, maxEntities }) {
   return (
     <aside style={{
       width: '220px',
