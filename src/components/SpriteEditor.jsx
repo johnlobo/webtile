@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadSprite, saveSprite } from '../services/spriteService'
+import { loadFont, stampText } from '../services/fontService'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -362,7 +363,7 @@ function bresenhamLine(x0, y0, x1, y1) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos }) {
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, onPlaceText }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
@@ -455,6 +456,8 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     if (isPasting && cell) { onPasteCommit(cell.x, cell.y); return }
 
     if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk); return }
+
+    if (activeTool === 'text' && cell) { onPlaceText?.(cell.x, cell.y); return }
 
     if (activeTool === 'select') {
       if (cell) { selAnchor.current = cell; onSelectionChange(normalizeSelection(cell, cell)) }
@@ -563,6 +566,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     : activeTool === 'select'                 ? 'crosshair'
     : activeTool === 'picker'                 ? 'crosshair'
     : activeTool === 'fill'                   ? 'crosshair'
+    : activeTool === 'text'                   ? 'text'
     : paintCursor                             ?? 'default'
 
   return (
@@ -1209,6 +1213,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [clipboard,    setClipboard]    = useState(null)
   const [isPasting,    setIsPasting]    = useState(false)
   const [cursorPos,    setCursorPos]    = useState(null)
+  const [textString,   setTextString]   = useState('')
+  const [fontReady,    setFontReady]    = useState(false)
 
   const saveTimer   = useRef(null)
   const spriteRef   = useRef(null)
@@ -1239,6 +1245,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         setLoading(false)
       })
   }, [spriteId, userId, projectId])
+
+  // Load font
+  useEffect(() => {
+    loadFont().then(() => setFontReady(true)).catch(err => {
+      console.error('Failed to load font:', err)
+    })
+  }, [])
 
   // Auto-save
   const scheduleAutoSave = useCallback((updatedSprite) => {
@@ -1323,6 +1336,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
       if (e.key === 'r' || e.key === 'R') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
+      if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
       if (e.key === 'Escape') { setSelection(null); setIsPasting(false); setActiveTool(t => t === 'select' ? 'pencil' : t); return }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault()
@@ -1533,6 +1547,19 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       return { ...prev, frames }
     })
   }, [currentFrame, activeInk, selection, updateSprite, pushHistory])
+
+  const handlePlaceText = useCallback((cx, cy) => {
+    if (!textString.trim()) return
+    pushHistory()
+    updateSprite(prev => {
+      const frames = prev.frames.map((f, fi) => {
+        if (fi !== currentFrame) return f
+        const newPixels = stampText(f.pixels, prev.width, prev.height, cx, cy, textString, activeInk)
+        return { ...f, pixels: newPixels }
+      })
+      return { ...prev, frames }
+    })
+  }, [textString, currentFrame, activeInk, updateSprite, pushHistory])
 
   // ── Erase selection ─────────────────────────────────────────────────────────
 
@@ -1769,6 +1796,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="⬚" name="SELECT" title="Select [R]"           active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
           <ToolBtn label="▪" name="FILL"   title="Fill [F]"             active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
           <ToolBtn label="✥" name="MOVE"   title="Move selection [M]"  active={activeTool === 'move'}    disabled={!selection} onClick={() => { setActiveTool('move');   setIsPasting(false) }} />
+          <ToolBtn label="T" name="TEXT"   title="Text tool [T]"        active={activeTool === 'text'}    onClick={() => { setActiveTool('text');   setIsPasting(false) }} />
 
           <div style={dividerStyle} />
 
@@ -1876,6 +1904,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onMoveStart={handleMoveStart}
           onMoveCommit={handleMoveCommit}
           onCursorPos={setCursorPos}
+          onPlaceText={handlePlaceText}
         />
 
         {/* RIGHT PANEL */}
@@ -1898,6 +1927,38 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           />
 
           <div style={dividerStyle} />
+
+          {/* Text tool */}
+          {activeTool === 'text' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
+                TEXT
+              </div>
+              <input
+                className="pixel-input"
+                type="text"
+                value={textString}
+                onChange={e => setTextString(e.target.value)}
+                placeholder="Type text..."
+                autoFocus
+                style={{ width: '100%' }}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') {
+                    setActiveTool('pencil')
+                    setTextString('')
+                  }
+                }}
+              />
+              <div style={{ fontFamily: "'VT323', monospace", fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.5 }}>
+                {fontReady
+                  ? `Supported: A-Z 0-9 ! : ? @`
+                  : 'Loading font...'}
+              </div>
+              <div style={{ fontFamily: "'VT323', monospace", fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.5 }}>
+                Click canvas to place
+              </div>
+            </div>
+          )}
 
           {/* Info */}
           <div>
