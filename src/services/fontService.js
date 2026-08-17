@@ -21,9 +21,9 @@ function nearestCpcColor(r, g, b) {
   return best
 }
 
-const GLYPH_W = 4
+const GLYPH_W = 3
 const GLYPH_H = 9
-const CHAR_COUNT = 47
+const CHAR_COUNT = 48
 
 const CHAR_MAP = {}
 CHAR_MAP[33] = 0
