@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadSprite, saveSprite } from '../services/spriteService'
-import { loadFont, stampText } from '../services/fontService'
+import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 

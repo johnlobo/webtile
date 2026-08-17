@@ -85,15 +85,7 @@ export async function loadFont() {
   return loadPromise
 }
 
-export function getCharIndex(charCode) {
-  return CHAR_MAP[charCode]
-}
-
-export function getGlyph(charIndex) {
-  if (!glyphs) return null
-  if (charIndex < 0 || charIndex >= CHAR_COUNT) return null
-  return glyphs[charIndex]
-}
+export { GLYPH_W, GLYPH_H, CHAR_MAP, glyphs }
 
 export function stampText(pixels, spriteWidth, spriteHeight, startX, startY, text, ink, tracking = 1) {
   const result = [...pixels]
