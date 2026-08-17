@@ -433,17 +433,17 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       for (let i = 0; i < upper.length; i++) {
         const code = upper.charCodeAt(i)
         if (code === 32) {
-          cx += cellW * 3
+          cx += cellW * (GLYPH_W + 1)
           continue
         }
         const charIdx = CHAR_MAP[code]
         if (charIdx === undefined || !glyphs) {
-          cx += cellW * 3
+          cx += cellW * (GLYPH_W + 1)
           continue
         }
         const glyph = glyphs[charIdx]
         if (!glyph) {
-          cx += cellW * 3
+          cx += cellW * (GLYPH_W + 1)
           continue
         }
         const color = CPC_COLORS[palette[textOverlay.ink] ?? 0]
@@ -456,7 +456,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
             }
           }
         }
-        cx += cellW * 3
+        cx += cellW * (GLYPH_W + 1)
       }
 
       if (blink) {
