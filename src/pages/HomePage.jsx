@@ -13,6 +13,7 @@ import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
+import packageJson from '../../package.json'
 import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
@@ -1418,6 +1419,15 @@ export default function HomePage() {
         }}>
           WEBTILE
         </a>
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '0 12px',
+          borderRight: '1px solid var(--border)',
+          fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 600,
+          color: 'var(--text-dim)', letterSpacing: '0.5px', flexShrink: 0,
+        }}>
+          v{packageJson.version}
+        </div>
 
         {/* Dropdown nav */}
         <TopNav
