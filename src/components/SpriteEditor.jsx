@@ -1619,19 +1619,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
   }, [currentFrame, activeInk, selection, updateSprite, pushHistory])
 
-  const handlePlaceText = useCallback((cx, cy) => {
-    if (!textString.trim()) return
-    pushHistory()
-    updateSprite(prev => {
-      const frames = prev.frames.map((f, fi) => {
-        if (fi !== currentFrame) return f
-        const newPixels = stampText(f.pixels, prev.width, prev.height, cx, cy, textString, activeInk)
-        return { ...f, pixels: newPixels }
-      })
-      return { ...prev, frames }
-    })
-  }, [textString, currentFrame, activeInk, updateSprite, pushHistory])
-
   // ── Erase selection ─────────────────────────────────────────────────────────
 
   const handleEraseSelection = useCallback(() => {
