@@ -1398,8 +1398,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
       if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); setIsPasting(false); return }
-      if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
-      if (e.key === 'r' || e.key === 'R') { setActiveTool('select'); setIsPasting(false); return }
+      if (e.key === 'g' || e.key === 'G') { setActiveTool('fill');   setIsPasting(false); return }
+      if (e.key === 'v' || e.key === 'V') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
       if (e.key === 'Escape') {
@@ -1855,8 +1855,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="✏" name="PENCIL" title="Pencil (draw)"       active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
           <ToolBtn label="⌫" name="ERASE"  title="Eraser"              active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
           <ToolBtn label="⊕" name="PICK"   title="Color Picker"        active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label="⬚" name="SELECT" title="Select [R]"           active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="▪" name="FILL"   title="Fill [F]"             active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
+          <ToolBtn label="⬚" name="SELECT" title="Select [V]"           active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
+          <ToolBtn label="▪" name="FILL"   title="Fill [G]"             active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
           <ToolBtn label="✥" name="MOVE"   title="Move selection [M]"  active={activeTool === 'move'}    disabled={!selection} onClick={() => { setActiveTool('move');   setIsPasting(false) }} />
           <ToolBtn label="T" name="TEXT"   title="Text tool [T]"        active={activeTool === 'text'}    onClick={() => { setActiveTool('text');   setIsPasting(false) }} />
 
