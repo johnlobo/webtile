@@ -1392,16 +1392,20 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   useEffect(() => {
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
+
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleUndoRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') { e.preventDefault(); handleCopyRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'x') { e.preventDefault(); handleCutRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
+
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
       if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); setIsPasting(false); return }
       if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'v' || e.key === 'V') { setActiveTool('move');   setIsPasting(false); return }
-      if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
       if (e.key === 'Escape') {
         if (textMode) {
@@ -1412,22 +1416,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         setSelection(null)
         setIsPasting(false)
         setActiveTool(t => t === 'select' ? 'pencil' : t)
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-        e.preventDefault()
-        handleCopyRef.current?.()
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
-        e.preventDefault()
-        handleCutRef.current?.()
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-        e.preventDefault()
-        setIsPasting(true)
-        setActiveTool('select')
         return
       }
     }
