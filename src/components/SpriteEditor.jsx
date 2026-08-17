@@ -363,7 +363,7 @@ function bresenhamLine(x0, y0, x1, y1) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, onPlaceText }) {
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
@@ -375,12 +375,19 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const movePixels  = useRef(null)
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
+  const [blink,      setBlink]    = useState(true)
 
   useEffect(() => {
     if (activeTool !== 'move') { moveAnchor.current = null; setMovePos(null) }
   }, [activeTool])
 
   useEffect(() => { lineAnchor.current = null }, [activeTool])
+
+  useEffect(() => {
+    if (!textOverlay) return
+    const id = setInterval(() => setBlink(b => !b), 500)
+    return () => clearInterval(id)
+  }, [textOverlay])
 
   const cellW = CELL_W_BASE[videoMode] * zoom * (doubleWidth ? 2 : 1)
   const cellH = CELL_H_BASE * zoom
@@ -417,7 +424,47 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette, cellW, cellH, {
       showGrid: true, gridCellW, gridCellH,
     })
-  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH])
+
+    if (textOverlay) {
+      const ctx = canvas.getContext('2d')
+      const upper = textOverlay.text.toUpperCase()
+      let cx = textOverlay.startX * cellW
+      const cy = textOverlay.startY * cellH
+      for (let i = 0; i < upper.length; i++) {
+        const code = upper.charCodeAt(i)
+        if (code === 32) {
+          cx += cellW * 3
+          continue
+        }
+        const charIdx = CHAR_MAP[code]
+        if (charIdx === undefined || !glyphs) {
+          cx += cellW * 3
+          continue
+        }
+        const glyph = glyphs[charIdx]
+        if (!glyph) {
+          cx += cellW * 3
+          continue
+        }
+        const color = CPC_COLORS[palette[textOverlay.ink] ?? 0]
+        ctx.fillStyle = color
+        for (let gy = 0; gy < GLYPH_H; gy++) {
+          for (let gx = 0; gx < GLYPH_W; gx++) {
+            const val = glyph[gy * GLYPH_W + gx]
+            if (val !== 0) {
+              ctx.fillRect(cx + gx * cellW, cy + gy * cellH, cellW, cellH)
+            }
+          }
+        }
+        cx += cellW * 3
+      }
+
+      if (blink) {
+        ctx.fillStyle = CPC_COLORS[palette[textOverlay.ink] ?? 0]
+        ctx.fillRect(cx, cy, cellW, cellH * GLYPH_H)
+      }
+    }
+  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink])
 
   const getCellFromEvent = useCallback((e) => {
     const canvas = canvasRef.current
@@ -457,7 +504,12 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk); return }
 
-    if (activeTool === 'text' && cell) { onPlaceText?.(cell.x, cell.y); return }
+    if (activeTool === 'text' && cell) {
+      setTextMode({ x: cell.x, y: cell.y })
+      setTextBuffer('')
+      setTextCursor({ x: cell.x, y: cell.y })
+      return
+    }
 
     if (activeTool === 'select') {
       if (cell) { selAnchor.current = cell; onSelectionChange(normalizeSelection(cell, cell)) }
@@ -1213,8 +1265,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [clipboard,    setClipboard]    = useState(null)
   const [isPasting,    setIsPasting]    = useState(false)
   const [cursorPos,    setCursorPos]    = useState(null)
-  const [textString,   setTextString]   = useState('')
+  const [textMode,     setTextMode]     = useState(null)
+  const [textBuffer,   setTextBuffer]   = useState('')
+  const [textCursor,   setTextCursor]   = useState({ x: 0, y: 0 })
   const [fontReady,    setFontReady]    = useState(false)
+  const textInputRef   = useRef(null)
 
   const saveTimer   = useRef(null)
   const spriteRef   = useRef(null)
@@ -1323,6 +1378,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   useEffect(() => { handleUndoRef.current = handleUndo }, [handleUndo])
   useEffect(() => { handleRedoRef.current = handleRedo }, [handleRedo])
 
+  useEffect(() => {
+    if (textMode && textInputRef.current) {
+      textInputRef.current.focus()
+    }
+  }, [textMode])
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
@@ -1337,7 +1398,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.key === 'r' || e.key === 'R') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
-      if (e.key === 'Escape') { setSelection(null); setIsPasting(false); setActiveTool(t => t === 'select' ? 'pencil' : t); return }
+      if (e.key === 'Escape') {
+        if (textMode) {
+          setTextMode(null)
+          setTextBuffer('')
+          return
+        }
+        setSelection(null)
+        setIsPasting(false)
+        setActiveTool(t => t === 'select' ? 'pencil' : t)
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
         e.preventDefault()
         handleCopyRef.current?.()
@@ -1904,7 +1975,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onMoveStart={handleMoveStart}
           onMoveCommit={handleMoveCommit}
           onCursorPos={setCursorPos}
-          onPlaceText={handlePlaceText}
+          textOverlay={textMode ? { startX: textMode.x, startY: textMode.y, text: textBuffer, ink: activeInk } : null}
         />
 
         {/* RIGHT PANEL */}
@@ -1934,29 +2005,51 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
               <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--text-dim)', letterSpacing: '1px' }}>
                 TEXT
               </div>
+              {textMode ? (
+                <div style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--text)', lineHeight: 1.6 }}>
+                  Type to write…<br />
+                  <span style={{ color: 'var(--text-dim)' }}>Enter = confirm</span><br />
+                  <span style={{ color: 'var(--text-dim)' }}>Esc = cancel</span>
+                </div>
+              ) : (
+                <div style={{ fontFamily: "'VT323', monospace", fontSize: '13px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+                  {fontReady ? 'Click canvas to place text' : 'Loading font…'}
+                </div>
+              )}
               <input
-                className="pixel-input"
+                ref={textInputRef}
                 type="text"
-                value={textString}
-                onChange={e => setTextString(e.target.value)}
-                placeholder="Type text..."
-                autoFocus
-                style={{ width: '100%' }}
+                value={textBuffer}
+                onChange={e => setTextBuffer(e.target.value.toUpperCase())}
                 onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    if (!textMode || !textBuffer.trim()) return
+                    pushHistory()
+                    updateSprite(prev => {
+                      const frames = prev.frames.map((f, fi) => {
+                        if (fi !== currentFrame) return f
+                        const newPixels = stampText(f.pixels, prev.width, prev.height, textMode.x, textMode.y, textBuffer, activeInk, 1)
+                        return { ...f, pixels: newPixels }
+                      })
+                      return { ...prev, frames }
+                    })
+                    setTextMode(null)
+                    setTextBuffer('')
+                  }
                   if (e.key === 'Escape') {
-                    setActiveTool('pencil')
-                    setTextString('')
+                    e.preventDefault()
+                    setTextMode(null)
+                    setTextBuffer('')
+                  }
+                  if (e.key === 'Backspace') {
+                    e.preventDefault()
+                    setTextBuffer(prev => prev.slice(0, -1))
                   }
                 }}
+                style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                autoFocus={textMode}
               />
-              <div style={{ fontFamily: "'VT323', monospace", fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.5 }}>
-                {fontReady
-                  ? `Supported: A-Z 0-9 ! : ? @`
-                  : 'Loading font...'}
-              </div>
-              <div style={{ fontFamily: "'VT323', monospace", fontSize: '12px', color: 'var(--text-dim)', letterSpacing: '1px', lineHeight: 1.5 }}>
-                Click canvas to place
-              </div>
             </div>
           )}
 

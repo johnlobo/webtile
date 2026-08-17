@@ -95,24 +95,24 @@ export function getGlyph(charIndex) {
   return glyphs[charIndex]
 }
 
-export function stampText(pixels, spriteWidth, spriteHeight, startX, startY, text, ink) {
+export function stampText(pixels, spriteWidth, spriteHeight, startX, startY, text, ink, tracking = 1) {
   const result = [...pixels]
   let x = startX
   const upper = text.toUpperCase()
   for (let i = 0; i < upper.length; i++) {
     const code = upper.charCodeAt(i)
     if (code === 32) {
-      x += GLYPH_W
+      x += GLYPH_W + tracking
       continue
     }
     const charIdx = CHAR_MAP[code]
     if (charIdx === undefined || !glyphs) {
-      x += GLYPH_W
+      x += GLYPH_W + tracking
       continue
     }
     const glyph = glyphs[charIdx]
     if (!glyph) {
-      x += GLYPH_W
+      x += GLYPH_W + tracking
       continue
     }
     for (let gy = 0; gy < GLYPH_H; gy++) {
@@ -126,7 +126,7 @@ export function stampText(pixels, spriteWidth, spriteHeight, startX, startY, tex
         }
       }
     }
-    x += GLYPH_W
+    x += GLYPH_W + tracking
   }
   return result
 }
