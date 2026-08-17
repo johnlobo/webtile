@@ -363,7 +363,7 @@ function bresenhamLine(x0, y0, x1, y1) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay }) {
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
@@ -375,19 +375,12 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const movePixels  = useRef(null)
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
-  const [blink,      setBlink]    = useState(true)
 
   useEffect(() => {
     if (activeTool !== 'move') { moveAnchor.current = null; setMovePos(null) }
   }, [activeTool])
 
   useEffect(() => { lineAnchor.current = null }, [activeTool])
-
-  useEffect(() => {
-    if (!textOverlay) return
-    const id = setInterval(() => setBlink(b => !b), 500)
-    return () => clearInterval(id)
-  }, [textOverlay])
 
   const cellW = CELL_W_BASE[videoMode] * zoom * (doubleWidth ? 2 : 1)
   const cellH = CELL_H_BASE * zoom
@@ -505,9 +498,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk); return }
 
     if (activeTool === 'text' && cell) {
-      setTextMode({ x: cell.x, y: cell.y })
-      setTextBuffer('')
-      setTextCursor({ x: cell.x, y: cell.y })
+      onTextClick?.(cell.x, cell.y)
       return
     }
 
@@ -1271,6 +1262,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [fontReady,    setFontReady]    = useState(false)
   const textInputRef   = useRef(null)
 
+  const handleTextClick = useCallback((x, y) => {
+    setTextMode({ x, y })
+    setTextBuffer('')
+    setTextCursor({ x, y })
+  }, [])
+
   const saveTimer   = useRef(null)
   const spriteRef   = useRef(null)
   const historyRef  = useRef([])
@@ -1962,6 +1959,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onMoveStart={handleMoveStart}
           onMoveCommit={handleMoveCommit}
           onCursorPos={setCursorPos}
+          onTextClick={handleTextClick}
           textOverlay={textMode ? { startX: textMode.x, startY: textMode.y, text: textBuffer, ink: activeInk } : null}
         />
 
