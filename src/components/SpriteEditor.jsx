@@ -502,7 +502,11 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (isPasting && cell) { onPasteCommit(cell.x, cell.y); return }
 
-    if (activeTool === 'fill' && cell) { onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk); return }
+    if (activeTool === 'fill' && cell) {
+      if (e.altKey) { onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true); return }
+      onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk)
+      return
+    }
 
     if (activeTool === 'text' && cell) {
       onTextClick?.(cell.x, cell.y)
@@ -531,6 +535,10 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     onStrokeStart?.()
     if (activeTool === 'eraser' && selection) { onEraseSelection(); return }
     if (e.button === 2) { erasing.current = true; eraseCell(cell); return }
+    if (e.altKey && activeTool === 'pencil' && cell) {
+      onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true)
+      return
+    }
     painting.current = true
     if (cell) {
       if (activeTool === 'pencil' && e.shiftKey && lineAnchor.current) {
@@ -1841,11 +1849,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           alignContent: 'start', padding: '10px 6px', gap: '6px',
           overflowY: 'auto',
         }}>
-          <ToolBtn label="✏" name="PENCIL" title="Pencil (draw)"       active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
-          <ToolBtn label="⌫" name="ERASE"  title="Eraser"              active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
-          <ToolBtn label="⊕" name="PICK"   title="Color Picker"        active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label="⬚" name="SELECT" title="Select [M]"           active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="▪" name="FILL"   title="Fill [F]"             active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
+          <ToolBtn label="✏" name="PENCIL" title="Pencil (draw) — Alt = pick"       active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
+          <ToolBtn label="⌫" name="ERASE"  title="Eraser"                              active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
+          <ToolBtn label="⊕" name="PICK"   title="Color Picker"                        active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
+          <ToolBtn label="⬚" name="SELECT" title="Select [M]"                          active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
+          <ToolBtn label="▪" name="FILL"   title="Fill [F] — Alt = pick"              active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
           <ToolBtn label="✥" name="MOVE"   title="Move selection [V]"  active={activeTool === 'move'}    disabled={!selection} onClick={() => { setActiveTool('move');   setIsPasting(false) }} />
           <ToolBtn label="T" name="TEXT"   title="Text tool [T]"        active={activeTool === 'text'}    onClick={() => { setActiveTool('text');   setIsPasting(false) }} />
 
