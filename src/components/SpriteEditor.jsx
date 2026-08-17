@@ -375,6 +375,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const movePixels  = useRef(null)
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
+  const [blink,     setBlink]     = useState(true)
+
+  useEffect(() => {
+    if (!textOverlay) return
+    const id = setInterval(() => setBlink(v => !v), 500)
+    return () => clearInterval(id)
+  }, [textOverlay])
 
   useEffect(() => {
     if (activeTool !== 'move') { moveAnchor.current = null; setMovePos(null) }
