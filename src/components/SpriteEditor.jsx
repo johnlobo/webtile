@@ -15,7 +15,7 @@ const CPC_COLORS = [
 const MODE_INK_COUNT      = [16, 4, 2]
 const CELL_W_BASE         = [16, 8, 4]   // screen pixels per CPC pixel per mode
 const CELL_H_BASE         = 8             // same for all modes
-const SPRITE_ZOOM_LEVELS  = [1, 2, 4, 8]
+const SPRITE_ZOOM_LEVELS  = [0.25, 0.5, 1, 2, 4, 8]
 
 // ── CPC encoding ──────────────────────────────────────────────────────────────
 
