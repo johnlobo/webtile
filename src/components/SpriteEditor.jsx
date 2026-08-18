@@ -1842,7 +1842,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
         {/* LEFT TOOLBAR */}
         <div style={{
-          width: '196px', flexShrink: 0,
+          width: '172px', flexShrink: 0,
           background: 'var(--panel)',
           borderRight: '1px solid var(--border)',
           display: 'grid', gridTemplateColumns: '1fr 1fr',

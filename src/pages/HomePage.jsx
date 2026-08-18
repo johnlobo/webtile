@@ -13,6 +13,7 @@ import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
+import StudioExplorer from '../components/StudioExplorer'
 import packageJson from '../../package.json'
 import {
   createProject, loadProject, listMaps,
@@ -240,10 +241,10 @@ function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMa
   const close = () => setActiveMenu(null)
 
   return (
-    <div ref={navRef} style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
+    <div ref={navRef} className="studio-top-nav" style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
 
       {/* PROJECTS */}
-      <NavDropdown label="PROJECTS" open={activeMenu === 'project'} onToggle={() => toggle('project')}>
+      <NavDropdown label="FILE" open={activeMenu === 'project'} onToggle={() => toggle('project')}>
         <div style={{ padding: '10px 16px 6px', fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', letterSpacing: '0.6px', textTransform: 'uppercase' }}>Project</div>
         {projectName && (
           <div style={{ padding: '2px 16px 8px', fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 600, color: 'var(--accent)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -520,6 +521,43 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   )
 }
 
+function StudioInspector({ collapsed, onToggle, tab, onTabChange, selectedEntity, capacity, pageLabel, pageMaps, rightSidebarProps, mapDataProps }) {
+  if (collapsed) return <aside className="studio-inspector studio-inspector-collapsed"><button className="studio-panel-toggle" title="Open inspector" onClick={onToggle}>‹</button></aside>
+  const tabs = [['assets', 'ASSETS'], ['room', 'ROOM'], ['entity', 'ENTITY'], ...(capacity ? [['capacity', 'BUDGET']] : [])]
+  const pct = capacity ? Math.round(capacity.used / capacity.budget * 100) : 0
+  return (
+    <aside className="studio-inspector">
+      <div className="studio-panel-header studio-inspector-title">
+        <div><div className="studio-panel-eyebrow">INSPECTOR</div><div className="studio-project-name">{tab === 'entity' && selectedEntity ? selectedEntity.type : tab}</div></div>
+        <button className="studio-panel-toggle" title="Collapse inspector" onClick={onToggle}>›</button>
+      </div>
+      <div className="studio-inspector-tabs">
+        {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => onTabChange(id)}>{label}{id === 'entity' && selectedEntity ? ' •' : ''}</button>)}
+      </div>
+      <div className="studio-inspector-content">
+        {tab === 'assets' && <RightSidebar {...rightSidebarProps} view="assets" embedded />}
+        {tab === 'room' && <MapDataSection {...mapDataProps} />}
+        {tab === 'entity' && <RightSidebar {...rightSidebarProps} view="entity" embedded />}
+        {tab === 'capacity' && capacity && (
+          <div className="studio-budget-panel">
+            <div className="studio-budget-page">{pageLabel}</div>
+            <div className="studio-budget-cards"><div><span>Rooms</span><strong>{capacity.rooms}<small> / {capacity.target}</small></strong></div><div><span>Used</span><strong>{capacity.used}<small> B</small></strong></div></div>
+            <div className="studio-budget-label"><span>Budget</span><span>{capacity.budget} B</span></div>
+            <div className="studio-budget-track"><div className={pct > 85 ? 'danger' : ''} style={{ width: `${Math.min(100, pct)}%` }} /></div>
+            <div className="studio-budget-label"><span>Free: {capacity.free} B</span><span>{pct}%</span></div>
+            <div className="studio-budget-breakdown">
+              <div><span>Maps (est.)</span><span>{capacity.rooms * 50} B</span></div>
+              <div><span>Spawns</span><span>{pageMaps.reduce((s, m) => s + (Array.isArray(m.spawns) ? m.spawns.length : (m.spawns ?? 0)), 0) * 8} B</span></div>
+              <div><span>Entities</span><span>{pageMaps.reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</span></div>
+              <div><span>Directory</span><span>{capacity.rooms * 6} B</span></div>
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+  )
+}
+
 // ── HomePage ──────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
@@ -552,6 +590,9 @@ export default function HomePage() {
   const [entities, setEntities] = useState([])
   const [selectedEntityType, setSelectedEntityType] = useState('enemy')
   const [selectedEntityId, setSelectedEntityId] = useState(null)
+  const [explorerCollapsed, setExplorerCollapsed] = useState(false)
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const [inspectorTab, setInspectorTab] = useState('assets')
 
   // Sprites
   const [sprites,            setSprites]            = useState([])
@@ -1071,6 +1112,7 @@ export default function HomePage() {
   // ── Pages ───────────────────────────────────────────────────────────────────
 
   const handleSelectPage = useCallback(async (pageId) => {
+    setSelectedSpriteId(null)
     setActivePageId(pageId)
     const pageMaps = maps.filter(m => m.pageId === pageId)
     if (pageMaps.length > 0 && pageMaps[0].id !== activeMapId) {
@@ -1225,6 +1267,10 @@ export default function HomePage() {
 
   const handleSelectEntity = useCallback((id) => {
     setSelectedEntityId(id)
+    if (id != null) {
+      setInspectorTab('entity')
+      setInspectorCollapsed(false)
+    }
   }, [])
 
   const handleUpdateEntityProperty = useCallback((id, key, value) => {
@@ -1274,7 +1320,7 @@ export default function HomePage() {
     if (profile.id !== 'model01') return null
     const pageRooms = maps.filter(m => m.pageId === pageId)
     const roomCount = pageRooms.length
-    const spawns = pageRooms.reduce((sum, m) => sum + (m.spawns ?? 0), 0)
+    const spawns = pageRooms.reduce((sum, m) => sum + (Array.isArray(m.spawns) ? m.spawns.length : (m.spawns ?? 0)), 0)
     const entities = pageRooms.reduce((sum, m) => sum + (m.entities?.length ?? 0), 0)
     const estimatedMapBytes = roomCount * 50
     const spawnBytes = spawns * 8
@@ -1399,7 +1445,7 @@ export default function HomePage() {
       <div className="tile-bg" />
 
       {/* Top bar */}
-      <header style={{
+      <header className="studio-topbar" style={{
         position: 'relative', zIndex: 100,
         display: 'flex', alignItems: 'stretch',
         borderBottom: '1px solid var(--border)',
@@ -1408,7 +1454,7 @@ export default function HomePage() {
         height: '48px',
       }}>
         {/* Logo */}
-        <a href="/" style={{
+        <a className="studio-logo" href="/" style={{
           display: 'flex', alignItems: 'center',
           padding: '0 20px 0 24px',
           borderRight: '1px solid var(--border)',
@@ -1419,7 +1465,7 @@ export default function HomePage() {
         }}>
           WEBTILE
         </a>
-        <div style={{
+        <div className="studio-version" style={{
           display: 'flex', alignItems: 'center',
           padding: '0 12px',
           borderRight: '1px solid var(--border)',
@@ -1486,8 +1532,8 @@ export default function HomePage() {
         </div>
 
         {/* Right: user + logout */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '0 20px', borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
+        <div className="studio-account" style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '0 20px', borderLeft: '1px solid var(--border)', flexShrink: 0 }}>
+          <span className="studio-account-name" style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 400, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>
             {user.displayName || user.email}
           </span>
           <button className="btn-ghost" onClick={handleLogout}>Log Out</button>
@@ -1495,7 +1541,31 @@ export default function HomePage() {
       </header>
 
       {/* Body */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <div className="studio-body">
+
+        <StudioExplorer
+          collapsed={explorerCollapsed}
+          onToggle={() => setExplorerCollapsed(v => !v)}
+          projectName={projectName}
+          profileLabel={getProjectProfile(projectProfileId).label}
+          pages={pages}
+          activePageId={activePageId}
+          maps={maps}
+          activeMapId={activeMapId}
+          sprites={sprites}
+          selectedSpriteId={selectedSpriteId}
+          onSelectPage={handleSelectPage}
+          onAddPage={handleAddPage}
+          onRenamePage={handleRenamePage}
+          onDeletePage={handleDeletePage}
+          onSelectMap={handleSelectMap}
+          onNewMap={() => setShowNewMapModal(true)}
+          onDeleteMap={handleDeleteMap}
+          onMoveMapToPage={handleMoveMapToPage}
+          onSelectSprite={handleSelectSprite}
+          onNewSprite={() => setShowNewSpriteModal(true)}
+          onDeleteSprite={handleDeleteSprite}
+        />
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           {hasMap && !selectedSpriteId && (
@@ -1548,109 +1618,34 @@ export default function HomePage() {
           }
         </div>
 
-        {!selectedSpriteId && (
-          <div style={{ display: 'flex', flexShrink: 0 }}>
-            <RightSidebar
-              project={mapConfig}
-              mapTiles={mapTiles}
-              tileset={tileset}
-              selectedTile={selectedTile}
-              onLoadTileset={handleLoadTileset}
-              onSelectTile={setSelectedTile}
-              onEditTile={handleEditTile}
-              connections={connections}
-              entryPositions={entryPositions}
-              spawns={spawns}
-              entities={entities}
-              roomId={maps.find(m => m.id === activeMapId)?.roomId}
-              maps={maps.filter(m => m.roomId != null)}
-              selectedEntityId={selectedEntityId}
-              selectedEntity={getSelectedEntity()}
-              onUpdateEntityProperty={handleUpdateEntityProperty}
-              onDeleteSelectedEntity={handleDeleteSelectedEntity}
-              onConnectionTargetChange={handleConnectionClick}
-              maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
-            />
-            <div style={{
-              width: '220px',
-              flexShrink: 0,
-              background: 'var(--panel)',
-              borderLeft: '1px solid var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-            }}>
-              <MapDataSection
-                roomId={maps.find(m => m.id === activeMapId)?.roomId}
-                connections={connections}
-                entryPositions={entryPositions}
-                spawns={spawns}
-                entities={entities}
-                mapW={mapConfig?.mapW}
-                mapH={mapConfig?.mapH}
-                maps={maps.filter(m => m.roomId != null)}
-                onConnectionTargetChange={handleConnectionClick}
-                maxEntities={getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null}
-              />
-              {projectProfileId === MODEL01_PROFILE_ID && pages.length > 0 && (() => {
-                const capacity = getPageCapacity(activePageId)
-                if (!capacity) return null
-                const pct = Math.round((capacity.used / capacity.budget) * 100)
-                return (
-                  <div style={{ borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-                    <div style={{
-                      padding: '12px',
-                      borderBottom: '1px solid var(--border)',
-                      fontFamily: "'Roboto', sans-serif", fontWeight: 700,
-                      fontSize: '10px', color: 'var(--text-dim)',
-                      letterSpacing: '2px',
-                    }}>
-                      PAGE CAPACITY
-                    </div>
-                    <div style={{ padding: '12px', overflowY: 'auto', maxHeight: '260px' }}>
-                      <div style={{ marginBottom: '8px', fontWeight: 600, color: 'var(--accent)' }}>
-                        {pages.find(p => p.id === activePageId)?.label ?? 'Base'}
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Rooms</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.rooms} <span style={{ fontSize: '10px', color: 'var(--text-dim)' }}>/ {capacity.target}</span></div>
-                        </div>
-                        <div style={{ background: 'var(--bg)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-                          <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>Used</div>
-                          <div style={{ fontSize: '16px', fontWeight: 700 }}>{capacity.used}<span style={{ fontSize: '10px', color: 'var(--text-dim)' }}> B</span></div>
-                        </div>
-                      </div>
-                      <div style={{ marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginBottom: '4px' }}>
-                          <span>Budget</span>
-                          <span>{capacity.budget} B</span>
-                        </div>
-                        <div style={{ width: '100%', height: '6px', background: 'var(--bg)', borderRadius: '3px', border: '1px solid var(--border)', overflow: 'hidden' }}>
-                          <div style={{ width: `${Math.min(100, pct)}%`, height: '100%', background: pct > 85 ? 'var(--red)' : 'var(--accent)', transition: 'width 0.2s' }} />
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-dim)', marginTop: '4px' }}>
-                          <span>Free: {capacity.free} B</span>
-                          <span>{pct}%</span>
-                        </div>
-                      </div>
-                      {pct >= 100 && (
-                        <div style={{ marginTop: '8px', padding: '8px', background: 'rgba(255,60,60,0.08)', border: '1px solid rgba(255,60,60,0.3)', borderRadius: '6px', color: 'var(--red)', fontSize: '10px', fontWeight: 600 }}>
-                          PAGE OVER BUDGET BY {capacity.used - capacity.budget} B
-                        </div>
-                      )}
-                      <div style={{ fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6, marginTop: '12px' }}>
-                        <div>Maps (est.): {capacity.rooms * 50} B</div>
-                        <div>Spawns: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.spawns ?? 0), 0) * 8} B</div>
-                        <div>Entities: {maps.filter(m => m.pageId === activePageId).reduce((s, m) => s + (m.entities?.length ?? 0), 0) * 4} B</div>
-                        <div>Directory: {capacity.rooms * 6} B</div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })()}
-            </div>
-          </div>
+        {!selectedSpriteId && hasProject && (
+          <StudioInspector
+            collapsed={inspectorCollapsed}
+            onToggle={() => setInspectorCollapsed(v => !v)}
+            tab={inspectorTab}
+            onTabChange={setInspectorTab}
+            selectedEntity={getSelectedEntity()}
+            capacity={projectProfileId === MODEL01_PROFILE_ID ? getPageCapacity(activePageId) : null}
+            pageLabel={pages.find(p => p.id === activePageId)?.label ?? 'Base'}
+            pageMaps={maps.filter(m => m.pageId === activePageId)}
+            rightSidebarProps={{
+              project: mapConfig, mapTiles, tileset, selectedTile,
+              onLoadTileset: handleLoadTileset, onSelectTile: setSelectedTile, onEditTile: handleEditTile,
+              connections, entryPositions, spawns, entities,
+              roomId: maps.find(m => m.id === activeMapId)?.roomId,
+              maps: maps.filter(m => m.roomId != null), selectedEntityId,
+              selectedEntity: getSelectedEntity(), onUpdateEntityProperty: handleUpdateEntityProperty,
+              onDeleteSelectedEntity: handleDeleteSelectedEntity, onConnectionTargetChange: handleConnectionClick,
+              maxEntities: getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null,
+            }}
+            mapDataProps={{
+              roomId: maps.find(m => m.id === activeMapId)?.roomId,
+              connections, entryPositions, spawns, entities,
+              mapW: mapConfig?.mapW, mapH: mapConfig?.mapH,
+              maps: maps.filter(m => m.roomId != null), onConnectionTargetChange: handleConnectionClick,
+              maxEntities: getProjectProfile(projectProfileId).maxEntitiesPerMap ?? null,
+            }}
+          />
         )}
       </div>
 

@@ -691,22 +691,22 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 import { ENTITY_TYPES, ENTITY_DEFAULT_PROPERTIES, ENTITY_BEHAVIORS, ENTITY_EVENTS } from '../services/entityTypes'
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
-export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange, maxEntities }) {
+export default function RightSidebar({ project, mapTiles, tileset, selectedTile, onLoadTileset, onSelectTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange, maxEntities, view = 'assets', embedded = false }) {
   return (
-    <aside style={{
-      width: '220px',
+    <aside className={embedded ? 'studio-embedded-sidebar' : ''} style={{
+      width: embedded ? '100%' : '220px',
       flexShrink: 0,
       background: 'var(--panel)',
-      borderLeft: '1px solid var(--border)',
+      borderLeft: embedded ? 'none' : '1px solid var(--border)',
       display: 'flex',
       flexDirection: 'column',
       position: 'relative',
       zIndex: 1,
       overflow: 'hidden',
     }}>
-      <MinimapSection project={project} mapTiles={mapTiles} tileset={tileset} />
+      {view === 'assets' && <MinimapSection project={project} mapTiles={mapTiles} tileset={tileset} />}
 
-      {project && (
+      {view === 'assets' && project && (
         <TilesetSection
           tileW={project.tileW}
           tileH={project.tileH}
@@ -718,7 +718,7 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
         />
       )}
 
-      {selectedEntity && (
+      {view === 'entity' && selectedEntity && (
         <EntityPropertiesPanel
           entity={selectedEntity}
           onUpdateProperty={onUpdateEntityProperty}
@@ -726,7 +726,7 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
         />
       )}
 
-      {!project && (
+      {view === 'assets' && !project && (
         <div style={{
           flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontFamily: "'Roboto', sans-serif", fontSize: '14px',
@@ -734,6 +734,10 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
         }}>
           CREATE A PROJECT<br />TO START<span className="blink">_</span>
         </div>
+      )}
+
+      {view === 'entity' && !selectedEntity && (
+        <div className="studio-panel-empty">Select an entity on the map to edit its properties.</div>
       )}
     </aside>
   )

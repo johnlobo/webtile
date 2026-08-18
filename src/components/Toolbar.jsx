@@ -187,7 +187,7 @@ function ToolBtn({ id, label, shortcut, badge, Icon, active, onClick }) {
       style={{
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
-        gap: '4px', width: '48px', height: '48px',
+        gap: '3px', width: '42px', height: '42px',
         background: active ? 'var(--accent-gradient)' : 'transparent',
         border: `1px solid ${active ? 'transparent' : 'var(--border)'}`,
         borderRadius: '8px',
@@ -241,7 +241,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '4px',
-      padding: '6px 10px',
+      padding: '5px 8px', overflowX: 'auto',
       background: 'var(--panel)',
       borderBottom: '1px solid var(--border)',
       flexShrink: 0, position: 'relative', zIndex: 1,
@@ -321,7 +321,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         style={{
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          gap: '4px', width: '48px', height: '48px',
+          gap: '3px', width: '42px', height: '42px',
           background: 'transparent',
           border: '1px solid var(--border)',
           borderRadius: '8px',
@@ -345,7 +345,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         style={{
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          gap: '4px', width: '48px', height: '48px',
+          gap: '3px', width: '42px', height: '42px',
           background: 'transparent',
           border: '1px solid var(--border)',
           borderRadius: '8px',
@@ -370,7 +370,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         style={{
           display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center',
-          gap: '4px', width: '48px', height: '48px',
+          gap: '3px', width: '42px', height: '42px',
           background: doubleWidth ? 'var(--amber)' : 'transparent',
           border: `1px solid ${doubleWidth ? 'var(--amber)' : 'var(--border)'}`,
           borderRadius: '8px',
