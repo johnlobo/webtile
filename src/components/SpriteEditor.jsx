@@ -262,7 +262,7 @@ function nearestPaletteInk(r, g, b, palette) {
 // ── Canvas rendering helpers ──────────────────────────────────────────────────
 
 function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette, cellW, cellH, opts = {}) {
-  const { showGrid, gridCellW = 1, gridCellH = 1 } = opts
+  const { showGrid, gridCellW = 1, gridCellH = 1, onionLayers = [] } = opts
   const ctx = canvas.getContext('2d')
 
   canvas.width  = width  * cellW
@@ -275,6 +275,19 @@ function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette,
     for (let px = 0; px < width; px++) {
       ctx.fillStyle = ((px + py) % 2 === 0) ? dark1 : dark2
       ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
+    }
+  }
+
+  // Onion-skin silhouettes are drawn below the active frame.
+  for (const layer of onionLayers) {
+    if (!layer?.pixels) continue
+    ctx.fillStyle = layer.color
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        if (layer.pixels[py * width + px] !== 0) {
+          ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
+        }
+      }
     }
   }
 
@@ -363,7 +376,7 @@ function bresenhamLine(x0, y0, x1, y1) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick }) {
+  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
   const canvasRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
@@ -437,7 +450,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     const canvas = canvasRef.current
     if (!canvas) return
     renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette, cellW, cellH, {
-      showGrid: true, gridCellW, gridCellH,
+      showGrid: true, gridCellW, gridCellH, onionLayers,
     })
 
     if (textOverlay) {
@@ -479,7 +492,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         ctx.fillRect(cx, cy, cellW, cellH * GLYPH_H)
       }
     }
-  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink])
+  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink, onionLayers])
 
   const getCellFromEvent = useCallback((e) => {
     const canvas = canvasRef.current
@@ -734,7 +747,7 @@ function PasteOverlay({ x, y, clipboard, palette, cellW, cellH }) {
 
 // ── FrameThumb ────────────────────────────────────────────────────────────────
 
-function FrameThumb({ pixels, width, height, videoMode, palette, active, onClick, onDelete, canDelete }) {
+function FrameThumb({ pixels, width, height, videoMode, palette, active, index, onClick, onDelete, canDelete, onDragStart, onDragOver, onDrop, onDragEnd, dragging }) {
   const canvasRef = useRef(null)
   const [hovered, setHovered] = useState(false)
 
@@ -750,7 +763,12 @@ function FrameThumb({ pixels, width, height, videoMode, palette, active, onClick
 
   return (
     <div
-      style={{ position: 'relative', flexShrink: 0, cursor: 'pointer' }}
+      className={`sprite-frame-thumb${active ? ' active' : ''}${dragging ? ' dragging' : ''}`}
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
@@ -764,6 +782,7 @@ function FrameThumb({ pixels, width, height, videoMode, palette, active, onClick
           transition: 'border-color 0.15s',
         }}
       />
+      <span className="sprite-frame-number">{index + 1}</span>
       {hovered && canDelete && (
         <button
           onClick={e => { e.stopPropagation(); onDelete() }}
@@ -1272,6 +1291,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [doubleWidth,  setDoubleWidth]  = useState(false)
   const [zoom,         setZoom]         = useState(2)
   const [playFps,      setPlayFps]      = useState(6)
+  const [isPlaying,    setIsPlaying]    = useState(false)
+  const [loopPlayback, setLoopPlayback] = useState(true)
+  const [onionPrevious, setOnionPrevious] = useState(true)
+  const [onionNext,    setOnionNext]    = useState(false)
+  const [draggedFrame, setDraggedFrame] = useState(null)
   const [showExport,      setShowExport]      = useState(false)
   const [showProperties,  setShowProperties]  = useState(false)
   const [showSettings,    setShowSettings]    = useState(false)
@@ -1312,6 +1336,22 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   // Keep ref in sync for autosave
   useEffect(() => { spriteRef.current = sprite }, [sprite])
+
+  useEffect(() => {
+    if (!isPlaying || !sprite?.frames?.length) return
+    const timer = setInterval(() => {
+      setCurrentFrame(frame => {
+        const last = sprite.frames.length - 1
+        if (frame >= last) {
+          if (loopPlayback) return 0
+          setIsPlaying(false)
+          return last
+        }
+        return frame + 1
+      })
+    }, Math.max(1, Math.round(1000 / playFps)))
+    return () => clearInterval(timer)
+  }, [isPlaying, loopPlayback, playFps, sprite?.frames?.length])
 
   // Load sprite on mount / spriteId change
   useEffect(() => {
@@ -1543,6 +1583,33 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
     setCurrentFrame(fi => fi + 1)
   }, [currentFrame, updateSprite, pushHistory])
+
+  const addBlankFrame = useCallback(() => {
+    pushHistory()
+    updateSprite(prev => {
+      const blank = { pixels: Array(prev.width * prev.height).fill(0) }
+      const frames = [
+        ...prev.frames.slice(0, currentFrame + 1),
+        blank,
+        ...prev.frames.slice(currentFrame + 1),
+      ]
+      return { ...prev, frames }
+    })
+    setCurrentFrame(fi => fi + 1)
+  }, [currentFrame, updateSprite, pushHistory])
+
+  const reorderFrame = useCallback((from, to) => {
+    if (from == null || from === to) return
+    pushHistory()
+    updateSprite(prev => {
+      const frames = [...prev.frames]
+      const [moved] = frames.splice(from, 1)
+      frames.splice(to, 0, moved)
+      return { ...prev, frames }
+    })
+    setCurrentFrame(to)
+    setDraggedFrame(null)
+  }, [updateSprite, pushHistory])
 
   // Delete frame
   const deleteFrame = useCallback((idx) => {
@@ -1858,6 +1925,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const { videoMode, width, height, palette, frames } = sprite
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = frames[currentFrame]?.pixels ?? []
+  const onionLayers = useMemo(() => {
+    if (isPlaying) return []
+    const layers = []
+    if (onionPrevious && currentFrame > 0) layers.push({ pixels: frames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
+    if (onionNext && currentFrame < frames.length - 1) layers.push({ pixels: frames[currentFrame + 1]?.pixels, color: 'rgba(33,82,255,0.24)' })
+    return layers
+  }, [frames, currentFrame, onionPrevious, onionNext, isPlaying])
 
   const dividerStyle = { height: '1px', background: 'var(--border)', margin: '2px 0', gridColumn: '1 / -1' }
 
@@ -1978,6 +2052,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onMoveCommit={handleMoveCommit}
           onCursorPos={setCursorPos}
           onTextClick={handleTextClick}
+          onionLayers={onionLayers}
           textOverlay={textMode ? { startX: textMode.x, startY: textMode.y, text: textBuffer, ink: activeInk } : null}
         />
 
@@ -2147,6 +2222,50 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             </div>
           </div>
 
+        </div>
+      </div>
+
+      {/* FRAME TIMELINE */}
+      <div className="sprite-timeline">
+        <div className="sprite-timeline-controls">
+          <div className="sprite-timeline-title">FRAMES <span>{frames.length}</span></div>
+          <button className={isPlaying ? 'active' : ''} title={isPlaying ? 'Pause animation' : 'Play animation'} onClick={() => setIsPlaying(v => !v)}>{isPlaying ? 'Ⅱ' : '▶'}</button>
+          <button className={loopPlayback ? 'active' : ''} title="Loop playback" onClick={() => setLoopPlayback(v => !v)}>↻</button>
+          <label className="sprite-fps-control" title="Frames per second">
+            <input type="number" min="1" max="60" value={playFps} onChange={e => setPlayFps(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} /> FPS
+          </label>
+          <div className="sprite-timeline-divider" />
+          <button className={onionPrevious ? 'onion-prev active' : 'onion-prev'} title="Show previous frame onion skin" onClick={() => setOnionPrevious(v => !v)}>−1</button>
+          <button className={onionNext ? 'onion-next active' : 'onion-next'} title="Show next frame onion skin" onClick={() => setOnionNext(v => !v)}>+1</button>
+        </div>
+
+        <div className="sprite-frame-strip">
+          {frames.map((frame, index) => (
+            <FrameThumb
+              key={index}
+              index={index}
+              pixels={frame.pixels}
+              width={width}
+              height={height}
+              videoMode={videoMode}
+              palette={palette}
+              active={index === currentFrame}
+              dragging={index === draggedFrame}
+              canDelete={frames.length > 1}
+              onClick={() => { setCurrentFrame(index); setIsPlaying(false) }}
+              onDelete={() => deleteFrame(index)}
+              onDragStart={e => { setDraggedFrame(index); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index)) }}
+              onDragEnd={() => setDraggedFrame(null)}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+              onDrop={e => { e.preventDefault(); reorderFrame(Number(e.dataTransfer.getData('text/plain')), index) }}
+            />
+          ))}
+        </div>
+
+        <div className="sprite-timeline-actions">
+          <button title="Duplicate current frame" onClick={addFrame}>⧉ Duplicate</button>
+          <button title="Add blank frame" onClick={addBlankFrame}>+ Blank</button>
+          <button className="danger" title="Delete current frame" disabled={frames.length <= 1} onClick={() => deleteFrame(currentFrame)}>Delete</button>
         </div>
       </div>
 
