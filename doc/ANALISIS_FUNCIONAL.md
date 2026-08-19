@@ -200,6 +200,8 @@ El sprite admite varios frames, selección por miniatura, alta, duplicado, elimi
 
 El inspector incorpora una previsualización animada permanente cuando el sprite tiene más de un frame. Esta vista encaja el sprite completo respetando la proporción de píxel del modo CPC y utiliza la velocidad FPS configurada en la línea de tiempo.
 
+La animación puede intercambiarse como spritesheet PNG horizontal o vertical. Al importar, el editor divide la imagen usando las dimensiones actuales del sprite, admite una separación configurable entre frames, conserva el orden visual y aproxima cada color a la paleta CPC activa. La importación sustituye todos los frames en una única operación deshacible. La exportación compone todos los frames en orden, sin separación y conservando la transparencia de la tinta 0.
+
 ### Vista y propiedades
 
 El zoom del sprite dispone de 1×, 2×, 4× y 8×, además de rueda. La vista puede duplicar horizontalmente el píxel para aproximar la proporción del modo 0. La cuadrícula superpuesta admite tamaño de celda configurable.
@@ -208,7 +210,7 @@ En propiedades se puede renombrar y redimensionar el sprite, seleccionar uno de 
 
 ### PNG y datos CPC
 
-La exportación PNG genera únicamente el frame actual a escala 1:1, con tinta 0 transparente. Importar PNG desde el editor reemplaza el frame actual, escala la imagen a las dimensiones existentes y la aproxima a la paleta del sprite.
+La exportación PNG individual genera únicamente el frame actual a escala 1:1, con tinta 0 transparente. Importar un PNG individual desde el editor reemplaza el frame actual, escala la imagen a las dimensiones existentes y la aproxima a la paleta del sprite. La importación y exportación de spritesheets permite leer o escribir todos los frames en un único PNG.
 
 La exportación de datos codifica todos los frames en bytes hardware CPC:
 

@@ -989,6 +989,100 @@ function ExportModal({ sprite, onClose }) {
   )
 }
 
+// ── Sprite sheet import ──────────────────────────────────────────────────────
+
+function SpriteSheetImportModal({ file, sprite, onConfirm, onCancel }) {
+  const [direction, setDirection] = useState('horizontal')
+  const [spacing, setSpacing] = useState(0)
+  const [image, setImage] = useState(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file)
+    const img = new Image()
+    img.onload = () => { setImage(img); URL.revokeObjectURL(url) }
+    img.onerror = () => { setError('Could not load the sprite sheet.'); URL.revokeObjectURL(url) }
+    img.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  const step = direction === 'horizontal' ? sprite.width + spacing : sprite.height + spacing
+  const sheetSize = image ? (direction === 'horizontal' ? image.naturalWidth : image.naturalHeight) : 0
+  const crossSize = image ? (direction === 'horizontal' ? image.naturalHeight : image.naturalWidth) : 0
+  const requiredCrossSize = direction === 'horizontal' ? sprite.height : sprite.width
+  const frameCount = image && step > 0 && crossSize >= requiredCrossSize
+    ? Math.floor((sheetSize + spacing) / step)
+    : 0
+  const usedSize = frameCount > 0 ? frameCount * step - spacing : 0
+  const hasRemainder = image && usedSize !== sheetSize
+
+  const importFrames = () => {
+    if (!image || frameCount < 1) return
+    const frames = []
+    const canvas = document.createElement('canvas')
+    canvas.width = sprite.width
+    canvas.height = sprite.height
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    ctx.imageSmoothingEnabled = false
+
+    for (let fi = 0; fi < frameCount; fi++) {
+      const sx = direction === 'horizontal' ? fi * step : 0
+      const sy = direction === 'vertical' ? fi * step : 0
+      ctx.clearRect(0, 0, sprite.width, sprite.height)
+      ctx.drawImage(image, sx, sy, sprite.width, sprite.height, 0, 0, sprite.width, sprite.height)
+      const data = ctx.getImageData(0, 0, sprite.width, sprite.height).data
+      const pixels = Array(sprite.width * sprite.height)
+      for (let i = 0; i < pixels.length; i++) {
+        const a = data[i * 4 + 3]
+        pixels[i] = a < 128 ? 0 : nearestPaletteInk(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], sprite.palette)
+      }
+      frames.push({ pixels })
+    }
+    onConfirm(frames)
+  }
+
+  const optionStyle = active => ({
+    flex: 1, padding: '10px', cursor: 'pointer', borderRadius: '6px',
+    border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`,
+    background: active ? 'var(--green-glow)' : 'transparent',
+    color: active ? 'var(--accent)' : 'var(--text-dim)',
+  })
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 120, background: 'rgba(0,0,0,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '460px', padding: '30px' }}>
+        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--accent)', letterSpacing: '1px', marginBottom: '22px' }}>IMPORT SPRITESHEET</div>
+
+        <div style={{ color: 'var(--text-dim)', fontSize: '12px', lineHeight: 1.6, marginBottom: '16px' }}>
+          Each frame is <strong style={{ color: 'var(--text)' }}>{sprite.width} × {sprite.height}</strong> pixels. Frames are read from left to right or from top to bottom.
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button style={optionStyle(direction === 'horizontal')} onClick={() => setDirection('horizontal')}>Horizontal →</button>
+          <button style={optionStyle(direction === 'vertical')} onClick={() => setDirection('vertical')}>Vertical ↓</button>
+        </div>
+
+        <label className="pixel-label">Spacing between frames</label>
+        <input className="pixel-input" type="number" min="0" max="128" value={spacing} onChange={e => setSpacing(Math.max(0, Math.min(128, Number(e.target.value) || 0)))} style={{ width: '100%', marginBottom: '16px' }} />
+
+        {image && (
+          <div style={{ padding: '12px', background: 'var(--bg)', border: '1px solid var(--border)', color: frameCount ? 'var(--text)' : 'var(--red)', fontSize: '12px', lineHeight: 1.6 }}>
+            Sheet: {image.naturalWidth} × {image.naturalHeight}px<br />
+            Detected: <strong>{frameCount} frame{frameCount === 1 ? '' : 's'}</strong>
+            {hasRemainder && frameCount > 0 && <><br /><span style={{ color: 'var(--amber)' }}>Unused pixels remain at the end of the sheet.</span></>}
+          </div>
+        )}
+        {error && <div style={{ color: 'var(--red)', marginTop: '12px' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+          <button className="btn-pixel" disabled={frameCount < 1} onClick={importFrames} style={{ flex: 1 }}>IMPORT {frameCount || ''} FRAME{frameCount === 1 ? '' : 'S'}</button>
+          <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>CANCEL</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── PropertiesModal ───────────────────────────────────────────────────────────
 
 function resizeFrames(frames, oldW, oldH, newW, newH, anchorCol, anchorRow, bgInk) {
@@ -1309,6 +1403,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [showExport,      setShowExport]      = useState(false)
   const [showProperties,  setShowProperties]  = useState(false)
   const [showSettings,    setShowSettings]    = useState(false)
+  const [spriteSheetFile, setSpriteSheetFile] = useState(null)
   const [gridCellW,    setGridCellW]    = useState(8)
   const [gridCellH,    setGridCellH]    = useState(8)
   const [selection,    setSelection]    = useState(null)
@@ -1824,9 +1919,39 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     link.click()
   }, [sprite, currentFrame])
 
+  const exportSpriteSheet = useCallback((direction) => {
+    if (!sprite?.frames?.length) return
+    const { width, height, palette, frames, name } = sprite
+    const horizontal = direction === 'horizontal'
+    const canvas = document.createElement('canvas')
+    canvas.width = horizontal ? width * frames.length : width
+    canvas.height = horizontal ? height : height * frames.length
+    const ctx = canvas.getContext('2d')
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+    frames.forEach((frame, fi) => {
+      const offsetX = horizontal ? fi * width : 0
+      const offsetY = horizontal ? 0 : fi * height
+      for (let py = 0; py < height; py++) {
+        for (let px = 0; px < width; px++) {
+          const ink = frame.pixels[py * width + px]
+          if (ink === 0) continue
+          ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
+          ctx.fillRect(offsetX + px, offsetY + py, 1, 1)
+        }
+      }
+    })
+
+    const link = document.createElement('a')
+    link.download = `${name || 'sprite'}-spritesheet-${horizontal ? 'horizontal' : 'vertical'}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }, [sprite])
+
   // ── PNG import ──────────────────────────────────────────────────────────────
 
   const importPngRef = useRef(null)
+  const importSheetRef = useRef(null)
 
   const importPNG = useCallback((file) => {
     if (!file || !sprite) return
@@ -1861,6 +1986,16 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     img.onerror = () => URL.revokeObjectURL(url)
     img.src = url
   }, [sprite, currentFrame, updateSprite, pushHistory])
+
+  const importSpriteSheetFrames = useCallback((importedFrames) => {
+    if (!importedFrames.length) return
+    pushHistory()
+    updateSprite(prev => ({ ...prev, frames: importedFrames }))
+    setCurrentFrame(0)
+    setIsPlaying(false)
+    setSelection(null)
+    setSpriteSheetFile(null)
+  }, [pushHistory, updateSprite])
 
   // ── Palette import / export (JASC-PAL) ──────────────────────────────────────
 
@@ -2007,6 +2142,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
               <button onClick={() => { setToolbarMenu(null); importPngRef.current?.click() }}>Import PNG…</button>
               <button onClick={() => { setToolbarMenu(null); exportPNG() }}>Export current frame PNG</button>
               <div />
+              <button onClick={() => { setToolbarMenu(null); importSheetRef.current?.click() }}>Import spritesheet…</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal') }}>Export spritesheet →</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical') }}>Export spritesheet ↓</button>
+              <div />
               <button onClick={() => { setToolbarMenu(null); importPaletteRef.current?.click() }}>Import palette…</button>
               <button onClick={() => { setToolbarMenu(null); exportPalette() }}>Export palette</button>
               <div />
@@ -2026,6 +2165,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         </div>
 
         <input ref={importPngRef} type="file" accept="image/png,image/*" style={{ display: 'none' }} onChange={e => { importPNG(e.target.files?.[0]); e.target.value = '' }} />
+        <input ref={importSheetRef} type="file" accept="image/png,image/*" style={{ display: 'none' }} onChange={e => { setSpriteSheetFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
       </div>
 
       {/* TOP AREA */}
@@ -2319,6 +2459,15 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         <ExportModal
           sprite={sprite}
           onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {spriteSheetFile && (
+        <SpriteSheetImportModal
+          file={spriteSheetFile}
+          sprite={sprite}
+          onConfirm={importSpriteSheetFrames}
+          onCancel={() => setSpriteSheetFile(null)}
         />
       )}
 
