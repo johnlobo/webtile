@@ -39,7 +39,7 @@ export function snapToMultiple(value, multiple) {
  * Returns { palette: number[], pixels: number[] }
  * where palette is an array of CPC color indices (up to inkCount),
  * and pixels is an array of ink indices (0-based into palette).
- * Ink 0 = transparent (background).
+ * Every ink, including ink 0, is a visible CPC color.
  */
 export function quantizeImage(imageData, width, height, inkCount) {
   const { data } = imageData  // RGBA flat array
@@ -51,15 +51,13 @@ export function quantizeImage(imageData, width, height, inkCount) {
     const g = data[i * 4 + 1]
     const b = data[i * 4 + 2]
     const a = data[i * 4 + 3]
-    if (a < 128) continue  // skip transparent pixels
-    const cpcIdx = nearestCpcColor(r, g, b)
+    const cpcIdx = a < 128 ? 0 : nearestCpcColor(r, g, b)
     cpcIndexCounts.set(cpcIdx, (cpcIndexCounts.get(cpcIdx) ?? 0) + 1)
   }
 
-  // Sort by frequency, take top (inkCount - 1) — ink 0 reserved for transparent
+  // Sort by frequency and use every available hardware ink slot.
   const sorted = [...cpcIndexCounts.entries()].sort((a, b) => b[1] - a[1])
-  // palette[0] = black (transparent/background), rest = top colors
-  const palette = [0]
+  const palette = []
   for (const [cpcIdx] of sorted) {
     if (palette.length >= inkCount) break
     if (!palette.includes(cpcIdx)) palette.push(cpcIdx)
@@ -74,9 +72,9 @@ export function quantizeImage(imageData, width, height, inkCount) {
     const g = data[i * 4 + 1]
     const b = data[i * 4 + 2]
     const a = data[i * 4 + 3]
-    if (a < 128) { pixels[i] = 0; continue }  // transparent → ink 0
-    let bestInk = 1, bestDist = Infinity
-    for (let ink = 1; ink < palette.length; ink++) {
+    if (a < 128) { pixels[i] = palette.indexOf(0) >= 0 ? palette.indexOf(0) : 0; continue }
+    let bestInk = 0, bestDist = Infinity
+    for (let ink = 0; ink < palette.length; ink++) {
       const [cr, cg, cb] = hexToRgb(CPC_COLORS[palette[ink] ?? 0])
       const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2
       if (d < bestDist) { bestDist = d; bestInk = ink }
@@ -154,11 +152,7 @@ export default function ImportSpriteModal({ file, onConfirm, onCancel }) {
     for (let py = 0; py < h; py++) {
       for (let px = 0; px < w; px++) {
         const ink = pixels[py * w + px]
-        if (ink === 0) {
-          ctx.fillStyle = ((px + py) % 2 === 0) ? '#c0c0c0' : '#909090'
-        } else {
-          ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
-        }
+        ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
         ctx.fillRect(px * SCALE, py * SCALE, SCALE, SCALE)
       }
     }

@@ -57,7 +57,7 @@ Es una imagen dividida según el ancho y alto del tile activo. Se guarda por pá
 
 ### Sprite
 
-Es un gráfico con nombre, modo de vídeo CPC, ancho, alto, paleta y uno o más frames. Cada píxel almacena un índice de tinta, no un RGB directo; la tinta 0 se interpreta como transparente al exportar PNG.
+Es un gráfico con nombre, modo de vídeo CPC, ancho, alto, paleta y uno o más frames. Cada píxel almacena un índice de tinta, no un RGB directo. Todas las tintas, incluida `INK 0`, representan colores CPC visibles; el modelo no reserva ninguna tinta para transparencia.
 
 ## 4. Espacio de trabajo y navegación
 
@@ -170,9 +170,9 @@ Un sprite nuevo permite elegir:
 - modo 1: 4 tintas y ancho múltiplo de 4;
 - modo 2: 2 tintas y ancho múltiplo de 8.
 
-La altura mínima es 1. El ancho se redondea al múltiplo exigido por el modo. Se crea un frame transparente y una paleta CPC predeterminada.
+La altura mínima es 1. El ancho se redondea al múltiplo exigido por el modo. Se crea un frame relleno con `INK 0` y una paleta CPC predeterminada.
 
-También puede crearse desde PNG. El importador deja elegir modo, nombre y dimensiones ajustadas a sus restricciones, escala la imagen y cuantiza sus colores a tintas CPC próximas. Los píxeles con alfa inferior a 128 pasan a tinta 0.
+También puede crearse desde PNG. El importador deja elegir modo, nombre y dimensiones ajustadas a sus restricciones, escala la imagen y cuantiza sus colores a tintas CPC próximas. Los píxeles con alfa inferior a 128 se convierten en `INK 0`, que sigue siendo visible.
 
 ### Herramientas de dibujo
 
@@ -193,7 +193,7 @@ El editor permite copiar (`Ctrl+C`), cortar (`Ctrl+X`) y pegar (`Ctrl+V`) con pr
 
 ### Tintas y paleta
 
-El usuario maneja tinta frontal y de fondo; puede intercambiarlas, elegir la frontal con clic izquierdo y la de fondo con clic derecho. Cada ranura se asigna a uno de los 27 colores CPC. La tinta 0 se visualiza como transparencia.
+El usuario maneja tinta frontal y de fondo; puede intercambiarlas, elegir la frontal con clic izquierdo y la de fondo con clic derecho. Cada ranura se asigna a uno de los 27 colores CPC y todas se visualizan como colores opacos.
 
 La tecla `X` intercambia inmediatamente las tintas frontal y de fondo, salvo cuando el foco está dentro de un campo de entrada.
 
@@ -207,7 +207,7 @@ El inspector incorpora una previsualización animada permanente cuando el sprite
 
 La animación puede intercambiarse como spritesheet PNG horizontal o vertical. Desde el explorador del proyecto se puede importar una hoja para crear directamente un nuevo sprite animado, eligiendo nombre, modo CPC, dimensiones de frame, orientación y separación. El diálogo detecta la cantidad de frames y muestra sobre la imagen los cortes que realizará.
 
-Dentro de un sprite existente, la importación divide la imagen usando sus dimensiones actuales, admite una separación configurable, conserva el orden visual y aproxima cada color a la paleta CPC activa. Esta variante sustituye todos los frames en una única operación deshacible. La exportación compone todos los frames en orden, sin separación y conservando la transparencia de la tinta 0.
+Dentro de un sprite existente, la importación divide la imagen usando sus dimensiones actuales, admite una separación configurable, conserva el orden visual y aproxima cada color a la paleta CPC activa. Esta variante sustituye todos los frames en una única operación deshacible. La exportación compone todos los frames opacos en orden y sin separación.
 
 ### Vista y propiedades
 
@@ -217,7 +217,7 @@ En propiedades se puede renombrar y redimensionar el sprite, seleccionar uno de 
 
 ### PNG y datos CPC
 
-La exportación PNG individual genera únicamente el frame actual a escala 1:1, con tinta 0 transparente. Importar un PNG individual desde el editor reemplaza el frame actual, escala la imagen a las dimensiones existentes y la aproxima a la paleta del sprite. La importación y exportación de spritesheets permite leer o escribir todos los frames en un único PNG.
+La exportación PNG individual genera únicamente el frame actual a escala 1:1 y todas sus tintas son opacas. Importar un PNG individual desde el editor reemplaza el frame actual, escala la imagen a las dimensiones existentes y la aproxima a la paleta del sprite; cualquier transparencia de origen se convierte en `INK 0`. La importación y exportación de spritesheets permite leer o escribir todos los frames en un único PNG.
 
 La exportación de datos codifica todos los frames en bytes hardware CPC:
 
@@ -225,7 +225,7 @@ La exportación de datos codifica todos los frames en bytes hardware CPC:
 - modo 1: 4 píxeles por byte;
 - modo 2: 8 píxeles por byte.
 
-Puede producir BASIC con líneas `DATA` o ensamblador `.db` en hexadecimal o decimal. Opcionalmente reordena líneas en disposición entrelazada CPC e intercala máscara y datos de sprite. El resultado se muestra para copiar al portapapeles; no se descarga directamente como fichero.
+Puede producir BASIC con líneas `DATA` o ensamblador `.db` en hexadecimal o decimal. Opcionalmente reordena líneas en disposición entrelazada CPC. El resultado se muestra para copiar al portapapeles; no se descarga directamente como fichero. No genera máscara de transparencia porque ninguna tinta tiene ese significado.
 
 ## 9. Persistencia y guardado
 

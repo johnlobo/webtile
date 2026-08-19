@@ -77,79 +77,13 @@ function encodeRow_Mode2(rowPixels) {
   return bytes
 }
 
-function maskRow_Mode0(rowPixels) {
-  // ink 0 = transparent → its bits in the mask = 1, else 0
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 2) {
-    const t0 = rowPixels[i]     === 0 ? 1 : 0
-    const t1 = (rowPixels[i + 1] ?? 0) === 0 ? 1 : 0
-    let b = 0
-    b |= t0 << 7
-    b |= t1 << 6
-    b |= t0 << 5
-    b |= t1 << 4
-    b |= t0 << 3
-    b |= t1 << 2
-    b |= t0 << 1
-    b |= t1 << 0
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function maskRow_Mode1(rowPixels) {
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 4) {
-    const t0 = rowPixels[i]     === 0 ? 1 : 0
-    const t1 = (rowPixels[i + 1] ?? 0) === 0 ? 1 : 0
-    const t2 = (rowPixels[i + 2] ?? 0) === 0 ? 1 : 0
-    const t3 = (rowPixels[i + 3] ?? 0) === 0 ? 1 : 0
-    let b = 0
-    b |= t0 << 7
-    b |= t2 << 6
-    b |= t1 << 5
-    b |= t3 << 4
-    b |= t0 << 3
-    b |= t2 << 2
-    b |= t1 << 1
-    b |= t3 << 0
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function maskRow_Mode2(rowPixels) {
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 8) {
-    let b = 0
-    for (let bit = 0; bit < 8; bit++) {
-      const t = (rowPixels[i + bit] ?? 0) === 0 ? 1 : 0
-      b |= t << (7 - bit)
-    }
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function encodeFrame(pixels, width, height, videoMode, withMask) {
+function encodeFrame(pixels, width, height, videoMode) {
   const encodeRow = videoMode === 0 ? encodeRow_Mode0 : videoMode === 1 ? encodeRow_Mode1 : encodeRow_Mode2
-  const maskRow   = videoMode === 0 ? maskRow_Mode0   : videoMode === 1 ? maskRow_Mode1   : maskRow_Mode2
   const rows = []
   for (let y = 0; y < height; y++) {
     const rowPixels = pixels.slice(y * width, (y + 1) * width)
     const sprBytes  = encodeRow(rowPixels)
-    const mskBytes  = withMask ? maskRow(rowPixels) : []
-    if (withMask) {
-      // interleave: mask, sprite pairs per byte
-      const interleaved = []
-      for (let i = 0; i < sprBytes.length; i++) {
-        interleaved.push(mskBytes[i] ?? 0)
-        interleaved.push(sprBytes[i])
-      }
-      rows.push({ y, bytes: interleaved })
-    } else {
-      rows.push({ y, bytes: sprBytes })
-    }
+    rows.push({ y, bytes: sprBytes })
   }
   return rows
 }
@@ -162,12 +96,11 @@ function interleavedOrder(height) {
 }
 
 function generateExport(sprite, opts) {
-  const { format, interleaved, withMask } = opts
+  const { format, interleaved } = opts
   const { name, videoMode, width, height, palette, frames } = sprite
 
   const safeName  = (name || 'sprite').toLowerCase().replace(/[^a-z0-9_]/g, '_')
   const bytesPerRow = videoMode === 0 ? width / 2 : videoMode === 1 ? width / 4 : width / 8
-  const rowLen      = withMask ? bytesPerRow * 2 : bytesPerRow
 
   const formatByte = (b) =>
     format === 'hex'
@@ -186,7 +119,7 @@ function generateExport(sprite, opts) {
 
     frames.forEach((frame, fi) => {
       const rowOrder = interleaved ? interleavedOrder(height) : Array.from({ length: height }, (_, y) => y)
-      const allRows  = encodeFrame(frame.pixels, width, height, videoMode, withMask)
+      const allRows  = encodeFrame(frame.pixels, width, height, videoMode)
       const rowMap   = Object.fromEntries(allRows.map(r => [r.y, r]))
 
       lines.push(`${lineNum} REM FRAME ${fi}`)
@@ -214,7 +147,7 @@ function generateExport(sprite, opts) {
     lines.push(`_${safeName}_f${fi}::`)
 
     const rowOrder = interleaved ? interleavedOrder(height) : Array.from({ length: height }, (_, y) => y)
-    const allRows  = encodeFrame(frame.pixels, width, height, videoMode, withMask)
+    const allRows  = encodeFrame(frame.pixels, width, height, videoMode)
     const rowMap   = Object.fromEntries(allRows.map(r => [r.y, r]))
 
     rowOrder.forEach(y => {
@@ -250,8 +183,8 @@ function nearestCpcColor(r, g, b) {
 }
 
 function nearestPaletteInk(r, g, b, palette) {
-  let best = 1, bestDist = Infinity
-  for (let ink = 1; ink < palette.length; ink++) {
+  let best = 0, bestDist = Infinity
+  for (let ink = 0; ink < palette.length; ink++) {
     const [cr, cg, cb] = hexToRgb(CPC_COLORS[palette[ink] ?? 0])
     const d = (r - cr) ** 2 + (g - cg) ** 2 + (b - cb) ** 2
     if (d < bestDist) { bestDist = d; best = ink }
@@ -268,37 +201,25 @@ function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette,
   canvas.width  = width  * cellW
   canvas.height = height * cellH
 
-  // Checkerboard background — one square per sprite pixel
-  const dark1 = '#111820'
-  const dark2 = '#0c1219'
+  // Pixels
   for (let py = 0; py < height; py++) {
     for (let px = 0; px < width; px++) {
-      ctx.fillStyle = ((px + py) % 2 === 0) ? dark1 : dark2
+      const ink = pixels[py * width + px]
+      const color = CPC_COLORS[palette[ink] ?? 0]
+      ctx.fillStyle = color
       ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
     }
   }
 
-  // Onion-skin silhouettes are drawn below the active frame.
+  // With no transparent ink, onion skin highlights only pixels that differ.
   for (const layer of onionLayers) {
     if (!layer?.pixels) continue
     ctx.fillStyle = layer.color
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
-        if (layer.pixels[py * width + px] !== 0) {
-          ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
-        }
+        const index = py * width + px
+        if (layer.pixels[index] !== pixels[index]) ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
       }
-    }
-  }
-
-  // Pixels
-  for (let py = 0; py < height; py++) {
-    for (let px = 0; px < width; px++) {
-      const ink = pixels[py * width + px]
-      if (ink === 0) continue  // transparent
-      const color = CPC_COLORS[palette[ink] ?? 0]
-      ctx.fillStyle = color
-      ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
     }
   }
 
@@ -548,7 +469,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       const ctx = canvas.getContext('2d')
       const cells = shapeCells(shapePreview.tool, shapePreview.start, shapePreview.end)
       ctx.globalAlpha = 0.72
-      ctx.fillStyle = shapePreview.ink === 0 ? '#ff4058' : CPC_COLORS[palette[shapePreview.ink] ?? 0]
+      ctx.fillStyle = CPC_COLORS[palette[shapePreview.ink] ?? 0]
       for (const { x, y } of cells) ctx.fillRect(x * cellW, y * cellH, cellW, cellH)
       ctx.globalAlpha = 1
     }
@@ -571,8 +492,8 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     lastCell.current = key
     if (activeTool === 'picker') { onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true, e.button === 2); return }
     if (activeTool === 'eraser' && !cellInSelection(cell.x, cell.y, selection)) return
-    onPaint(cell.x, cell.y, activeTool === 'eraser' ? 0 : activeInk, false)
-  }, [activeTool, activeInk, pixels, width, onPaint, selection])
+    onPaint(cell.x, cell.y, activeTool === 'eraser' ? bgInk : activeInk, false)
+  }, [activeTool, activeInk, bgInk, pixels, width, onPaint, selection])
 
   const eraseCell = useCallback((cell) => {
     if (!cell) return
@@ -628,7 +549,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (['line', 'rectangle', 'ellipse'].includes(activeTool) && cell) {
       onStrokeStart?.()
-      const ink = e.button === 2 ? 0 : activeInk
+      const ink = e.button === 2 ? bgInk : activeInk
       shapeAnchor.current = cell
       shapeEnd.current = cell
       shapeInk.current = ink
@@ -712,25 +633,16 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     canvas.width  = w
     canvas.height = h
     const ctx = canvas.getContext('2d')
-    if (activeTool === 'eraser' || activeInk === 0) {
-      // Checkerboard to signal transparency
-      const s = Math.max(2, Math.floor(Math.min(w, h) / 4))
-      for (let py = 0; py < h; py += s)
-        for (let px = 0; px < w; px += s) {
-          ctx.fillStyle = ((Math.floor(px / s) + Math.floor(py / s)) % 2 === 0) ? '#555' : '#888'
-          ctx.fillRect(px, py, s, s)
-        }
-    } else {
-      ctx.fillStyle = CPC_COLORS[palette[activeInk] ?? 0]
-      ctx.fillRect(0, 0, w, h)
-    }
+    const cursorInk = activeTool === 'eraser' ? bgInk : activeInk
+    ctx.fillStyle = CPC_COLORS[palette[cursorInk] ?? 0]
+    ctx.fillRect(0, 0, w, h)
     ctx.strokeStyle = 'rgba(255,255,255,0.7)'
     ctx.lineWidth = 1
     ctx.strokeRect(0.5, 0.5, w - 1, h - 1)
     const hx = Math.floor(w / 2)
     const hy = Math.floor(h / 2)
     return `url(${canvas.toDataURL()}) ${hx} ${hy}, crosshair`
-  }, [activeTool, activeInk, palette, cellW, cellH])
+  }, [activeTool, activeInk, bgInk, palette, cellW, cellH])
 
   const temporaryPicker = altPressed && (activeTool === 'pencil' || activeTool === 'fill' || activeTool === 'eraser')
   const cursor = isPasting                    ? 'copy'
@@ -811,7 +723,6 @@ function PasteOverlay({ x, y, clipboard, palette, cellW, cellH }) {
     for (let py = 0; py < clipboard.h; py++) {
       for (let px = 0; px < clipboard.w; px++) {
         const ink = clipboard.pixels[py * clipboard.w + px]
-        if (ink === 0) continue
         ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
         ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
       }
@@ -940,10 +851,9 @@ function AnimPreview({ frames, width, height, videoMode, palette, fps }) {
 function ExportModal({ sprite, onClose }) {
   const [format,      setFormat]      = useState('hex')
   const [interleaved, setInterleaved] = useState(false)
-  const [withMask,    setWithMask]    = useState(false)
   const [copied,      setCopied]      = useState(false)
 
-  const code = sprite ? generateExport(sprite, { format, interleaved, withMask }) : ''
+  const code = sprite ? generateExport(sprite, { format, interleaved }) : ''
 
   const handleCopy = () => {
     navigator.clipboard.writeText(code).then(() => {
@@ -1008,17 +918,6 @@ function ExportModal({ sprite, onClose }) {
               }} />
               <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: interleaved ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '0.5px' }}>
                 INTERLEAVED
-              </span>
-            </div>
-            <div style={chkStyle(withMask)} onClick={() => setWithMask(v => !v)}>
-              <span style={{
-                width: '12px', height: '12px', flexShrink: 0, display: 'inline-block',
-                border: `2px solid ${withMask ? 'var(--green)' : 'var(--text-dim)'}`,
-                background: withMask ? 'var(--green)' : 'transparent',
-                transition: 'all 0.15s',
-              }} />
-              <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: withMask ? 'var(--green)' : 'var(--text-dim)', letterSpacing: '0.5px' }}>
-                WITH MASK
               </span>
             </div>
           </div>
@@ -1301,7 +1200,7 @@ function PropertiesModal({ sprite, videoMode, inkCount, doubleWidth, onApply, on
                 const isActive = bgInk === i
                 const hex = CPC_COLORS[sprite.palette[i] ?? 0]
                 return (
-                  <div key={i} onClick={() => setBgInk(i)} title={`Ink ${i}${i === 0 ? ' (transparent)' : ''}`} style={{
+                  <div key={i} onClick={() => setBgInk(i)} title={`Ink ${i}`} style={{
                     width: '22px', height: '22px', cursor: 'pointer', flexShrink: 0, boxSizing: 'border-box',
                     border: isActive ? '2px solid var(--green)' : '1px solid var(--border)',
                     background: i === 0
@@ -1829,14 +1728,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           }
         }
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
         for (let dy = 0; dy < newH; dy++) for (let dx = 0; dx < newW; dx++) pixels[(y + dy) * prev.width + x + dx] = rotated[dy * newW + dx]
         return { ...frame, pixels }
       })
       return { ...prev, frames }
     })
     setSelection({ x, y, w: newW, h: newH })
-  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
 
   const nudgeSelection = useCallback((dx, dy) => {
     if (!selection || !sprite) return
@@ -1850,14 +1749,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         const source = []
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) pixels[(ny + sy) * prev.width + nx + sx] = source[sy * w + sx]
         return { ...frame, pixels }
       })
       return { ...prev, frames }
     })
     setSelection({ x: nx, y: ny, w, h })
-  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
 
   const scaleSelection = useCallback((newW, newH) => {
     if (!selection || !sprite) return
@@ -1871,7 +1770,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         const source = []
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
         for (let dy = 0; dy < targetH; dy++) {
           for (let dx = 0; dx < targetW; dx++) {
             const sx = Math.min(w - 1, Math.floor(dx * w / targetW))
@@ -1885,7 +1784,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
     setSelection({ x, y, w: targetW, h: targetH })
     setShowScaleSelection(false)
-  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
 
   // Add frame (clone current)
   const addFrame = useCallback(() => {
@@ -1983,12 +1882,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
             if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
-              pixels[py * prev.width + px] = 0
+              pixels[py * prev.width + px] = bgInk
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [selection, sprite, currentFrame, updateSprite])
+  }, [selection, sprite, bgInk, currentFrame, updateSprite])
 
   useEffect(() => { handleCutRef.current = handleCut }, [handleCut])
 
@@ -2005,7 +1904,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             const ny = py + cy
             if (nx >= 0 && nx < prev.width && ny >= 0 && ny < prev.height) {
               const ink = clipboard.pixels[cy * clipboard.w + cx]
-              if (ink !== 0) pixels[ny * prev.width + nx] = ink
+              pixels[ny * prev.width + nx] = ink
             }
           }
         }
@@ -2045,12 +1944,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
             if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
-              pixels[py * prev.width + px] = 0
+              pixels[py * prev.width + px] = bgInk
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [selection, currentFrame, updateSprite, pushHistory])
+  }, [selection, bgInk, currentFrame, updateSprite, pushHistory])
 
   // ── Move ─────────────────────────────────────────────────────────────────────
 
@@ -2121,7 +2020,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
         const ink = pixels[py * width + px]
-        if (ink === 0) continue
         ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
         ctx.fillRect(px, py, 1, 1)
       }
@@ -2148,7 +2046,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       for (let py = 0; py < height; py++) {
         for (let px = 0; px < width; px++) {
           const ink = frame.pixels[py * width + px]
-          if (ink === 0) continue
           ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
           ctx.fillRect(offsetX + px, offsetY + py, 1, 1)
         }
@@ -2361,8 +2258,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         <div className="sprite-toolbar-spacer" />
 
         <div className="sprite-color-compact" title="Foreground / background inks">
-          <div className="sprite-bg-chip" style={{ background: bgInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[bgInk] ?? 0] }} />
-          <div className="sprite-fg-chip" style={{ background: activeInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[activeInk] ?? 0] }} />
+          <div className="sprite-bg-chip" style={{ background: CPC_COLORS[palette[bgInk] ?? 0] }} />
+          <div className="sprite-fg-chip" style={{ background: CPC_COLORS[palette[activeInk] ?? 0] }} />
           <button title="Swap foreground / background [X]" onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}>⇄</button>
         </div>
 
