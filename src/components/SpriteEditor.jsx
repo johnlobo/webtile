@@ -382,12 +382,12 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     const onKeyDown = (e) => { if (e.key === 'Alt') setAltPressed(true) }
     const onKeyUp = (e) => { if (e.key === 'Alt') setAltPressed(false) }
     const onBlur = () => setAltPressed(false)
-    window.addEventListener('keydown', onKeyDown)
-    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('keydown', onKeyDown, true)
+    window.addEventListener('keyup', onKeyUp, true)
     window.addEventListener('blur', onBlur)
     return () => {
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('keydown', onKeyDown, true)
+      window.removeEventListener('keyup', onKeyUp, true)
       window.removeEventListener('blur', onBlur)
     }
   }, [])
@@ -512,6 +512,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
+    setAltPressed(e.altKey)
     lastCell.current = null
     const cell = getCellFromEvent(e)
 
@@ -569,6 +570,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width])
 
   const handleMouseMove = useCallback((e) => {
+    setAltPressed(e.altKey)
     const cell = getCellFromEvent(e)
     onCursorPos?.(cell)
     if (isPasting) { setPastePos(cell); return }
@@ -653,6 +655,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
           style={{ display: 'block', imageRendering: 'pixelated', cursor }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
+          onMouseEnter={e => setAltPressed(e.altKey)}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => { if (!selAnchor.current) handleMouseUp(); setPastePos(null); onCursorPos?.(null) }}
           onContextMenu={e => e.preventDefault()}
