@@ -196,7 +196,9 @@ Las paletas se importan/exportan como JASC-PAL (`.pal`). Al importar, cada RGB s
 
 ### Frames y animación
 
-El sprite admite varios frames, selección por miniatura, alta, eliminación (manteniendo al menos uno) y previsualización animada. La interfaz permite ajustar los FPS de reproducción. El estado de cada frame comparte dimensiones, modo y paleta del sprite.
+El sprite admite varios frames, selección por miniatura, alta, duplicado, eliminación (manteniendo al menos uno) y reordenación mediante arrastre. Las miniaturas ajustan siempre el frame completo al espacio disponible. La interfaz permite reproducir la secuencia, activar el bucle y ajustar los FPS, además de mostrar el frame anterior o siguiente como referencia semitransparente (*onion skin*).
+
+El inspector incorpora una previsualización animada permanente cuando el sprite tiene más de un frame. Esta vista encaja el sprite completo respetando la proporción de píxel del modo CPC y utiliza la velocidad FPS configurada en la línea de tiempo.
 
 ### Vista y propiedades
 

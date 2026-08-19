@@ -751,7 +751,9 @@ function FrameThumb({ pixels, width, height, videoMode, palette, active, index, 
   const canvasRef = useRef(null)
   const [hovered, setHovered] = useState(false)
 
-  const scale  = Math.max(1, Math.floor(48 / height))
+  // Fit the complete CPC-rendered frame inside the timeline. The logical
+  // sprite height alone is not enough here: each CPC pixel is 8 px tall.
+  const scale  = Math.min(1, 84 / (width * CELL_W_BASE[videoMode]), 52 / (height * CELL_H_BASE))
   const cellW  = CELL_W_BASE[videoMode] * scale
   const cellH  = CELL_H_BASE * scale
 
@@ -808,7 +810,7 @@ function AnimPreview({ frames, width, height, videoMode, palette, fps }) {
   const canvasRef   = useRef(null)
   const frameIdxRef = useRef(0)
 
-  const scale = Math.max(1, Math.floor(64 / height))
+  const scale = Math.min(1, 172 / (width * CELL_W_BASE[videoMode]), 112 / (height * CELL_H_BASE))
   const cellW = CELL_W_BASE[videoMode] * scale
   const cellH = CELL_H_BASE * scale
 
@@ -834,10 +836,18 @@ function AnimPreview({ frames, width, height, videoMode, palette, fps }) {
   }, [frames, width, height, videoMode, palette, cellW, cellH, fps])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ display: 'block', imageRendering: 'pixelated', border: '1px solid var(--border)' }}
-    />
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: 'var(--text-dim)', fontFamily: "'Press Start 2P', monospace", fontSize: '6px', letterSpacing: '1px' }}>
+        <span>ANIMATION</span>
+        <span>{fps} FPS</span>
+      </div>
+      <div style={{ minHeight: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', background: 'var(--bg)', border: '1px solid var(--border)' }}>
+        <canvas
+          ref={canvasRef}
+          style={{ display: 'block', maxWidth: '100%', imageRendering: 'pixelated' }}
+        />
+      </div>
+    </div>
   )
 }
 
@@ -2072,6 +2082,20 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             videoMode={videoMode}
             palette={palette}
           />
+
+          {frames.length > 1 && (
+            <>
+              <div style={dividerStyle} />
+              <AnimPreview
+                frames={frames}
+                width={width}
+                height={height}
+                videoMode={videoMode}
+                palette={palette}
+                fps={playFps}
+              />
+            </>
+          )}
 
           <div style={dividerStyle} />
 
