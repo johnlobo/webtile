@@ -1249,24 +1249,13 @@ function SettingsModal({ doubleWidth, gridCellW, gridCellH, onApply, onCancel })
 function ToolBtn({ label, name, title, active, onClick, disabled }) {
   return (
     <button
+      className={`sprite-tool-btn${active ? ' active' : ''}`}
       title={title}
+      aria-label={name || title}
       onClick={onClick}
       disabled={disabled}
-      style={{
-        width: '100%', cursor: disabled ? 'default' : 'pointer',
-        background: active ? 'var(--green)' : 'transparent',
-        border: `1px solid ${active ? 'var(--green)' : 'var(--border)'}`,
-        color: active ? '#000' : 'var(--text-dim)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: '4px', padding: '8px 4px',
-        transition: 'all 0.15s', flexShrink: 0,
-        opacity: disabled ? 0.35 : 1,
-      }}
-      onMouseEnter={e => { if (!active && !disabled) { e.currentTarget.style.borderColor = 'var(--green-dim)'; e.currentTarget.style.color = 'var(--text)' } }}
-      onMouseLeave={e => { if (!active && !disabled) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' } }}
     >
-      <span style={{ fontFamily: "'VT323', monospace", fontSize: '28px', lineHeight: 1 }}>{label}</span>
-      {name && <span style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', letterSpacing: '0.5px', lineHeight: 1, opacity: active ? 0.7 : 0.6 }}>{name}</span>}
+      <span>{label}</span>
     </button>
   )
 }
@@ -1296,7 +1285,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [textBuffer,   setTextBuffer]   = useState('')
   const [textCursor,   setTextCursor]   = useState({ x: 0, y: 0 })
   const [fontReady,    setFontReady]    = useState(false)
+  const [toolbarMenu,  setToolbarMenu]  = useState(null)
   const textInputRef   = useRef(null)
+  const toolbarRef     = useRef(null)
+
+  useEffect(() => {
+    const closeMenu = (e) => {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target)) setToolbarMenu(null)
+    }
+    document.addEventListener('mousedown', closeMenu)
+    return () => document.removeEventListener('mousedown', closeMenu)
+  }, [])
 
   const handleTextClick = useCallback((x, y) => {
     setTextMode({ x, y })
@@ -1493,17 +1492,20 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       const { width, height } = prev
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
-        const pixels = Array(width * height)
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            pixels[y * width + x] = f.pixels[y * width + (width - 1 - x)]
+        const pixels = [...f.pixels]
+        const area = selection ?? { x: 0, y: 0, w: width, h: height }
+        for (let y = area.y; y < area.y + area.h; y++) {
+          for (let offset = 0; offset < area.w; offset++) {
+            const x = area.x + offset
+            const sourceX = area.x + area.w - 1 - offset
+            pixels[y * width + x] = f.pixels[y * width + sourceX]
           }
         }
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, updateSprite, pushHistory])
+  }, [currentFrame, selection, updateSprite, pushHistory])
 
   // Flip V
   const flipV = useCallback(() => {
@@ -1512,17 +1514,20 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       const { width, height } = prev
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
-        const pixels = Array(width * height)
-        for (let y = 0; y < height; y++) {
-          for (let x = 0; x < width; x++) {
-            pixels[y * width + x] = f.pixels[(height - 1 - y) * width + x]
+        const pixels = [...f.pixels]
+        const area = selection ?? { x: 0, y: 0, w: width, h: height }
+        for (let offset = 0; offset < area.h; offset++) {
+          const y = area.y + offset
+          const sourceY = area.y + area.h - 1 - offset
+          for (let x = area.x; x < area.x + area.w; x++) {
+            pixels[y * width + x] = f.pixels[sourceY * width + x]
           }
         }
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, updateSprite, pushHistory])
+  }, [currentFrame, selection, updateSprite, pushHistory])
 
   // Add frame (clone current)
   const addFrame = useCallback(() => {
@@ -1859,103 +1864,90 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--bg)' }}>
 
+      {/* COMPACT HORIZONTAL TOOLBAR */}
+      <div ref={toolbarRef} className="sprite-toolbar">
+        <div className="sprite-tool-group" aria-label="Drawing tools">
+          <ToolBtn label="✏" name="PENCIL" title="Pencil [B] — Alt = pick" active={activeTool === 'pencil'} onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
+          <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
+          <ToolBtn label="⊕" name="PICK" title="Color Picker" active={activeTool === 'picker'} onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
+          <ToolBtn label="▪" name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
+          <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
+        </div>
+
+        <div className="sprite-toolbar-separator" />
+
+        <div className="sprite-tool-group" aria-label="Selection tools">
+          <ToolBtn label="⬚" name="SELECT" title="Select [M]" active={activeTool === 'select'} onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
+          <ToolBtn label="✥" name="MOVE" title="Move selection [V]" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
+        </div>
+
+        {selection && (
+          <div className="sprite-selection-actions">
+            <span>{selection.w}×{selection.h}</span>
+            <button title="Copy [Ctrl+C]" onClick={handleCopy}>Copy</button>
+            <button title="Cut [Ctrl+X]" onClick={handleCut}>Cut</button>
+            <button title="Flip horizontal" onClick={flipH}>↔</button>
+            <button title="Flip vertical" onClick={flipV}>↕</button>
+            <button title="Clear selection" onClick={handleEraseSelection}>Delete</button>
+          </div>
+        )}
+        {clipboard && <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]" active={isPasting} onClick={() => { setIsPasting(true); setActiveTool('select') }} />}
+
+        <div className="sprite-toolbar-separator" />
+        <div className="sprite-tool-group" aria-label="History">
+          <ToolBtn label="↩" name="UNDO" title="Undo [Ctrl+Z]" disabled={!canUndo} onClick={handleUndo} />
+          <ToolBtn label="↪" name="REDO" title="Redo [Ctrl+Shift+Z]" disabled={!canRedo} onClick={handleRedo} />
+        </div>
+
+        <div className="sprite-toolbar-separator" />
+        <div className="sprite-zoom-control">
+          <button title="Zoom out" disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === 0} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i > 0) setZoom(SPRITE_ZOOM_LEVELS[i - 1]) }}>−</button>
+          <select title="Zoom level" value={zoom} onChange={e => setZoom(Number(e.target.value))}>
+            {SPRITE_ZOOM_LEVELS.map(level => <option key={level} value={level}>{level * 100}%</option>)}
+          </select>
+          <button title="Zoom in" disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === SPRITE_ZOOM_LEVELS.length - 1} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i < SPRITE_ZOOM_LEVELS.length - 1) setZoom(SPRITE_ZOOM_LEVELS[i + 1]) }}>+</button>
+        </div>
+
+        <button className={`sprite-toolbar-toggle${doubleWidth ? ' active' : ''}`} title="Double horizontal pixel width [D]" onClick={() => setDoubleWidth(v => !v)}>2×W</button>
+
+        <div className="sprite-toolbar-spacer" />
+
+        <div className="sprite-color-compact" title="Foreground / background inks">
+          <div className="sprite-bg-chip" style={{ background: bgInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[bgInk] ?? 0] }} />
+          <div className="sprite-fg-chip" style={{ background: activeInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[activeInk] ?? 0] }} />
+          <button title="Swap foreground / background" onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}>⇄</button>
+        </div>
+
+        <div className="sprite-toolbar-menu-wrap">
+          <button className="sprite-toolbar-menu-btn" onClick={() => setToolbarMenu(m => m === 'io' ? null : 'io')}>Import / Export⌄</button>
+          {toolbarMenu === 'io' && (
+            <div className="sprite-toolbar-dropdown">
+              <button onClick={() => { setToolbarMenu(null); importPngRef.current?.click() }}>Import PNG…</button>
+              <button onClick={() => { setToolbarMenu(null); exportPNG() }}>Export current frame PNG</button>
+              <div />
+              <button onClick={() => { setToolbarMenu(null); importPaletteRef.current?.click() }}>Import palette…</button>
+              <button onClick={() => { setToolbarMenu(null); exportPalette() }}>Export palette</button>
+              <div />
+              <button onClick={() => { setToolbarMenu(null); setShowExport(true) }}>Export CPC data…</button>
+            </div>
+          )}
+        </div>
+
+        <div className="sprite-toolbar-menu-wrap">
+          <button className="sprite-toolbar-menu-btn compact" title="More options" onClick={() => setToolbarMenu(m => m === 'more' ? null : 'more')}>•••</button>
+          {toolbarMenu === 'more' && (
+            <div className="sprite-toolbar-dropdown align-right">
+              <button onClick={() => { setToolbarMenu(null); setShowProperties(true) }}>Sprite properties…</button>
+              <button onClick={() => { setToolbarMenu(null); setShowSettings(true) }}>View settings…</button>
+            </div>
+          )}
+        </div>
+
+        <input ref={importPngRef} type="file" accept="image/png,image/*" style={{ display: 'none' }} onChange={e => { importPNG(e.target.files?.[0]); e.target.value = '' }} />
+      </div>
+
       {/* TOP AREA */}
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-
-        {/* LEFT TOOLBAR */}
-        <div style={{
-          width: '172px', flexShrink: 0,
-          background: 'var(--panel)',
-          borderRight: '1px solid var(--border)',
-          display: 'grid', gridTemplateColumns: '1fr 1fr',
-          alignContent: 'start', padding: '10px 6px', gap: '6px',
-          overflowY: 'auto',
-        }}>
-          <ToolBtn label="✏" name="PENCIL" title="Pencil (draw) — Alt = pick"       active={activeTool === 'pencil'}  onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
-          <ToolBtn label="⌫" name="ERASE"  title="Eraser"                              active={activeTool === 'eraser'}  onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
-          <ToolBtn label="⊕" name="PICK"   title="Color Picker"                        active={activeTool === 'picker'}  onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label="⬚" name="SELECT" title="Select [M]"                          active={activeTool === 'select'}  onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="▪" name="FILL"   title="Fill [F] — Alt = pick"              active={activeTool === 'fill'}    onClick={() => { setActiveTool('fill');   setIsPasting(false) }} />
-          <ToolBtn label="✥" name="MOVE"   title="Move selection [V]"  active={activeTool === 'move'}    disabled={!selection} onClick={() => { setActiveTool('move');   setIsPasting(false) }} />
-          <ToolBtn label="T" name="TEXT"   title="Text tool [T]"        active={activeTool === 'text'}    onClick={() => { setActiveTool('text');   setIsPasting(false) }} />
-
-          <div style={dividerStyle} />
-
-          <ToolBtn label="⎘" name="COPY"  title="Copy selection [Ctrl+C]"  active={false}     disabled={!selection} onClick={handleCopy} />
-          <ToolBtn label="✂" name="CUT"   title="Cut selection [Ctrl+X]"   active={false}     disabled={!selection} onClick={handleCut} />
-          <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]"            active={isPasting} disabled={!clipboard} onClick={() => { setIsPasting(true); setActiveTool('select') }} />
-
-          <div style={dividerStyle} />
-
-          <ToolBtn label="↔" name="FLIP H" title="Flip Horizontal" active={false} onClick={flipH} />
-          <ToolBtn label="↕" name="FLIP V" title="Flip Vertical"   active={false} onClick={flipV} />
-          <ToolBtn label="↩" name="UNDO"   title="Undo [Ctrl+Z]"   active={false} onClick={handleUndo} disabled={!canUndo} />
-          <ToolBtn label="↪" name="REDO"   title="Redo [Ctrl+Shift+Z]" active={false} onClick={handleRedo} disabled={!canRedo} />
-
-          <div style={dividerStyle} />
-
-          {/* Zoom */}
-          <ToolBtn label="⊞" name="ZOOM IN"  title="Zoom In"  active={false} disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === SPRITE_ZOOM_LEVELS.length - 1} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i < SPRITE_ZOOM_LEVELS.length - 1) setZoom(SPRITE_ZOOM_LEVELS[i + 1]) }} />
-          <ToolBtn label="⊟" name="ZOOM OUT" title="Zoom Out" active={false} disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === 0} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i > 0) setZoom(SPRITE_ZOOM_LEVELS[i - 1]) }} />
-
-          <div style={dividerStyle} />
-
-          <ToolBtn label="☰" name="SETTINGS" title="View Settings"    active={showSettings}   onClick={() => setShowSettings(true)} />
-          <ToolBtn label="⚙" name="PROPS"    title="Sprite Properties" active={showProperties} onClick={() => setShowProperties(true)} />
-
-          <div style={dividerStyle} />
-
-          <ToolBtn label="⬇" name="EXPORT"  title="Export sprite data" active={false} onClick={() => setShowExport(true)} />
-          <ToolBtn label="⬇" name="EXP PNG" title="Export PNG"          active={false} onClick={exportPNG} />
-          <ToolBtn label="⬆" name="IMP PNG" title="Import PNG"          active={false} onClick={() => importPngRef.current?.click()} />
-          <input
-            ref={importPngRef}
-            type="file"
-            accept="image/png,image/*"
-            style={{ display: 'none' }}
-            onChange={e => { importPNG(e.target.files?.[0]); e.target.value = '' }}
-          />
-
-          {/* Color swatches */}
-          <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '6px 0 2px' }}>
-            <div style={{ position: 'relative', width: '50px', height: '46px', flexShrink: 0 }}>
-              {/* Background ink (bottom-right) */}
-              <div
-                title={`Background ink ${bgInk} — right-click ink slot to set`}
-                style={{
-                  position: 'absolute', right: 0, bottom: 0,
-                  width: '28px', height: '28px',
-                  background: bgInk === 0
-                    ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
-                    : CPC_COLORS[palette[bgInk] ?? 0],
-                  border: '2px solid var(--border)',
-                }}
-              />
-              {/* Foreground ink (top-left) */}
-              <div
-                title={`Foreground ink ${activeInk} — left-click ink slot to set`}
-                style={{
-                  position: 'absolute', left: 0, top: 0,
-                  width: '28px', height: '28px',
-                  background: activeInk === 0
-                    ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
-                    : CPC_COLORS[palette[activeInk] ?? 0],
-                  border: '2px solid var(--green)',
-                }}
-              />
-            </div>
-            <button
-              title="Swap foreground / background"
-              onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}
-              style={{
-                background: 'transparent', border: '1px solid var(--border)',
-                color: 'var(--text-dim)', cursor: 'pointer',
-                fontFamily: "'VT323', monospace", fontSize: '18px', lineHeight: 1,
-                padding: '2px 4px',
-              }}
-            >⇄</button>
-          </div>
-        </div>
 
         {/* CANVAS */}
         <SpriteCanvas
@@ -2119,40 +2111,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             </div>
           </div>
 
-          {/* Palette import / export */}
-          <div style={{ display: 'flex', gap: '4px' }}>
-            <button
-              title="Import palette (.pal)"
-              onClick={() => importPaletteRef.current?.click()}
-              style={{
-                flex: 1, padding: '4px 0', cursor: 'pointer',
-                background: 'transparent', border: '1px solid var(--border)',
-                color: 'var(--text-dim)', fontFamily: "'Press Start 2P', monospace",
-                fontSize: '5px', letterSpacing: '0.5px', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--amber)'; e.currentTarget.style.color = 'var(--amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' }}
-            >IMPORT PAL</button>
-            <button
-              title="Export palette (.pal)"
-              onClick={exportPalette}
-              style={{
-                flex: 1, padding: '4px 0', cursor: 'pointer',
-                background: 'transparent', border: '1px solid var(--border)',
-                color: 'var(--text-dim)', fontFamily: "'Press Start 2P', monospace",
-                fontSize: '5px', letterSpacing: '0.5px', transition: 'all 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--amber)'; e.currentTarget.style.color = 'var(--amber)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-dim)' }}
-            >EXPORT PAL</button>
-            <input
-              ref={importPaletteRef}
-              type="file"
-              accept=".pal"
-              style={{ display: 'none' }}
-              onChange={e => { importPalette(e.target.files?.[0]); e.target.value = '' }}
-            />
-          </div>
+          <input
+            ref={importPaletteRef}
+            type="file"
+            accept=".pal"
+            style={{ display: 'none' }}
+            onChange={e => { importPalette(e.target.files?.[0]); e.target.value = '' }}
+          />
 
           <div style={dividerStyle} />
 
