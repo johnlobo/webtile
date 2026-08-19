@@ -213,7 +213,9 @@ Dentro de un sprite existente, la importación divide la imagen usando sus dimen
 
 ### Vista y propiedades
 
-El zoom del sprite dispone de 0,25×, 0,5×, 1×, 2×, 4× y 8×, además de rueda. Al usar la rueda, la coordenada situada bajo el cursor permanece anclada visualmente mediante el ajuste automático del desplazamiento horizontal y vertical. La vista puede duplicar horizontalmente el píxel para aproximar la proporción del modo 0. La cuadrícula superpuesta admite tamaño de celda configurable.
+El zoom del sprite dispone de 0,25×, 0,5×, 1×, 2×, 4× y 8×, además de rueda. Al usar la rueda, la coordenada situada bajo el cursor permanece anclada visualmente mediante el ajuste automático del desplazamiento horizontal y vertical. La vista puede duplicar horizontalmente el píxel para aproximar la proporción del modo 0.
+
+La cuadrícula puede mostrarse u ocultarse con `G` o desde la toolbar. Su ancho y alto de celda, color y opacidad son configurables. Las guías verticales y horizontales se definen mediante listas de coordenadas de píxel y se dibujan independientemente de la cuadrícula; las coordenadas duplicadas, inválidas o situadas fuera del sprite se descartan al aplicar la configuración.
 
 En propiedades se puede renombrar y redimensionar el sprite, seleccionar uno de nueve anclajes para conservar el contenido, elegir la tinta que rellena el área nueva y modificar la vista de ancho doble. El cambio se aplica a todos los frames.
 
@@ -295,6 +297,7 @@ Antes de exportar exige que los IDs de sala formen la secuencia contigua `0..N-1
 |---|---|
 | `B`, `E`, `F`, `L`, `R`, `O`, `M`, `V`, `T` | Pencil, Erase, Fill, Line, Rectangle, Ellipse, Select, Move, Text |
 | `D` | Ancho visual doble |
+| `G` | Mostrar u ocultar la cuadrícula |
 | `Ctrl+C`, `Ctrl+X`, `Ctrl+V` | Copiar, cortar, pegar |
 | `Ctrl+Z` | Deshacer |
 | `Ctrl+Shift+Z` / `Ctrl+Y` | Rehacer |

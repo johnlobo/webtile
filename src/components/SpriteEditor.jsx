@@ -195,7 +195,7 @@ function nearestPaletteInk(r, g, b, palette) {
 // ── Canvas rendering helpers ──────────────────────────────────────────────────
 
 function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette, cellW, cellH, opts = {}) {
-  const { showGrid, gridCellW = 1, gridCellH = 1, onionLayers = [] } = opts
+  const { showGrid, gridCellW = 1, gridCellH = 1, gridColor = '#ffaa00', gridOpacity = 0.55, guidesX = [], guidesY = [], onionLayers = [] } = opts
   const ctx = canvas.getContext('2d')
 
   canvas.width  = width  * cellW
@@ -223,9 +223,10 @@ function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette,
     }
   }
 
-  // Custom grid overlay (amber)
+  // Configurable grid overlay.
   if (showGrid) {
-    ctx.strokeStyle = 'rgba(255,170,0,0.55)'
+    ctx.strokeStyle = gridColor
+    ctx.globalAlpha = gridOpacity
     ctx.lineWidth = 1
     for (let px = gridCellW; px < width; px += gridCellW) {
       ctx.beginPath()
@@ -239,7 +240,26 @@ function renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette,
       ctx.lineTo(canvas.width, py * cellH + 0.5)
       ctx.stroke()
     }
+    ctx.globalAlpha = 1
   }
+
+  // Pixel-coordinate guides are independent from the regular grid.
+  ctx.strokeStyle = '#00e87a'
+  ctx.globalAlpha = 0.9
+  ctx.lineWidth = 1
+  for (const x of guidesX) {
+    ctx.beginPath()
+    ctx.moveTo(x * cellW + 0.5, 0)
+    ctx.lineTo(x * cellW + 0.5, canvas.height)
+    ctx.stroke()
+  }
+  for (const y of guidesY) {
+    ctx.beginPath()
+    ctx.moveTo(0, y * cellH + 0.5)
+    ctx.lineTo(canvas.width, y * cellH + 0.5)
+    ctx.stroke()
+  }
+  ctx.globalAlpha = 1
 }
 
 // ── SpriteCanvas ──────────────────────────────────────────────────────────────
@@ -336,7 +356,7 @@ function shapeCells(tool, start, end) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
+  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
   const canvasRef   = useRef(null)
   const scrollRef   = useRef(null)
   const painting    = useRef(false)
@@ -423,7 +443,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     const canvas = canvasRef.current
     if (!canvas) return
     renderSpriteToCanvas(canvas, pixels, width, height, videoMode, palette, cellW, cellH, {
-      showGrid: true, gridCellW, gridCellH, onionLayers,
+      showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, onionLayers,
     })
 
     if (textOverlay) {
@@ -474,7 +494,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       for (const { x, y } of cells) ctx.fillRect(x * cellW, y * cellH, cellW, cellH)
       ctx.globalAlpha = 1
     }
-  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink, onionLayers, shapePreview])
+  }, [pixels, width, height, videoMode, palette, cellW, cellH, showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, textOverlay, doubleWidth, blink, onionLayers, shapePreview])
 
   const getCellFromEvent = useCallback((e) => {
     const canvas = canvasRef.current
@@ -1302,14 +1322,31 @@ function SpriteMinimap({ pixels, width, height, videoMode, palette }) {
 
 // ── SettingsModal ─────────────────────────────────────────────────────────────
 
-function SettingsModal({ doubleWidth, gridCellW, gridCellH, onApply, onCancel }) {
+function SettingsModal({ doubleWidth, showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, width, height, onApply, onCancel }) {
   const [dblWidth,  setDblWidth]  = useState(doubleWidth)
-  const [cellW,     setCellW]     = useState(gridCellW)
-  const [cellH,     setCellH]     = useState(gridCellH)
+  const [gridVisible, setGridVisible] = useState(showGrid)
+  const [cellW, setCellW] = useState(String(gridCellW))
+  const [cellH, setCellH] = useState(String(gridCellH))
+  const [color, setColor] = useState(gridColor)
+  const [opacity, setOpacity] = useState(gridOpacity)
+  const [verticalGuides, setVerticalGuides] = useState(guidesX.join(', '))
+  const [horizontalGuides, setHorizontalGuides] = useState(guidesY.join(', '))
+
+  const parseGuides = (value, limit) => [...new Set(value.split(',').map(v => parseInt(v.trim())).filter(v => Number.isInteger(v) && v > 0 && v < limit))].sort((a, b) => a - b)
+  const apply = () => onApply({
+    doubleWidth: dblWidth,
+    showGrid: gridVisible,
+    gridCellW: Math.max(1, parseInt(cellW) || 1),
+    gridCellH: Math.max(1, parseInt(cellH) || 1),
+    gridColor: color,
+    gridOpacity: opacity,
+    guidesX: parseGuides(verticalGuides, width),
+    guidesY: parseGuides(horizontalGuides, height),
+  })
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
-      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '340px', padding: '32px', position: 'relative' }}>
+      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto', padding: '32px', position: 'relative' }}>
 
         {/* Close */}
         <button onClick={onCancel} style={{ position: 'absolute', top: '12px', right: '12px', width: '24px', height: '24px', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-dim)', cursor: 'pointer', fontFamily: "'Press Start 2P', monospace", fontSize: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'border-color 0.15s, color 0.15s' }}
@@ -1346,29 +1383,43 @@ function SettingsModal({ doubleWidth, gridCellW, gridCellH, onApply, onCancel })
         </div>
 
         {/* Grid */}
-        <div style={{ marginBottom: '26px' }}>
-          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '10px' }}>GRID CELL SIZE</div>
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '10px' }}>GRID</div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-dim)', fontSize: '12px', marginBottom: '10px', cursor: 'pointer' }}><input type="checkbox" checked={gridVisible} onChange={e => setGridVisible(e.target.checked)} /> Show grid [G]</label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label className="pixel-label">WIDTH</label>
               <input className="pixel-input" type="number" min={1} value={cellW}
-                onChange={e => setCellW(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={e => setCellW(e.target.value)} onBlur={() => setCellW(String(Math.max(1, parseInt(cellW) || 1)))}
                 style={{ width: '100%' }}
               />
             </div>
             <div>
               <label className="pixel-label">HEIGHT</label>
               <input className="pixel-input" type="number" min={1} value={cellH}
-                onChange={e => setCellH(Math.max(1, parseInt(e.target.value) || 1))}
+                onChange={e => setCellH(e.target.value)} onBlur={() => setCellH(String(Math.max(1, parseInt(cellH) || 1)))}
                 style={{ width: '100%' }}
               />
             </div>
           </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr', gap: '10px', alignItems: 'end', marginTop: '10px' }}>
+            <div><label className="pixel-label">COLOR</label><input type="color" value={color} onChange={e => setColor(e.target.value)} style={{ width: '100%', height: '34px', border: '1px solid var(--border)', background: 'var(--bg)' }} /></div>
+            <div><label className="pixel-label">OPACITY {Math.round(opacity * 100)}%</label><input type="range" min="0.1" max="1" step="0.05" value={opacity} onChange={e => setOpacity(Number(e.target.value))} style={{ width: '100%' }} /></div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '26px' }}>
+          <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '6px', color: 'var(--amber)', letterSpacing: '2px', marginBottom: '10px' }}>GUIDES</div>
+          <label className="pixel-label">VERTICAL X COORDINATES</label>
+          <input className="pixel-input" value={verticalGuides} placeholder="e.g. 8, 16, 24" onChange={e => setVerticalGuides(e.target.value)} style={{ width: '100%', marginBottom: '10px' }} />
+          <label className="pixel-label">HORIZONTAL Y COORDINATES</label>
+          <input className="pixel-input" value={horizontalGuides} placeholder="e.g. 8, 16" onChange={e => setHorizontalGuides(e.target.value)} style={{ width: '100%' }} />
+          <div style={{ color: 'var(--text-dim)', fontSize: '10px', marginTop: '7px' }}>Comma-separated pixel coordinates. Invalid or out-of-range guides are ignored.</div>
         </div>
 
         {/* Actions */}
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button className="btn-pixel" onClick={() => onApply({ doubleWidth: dblWidth, gridCellW: cellW, gridCellH: cellH })} style={{ flex: 1 }}>APPLY</button>
+          <button className="btn-pixel" onClick={apply} style={{ flex: 1 }}>APPLY</button>
           <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>CANCEL</button>
         </div>
       </div>
@@ -1454,6 +1505,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [spriteSheetFile, setSpriteSheetFile] = useState(null)
   const [gridCellW,    setGridCellW]    = useState(8)
   const [gridCellH,    setGridCellH]    = useState(8)
+  const [showGrid,     setShowGrid]     = useState(true)
+  const [gridColor,    setGridColor]    = useState('#ffaa00')
+  const [gridOpacity,  setGridOpacity]  = useState(0.55)
+  const [guidesX,      setGuidesX]      = useState([])
+  const [guidesY,      setGuidesY]      = useState([])
   const [selection,    setSelection]    = useState(null)
   const [clipboard,    setClipboard]    = useState(null)
   const [isPasting,    setIsPasting]    = useState(false)
@@ -1625,6 +1681,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
 
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
+      if (e.key === 'g' || e.key === 'G') { setShowGrid(v => !v); return }
       if (e.key === 'x' || e.key === 'X') {
         const { activeInk: foreground, bgInk: background } = colorsRef.current
         setActiveInk(background)
@@ -2314,6 +2371,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         </div>
 
         <button className={`sprite-toolbar-toggle${doubleWidth ? ' active' : ''}`} title="Double horizontal pixel width [D]" onClick={() => setDoubleWidth(v => !v)}>2×W</button>
+        <button className={`sprite-toolbar-toggle${showGrid ? ' active' : ''}`} title="Show / hide grid [G]" onClick={() => setShowGrid(v => !v)}>#</button>
 
         <div className="sprite-toolbar-spacer" />
 
@@ -2375,6 +2433,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onZoomChange={setZoom}
           gridCellW={gridCellW}
           gridCellH={gridCellH}
+          showGrid={showGrid}
+          gridColor={gridColor}
+          gridOpacity={gridOpacity}
+          guidesX={guidesX}
+          guidesY={guidesY}
           selection={selection}
           onSelectionChange={setSelection}
           clipboard={clipboard}
@@ -2677,12 +2740,24 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       {showSettings && (
         <SettingsModal
           doubleWidth={doubleWidth}
+          showGrid={showGrid}
           gridCellW={gridCellW}
           gridCellH={gridCellH}
-          onApply={({ doubleWidth: dw, gridCellW: cw, gridCellH: ch }) => {
+          gridColor={gridColor}
+          gridOpacity={gridOpacity}
+          guidesX={guidesX}
+          guidesY={guidesY}
+          width={width}
+          height={height}
+          onApply={({ doubleWidth: dw, showGrid: visible, gridCellW: cw, gridCellH: ch, gridColor: color, gridOpacity: opacity, guidesX: gx, guidesY: gy }) => {
             setDoubleWidth(dw)
+            setShowGrid(visible)
             setGridCellW(cw)
             setGridCellH(ch)
+            setGridColor(color)
+            setGridOpacity(opacity)
+            setGuidesX(gx)
+            setGuidesY(gy)
             setShowSettings(false)
           }}
           onCancel={() => setShowSettings(false)}
