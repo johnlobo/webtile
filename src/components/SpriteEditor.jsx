@@ -1925,13 +1925,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const { videoMode, width, height, palette, frames } = sprite
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = frames[currentFrame]?.pixels ?? []
-  const onionLayers = useMemo(() => {
-    if (isPlaying) return []
-    const layers = []
-    if (onionPrevious && currentFrame > 0) layers.push({ pixels: frames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
-    if (onionNext && currentFrame < frames.length - 1) layers.push({ pixels: frames[currentFrame + 1]?.pixels, color: 'rgba(33,82,255,0.24)' })
-    return layers
-  }, [frames, currentFrame, onionPrevious, onionNext, isPlaying])
+  const onionLayers = []
+  if (!isPlaying) {
+    if (onionPrevious && currentFrame > 0) onionLayers.push({ pixels: frames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
+    if (onionNext && currentFrame < frames.length - 1) onionLayers.push({ pixels: frames[currentFrame + 1]?.pixels, color: 'rgba(33,82,255,0.24)' })
+  }
 
   const dividerStyle = { height: '1px', background: 'var(--border)', margin: '2px 0', gridColumn: '1 / -1' }
 
