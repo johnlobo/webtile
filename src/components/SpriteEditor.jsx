@@ -338,6 +338,7 @@ function shapeCells(tool, start, end) {
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
   gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
   const canvasRef   = useRef(null)
+  const scrollRef   = useRef(null)
   const painting    = useRef(false)
   const erasing     = useRef(false)
   const lastCell    = useRef(null)
@@ -620,10 +621,35 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleWheel = useCallback((e) => {
     e.preventDefault()
+    if (e.deltaY === 0) return
     const idx = SPRITE_ZOOM_LEVELS.indexOf(zoom)
-    if (e.deltaY < 0 && idx < SPRITE_ZOOM_LEVELS.length - 1) onZoomChange(SPRITE_ZOOM_LEVELS[idx + 1])
-    if (e.deltaY > 0 && idx > 0)                             onZoomChange(SPRITE_ZOOM_LEVELS[idx - 1])
-  }, [zoom, onZoomChange])
+    const nextZoom = e.deltaY < 0
+      ? SPRITE_ZOOM_LEVELS[Math.min(SPRITE_ZOOM_LEVELS.length - 1, idx + 1)]
+      : SPRITE_ZOOM_LEVELS[Math.max(0, idx - 1)]
+    if (nextZoom === zoom) return
+
+    const canvas = canvasRef.current
+    const scroller = scrollRef.current
+    if (!canvas || !scroller) { onZoomChange(nextZoom); return }
+
+    const canvasRect = canvas.getBoundingClientRect()
+    const logicalX = (e.clientX - canvasRect.left) / cellW
+    const logicalY = (e.clientY - canvasRect.top) / cellH
+    const pointerX = e.clientX
+    const pointerY = e.clientY
+    const nextCellW = CELL_W_BASE[videoMode] * nextZoom * (doubleWidth ? 2 : 1)
+    const nextCellH = CELL_H_BASE * nextZoom
+
+    onZoomChange(nextZoom)
+    requestAnimationFrame(() => {
+      const nextCanvas = canvasRef.current
+      const nextScroller = scrollRef.current
+      if (!nextCanvas || !nextScroller) return
+      const nextRect = nextCanvas.getBoundingClientRect()
+      nextScroller.scrollLeft += nextRect.left + logicalX * nextCellW - pointerX
+      nextScroller.scrollTop += nextRect.top + logicalY * nextCellH - pointerY
+    })
+  }, [zoom, onZoomChange, cellW, cellH, videoMode, doubleWidth])
 
   const paintCursor = useMemo(() => {
     if (activeTool !== 'pencil' && activeTool !== 'eraser') return null
@@ -657,7 +683,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     : paintCursor                             ?? 'default'
 
   return (
-    <div style={{ overflow: 'auto', flex: 1, padding: '16px', background: 'var(--bg)' }} onWheel={handleWheel}>
+    <div ref={scrollRef} style={{ overflow: 'auto', flex: 1, padding: '16px', background: 'var(--bg)' }} onWheel={handleWheel}>
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <canvas
           ref={canvasRef}

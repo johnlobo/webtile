@@ -213,7 +213,7 @@ Dentro de un sprite existente, la importación divide la imagen usando sus dimen
 
 ### Vista y propiedades
 
-El zoom del sprite dispone de 1×, 2×, 4× y 8×, además de rueda. La vista puede duplicar horizontalmente el píxel para aproximar la proporción del modo 0. La cuadrícula superpuesta admite tamaño de celda configurable.
+El zoom del sprite dispone de 0,25×, 0,5×, 1×, 2×, 4× y 8×, además de rueda. Al usar la rueda, la coordenada situada bajo el cursor permanece anclada visualmente mediante el ajuste automático del desplazamiento horizontal y vertical. La vista puede duplicar horizontalmente el píxel para aproximar la proporción del modo 0. La cuadrícula superpuesta admite tamaño de celda configurable.
 
 En propiedades se puede renombrar y redimensionar el sprite, seleccionar uno de nueve anclajes para conservar el contenido, elegir la tinta que rellena el área nueva y modificar la vista de ancho doble. El cambio se aplica a todos los frames.
 
