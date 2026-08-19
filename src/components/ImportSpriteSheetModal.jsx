@@ -5,24 +5,29 @@ export default function ImportSpriteSheetModal({ file, onConfirm, onCancel }) {
   const [name, setName] = useState(() => file.name.replace(/\.[^.]+$/, '').slice(0, 64) || 'Imported Animation')
   const [videoMode, setVideoMode] = useState(0)
   const [direction, setDirection] = useState('horizontal')
-  const [spacing, setSpacing] = useState(0)
-  const [frameW, setFrameW] = useState(16)
-  const [frameH, setFrameH] = useState(16)
+  // Keep the raw input text so users can clear a field before typing a new
+  // value. Clamping on every key press makes Backspace appear not to work.
+  const [spacing, setSpacing] = useState('0')
+  const [frameW, setFrameW] = useState('16')
+  const [frameH, setFrameH] = useState('16')
   const [image, setImage] = useState(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const previewRef = useRef(null)
 
   const mode = MODE_INFO[videoMode]
-  const normalizedW = snapToMultiple(frameW, mode.multiple)
-  const normalizedH = Math.max(1, frameH)
+  const numericW = Math.max(mode.multiple, Number(frameW) || mode.multiple)
+  const numericH = Math.max(1, Number(frameH) || 1)
+  const numericSpacing = Math.max(0, Math.min(128, Number(spacing) || 0))
+  const normalizedW = snapToMultiple(numericW, mode.multiple)
+  const normalizedH = numericH
   const axisSize = image ? (direction === 'horizontal' ? image.naturalWidth : image.naturalHeight) : 0
   const crossSize = image ? (direction === 'horizontal' ? image.naturalHeight : image.naturalWidth) : 0
   const axisFrame = direction === 'horizontal' ? normalizedW : normalizedH
   const crossFrame = direction === 'horizontal' ? normalizedH : normalizedW
-  const step = axisFrame + spacing
-  const frameCount = image && step > 0 && crossSize >= crossFrame ? Math.floor((axisSize + spacing) / step) : 0
-  const usedSize = frameCount ? frameCount * step - spacing : 0
+  const step = axisFrame + numericSpacing
+  const frameCount = image && step > 0 && crossSize >= crossFrame ? Math.floor((axisSize + numericSpacing) / step) : 0
+  const usedSize = frameCount ? frameCount * step - numericSpacing : 0
 
   useEffect(() => {
     const url = URL.createObjectURL(file)
@@ -30,8 +35,8 @@ export default function ImportSpriteSheetModal({ file, onConfirm, onCancel }) {
     img.onload = () => {
       setImage(img)
       const guessed = Math.max(1, Math.min(img.naturalWidth, img.naturalHeight))
-      setFrameW(snapToMultiple(guessed, MODE_INFO[0].multiple))
-      setFrameH(guessed)
+      setFrameW(String(snapToMultiple(guessed, MODE_INFO[0].multiple)))
+      setFrameH(String(guessed))
       URL.revokeObjectURL(url)
     }
     img.onerror = () => { setError('Could not load the sprite sheet.'); URL.revokeObjectURL(url) }
@@ -57,7 +62,7 @@ export default function ImportSpriteSheetModal({ file, onConfirm, onCancel }) {
       const y = direction === 'vertical' ? fi * step * scale : 0
       ctx.strokeRect(x + .5, y + .5, normalizedW * scale - 1, normalizedH * scale - 1)
     }
-  }, [image, direction, spacing, normalizedW, normalizedH, frameCount, step])
+  }, [image, direction, numericSpacing, normalizedW, normalizedH, frameCount, step])
 
   const handleConfirm = async () => {
     if (!image || frameCount < 1) return
@@ -107,9 +112,9 @@ export default function ImportSpriteSheetModal({ file, onConfirm, onCancel }) {
         </div>
 
         <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-          <div style={{ flex: 1 }}><label className="pixel-label">Frame width</label><input className="pixel-input" type="number" min={mode.multiple} value={frameW} onChange={e => setFrameW(Math.max(mode.multiple, Number(e.target.value) || mode.multiple))} style={{ width: '100%' }} /></div>
-          <div style={{ flex: 1 }}><label className="pixel-label">Frame height</label><input className="pixel-input" type="number" min="1" value={frameH} onChange={e => setFrameH(Math.max(1, Number(e.target.value) || 1))} style={{ width: '100%' }} /></div>
-          <div style={{ flex: 1 }}><label className="pixel-label">Spacing</label><input className="pixel-input" type="number" min="0" max="128" value={spacing} onChange={e => setSpacing(Math.max(0, Math.min(128, Number(e.target.value) || 0)))} style={{ width: '100%' }} /></div>
+          <div style={{ flex: 1 }}><label className="pixel-label">Frame width</label><input className="pixel-input" type="number" min={mode.multiple} value={frameW} onChange={e => setFrameW(e.target.value)} onBlur={() => setFrameW(String(numericW))} style={{ width: '100%' }} /></div>
+          <div style={{ flex: 1 }}><label className="pixel-label">Frame height</label><input className="pixel-input" type="number" min="1" value={frameH} onChange={e => setFrameH(e.target.value)} onBlur={() => setFrameH(String(numericH))} style={{ width: '100%' }} /></div>
+          <div style={{ flex: 1 }}><label className="pixel-label">Spacing</label><input className="pixel-input" type="number" min="0" max="128" value={spacing} onChange={e => setSpacing(e.target.value)} onBlur={() => setSpacing(String(numericSpacing))} style={{ width: '100%' }} /></div>
         </div>
 
         <div style={{ display: 'flex', gap: '7px', marginBottom: '14px' }}>
@@ -124,7 +129,7 @@ export default function ImportSpriteSheetModal({ file, onConfirm, onCancel }) {
           {image && `${image.naturalWidth}×${image.naturalHeight}px · ${frameCount} frame${frameCount === 1 ? '' : 's'} detected`}
           {frameCount > 0 && usedSize !== axisSize && <span style={{ color: 'var(--amber)' }}> · unused pixels at end</span>}
         </div>
-        {normalizedW !== frameW && <div style={{ color: 'var(--amber)', fontSize: '11px', marginTop: '6px' }}>Width adjusted to {normalizedW}px for Mode {videoMode}.</div>}
+        {normalizedW !== numericW && <div style={{ color: 'var(--amber)', fontSize: '11px', marginTop: '6px' }}>Width adjusted to {normalizedW}px for Mode {videoMode}.</div>}
         {error && <div style={{ color: 'var(--red)', marginTop: '8px' }}>{error}</div>}
 
         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
