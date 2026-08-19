@@ -197,6 +197,8 @@ El usuario maneja tinta frontal y de fondo; puede intercambiarlas, elegir la fro
 
 La tecla `X` intercambia inmediatamente las tintas frontal y de fondo, salvo cuando el foco está dentro de un campo de entrada.
 
+El inspector muestra para cada tinta la cantidad de píxeles utilizada en el frame actual y en el conjunto de frames. La tinta activa puede desplazarse a izquierda o derecha dentro de las ranuras; la operación intercambia simultáneamente los índices de los píxeles para conservar exactamente el aspecto del sprite. También puede sustituirse la tinta activa por otra en el frame actual o en todos los frames.
+
 Las paletas se importan/exportan como JASC-PAL (`.pal`). Al importar, cada RGB se aproxima al color CPC más cercano por distancia euclídea.
 
 ### Frames y animación

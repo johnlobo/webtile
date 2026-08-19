@@ -1412,6 +1412,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [activeTool,   setActiveTool]   = useState('pencil')
   const [activeInk,    setActiveInk]    = useState(1)
   const [bgInk,        setBgInk]        = useState(0)
+  const [replaceInkTarget, setReplaceInkTarget] = useState(0)
   const [doubleWidth,  setDoubleWidth]  = useState(false)
   const [zoom,         setZoom]         = useState(2)
   const [playFps,      setPlayFps]      = useState(6)
@@ -1849,6 +1850,35 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
   }, [updateSprite, pushHistory])
 
+  const swapInkSlots = useCallback((first, second) => {
+    if (!sprite || first === second || first < 0 || second < 0 || first >= sprite.palette.length || second >= sprite.palette.length) return
+    pushHistory()
+    updateSprite(prev => {
+      const palette = [...prev.palette]
+      ;[palette[first], palette[second]] = [palette[second], palette[first]]
+      const frames = prev.frames.map(frame => ({
+        ...frame,
+        pixels: frame.pixels.map(ink => ink === first ? second : ink === second ? first : ink),
+      }))
+      return { ...prev, palette, frames }
+    })
+    setActiveInk(ink => ink === first ? second : ink === second ? first : ink)
+    setBgInk(ink => ink === first ? second : ink === second ? first : ink)
+  }, [sprite, updateSprite, pushHistory])
+
+  const replaceInk = useCallback((source, target, allFrames) => {
+    if (!sprite || source === target) return
+    pushHistory()
+    updateSprite(prev => ({
+      ...prev,
+      frames: prev.frames.map((frame, fi) => (
+        allFrames || fi === currentFrame
+          ? { ...frame, pixels: frame.pixels.map(ink => ink === source ? target : ink) }
+          : frame
+      )),
+    }))
+  }, [sprite, currentFrame, updateSprite, pushHistory])
+
   // ── Copy / Paste ────────────────────────────────────────────────────────────
 
   const handleCopyRef = useRef(null)
@@ -2180,6 +2210,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const { videoMode, width, height, palette, frames } = sprite
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = frames[currentFrame]?.pixels ?? []
+  const currentInkUsage = Array(inkCount).fill(0)
+  const totalInkUsage = Array(inkCount).fill(0)
+  for (const ink of currentPixels) if (ink >= 0 && ink < inkCount) currentInkUsage[ink]++
+  for (const frame of frames) for (const ink of frame.pixels) if (ink >= 0 && ink < inkCount) totalInkUsage[ink]++
   const onionLayers = []
   if (!isPlaying) {
     if (onionPrevious && currentFrame > 0) onionLayers.push({ pixels: frames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
@@ -2441,7 +2475,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
               {palette.slice(0, inkCount).map((cpcIdx, inkIdx) => {
-                const isInk0    = inkIdx === 0
                 const isActive  = inkIdx === activeInk
                 const isBg      = inkIdx === bgInk
                 const colorHex  = CPC_COLORS[cpcIdx] ?? '#000'
@@ -2450,14 +2483,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
                     key={inkIdx}
                     onClick={() => setActiveInk(inkIdx)}
                     onContextMenu={e => { e.preventDefault(); setBgInk(inkIdx) }}
-                    title={`Ink ${inkIdx} = CPC ${cpcIdx} (${colorHex})\nLeft-click → set as foreground\nRight-click → set as background`}
+                    title={`Ink ${inkIdx} = CPC ${cpcIdx} (${colorHex})\nCurrent frame: ${currentInkUsage[inkIdx]} px\nAll frames: ${totalInkUsage[inkIdx]} px\nLeft-click → set as foreground\nRight-click → set as background`}
                     style={{
                       width: '24px', height: '24px', cursor: 'pointer',
                       border: isActive ? '2px solid var(--green)' : isBg ? '2px solid var(--amber)' : '1px solid var(--border)',
                       position: 'relative', flexShrink: 0,
-                      background: isInk0
-                        ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 8px 8px'
-                        : colorHex,
+                      background: colorHex,
                       transition: 'border-color 0.1s',
                     }}
                   >
@@ -2465,7 +2496,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
                       position: 'absolute', bottom: '1px', right: '2px',
                       fontFamily: "'Press Start 2P', monospace",
                       fontSize: '4px', lineHeight: 1,
-                      color: isInk0 ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.6)',
+                      color: 'rgba(255,255,255,0.75)',
+                      textShadow: '0 1px 2px rgba(0,0,0,.9)',
                       pointerEvents: 'none',
                     }}>
                       {inkIdx}
@@ -2473,6 +2505,22 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
                   </div>
                 )
               })}
+            </div>
+            <div style={{ marginTop: '9px', fontFamily: "'Roboto Mono', monospace", fontSize: '10px', color: 'var(--text-dim)', lineHeight: 1.6 }}>
+              INK {activeInk}: <span style={{ color: 'var(--text)' }}>{currentInkUsage[activeInk]} px</span> frame · <span style={{ color: 'var(--text)' }}>{totalInkUsage[activeInk]} px</span> total
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', marginTop: '7px' }}>
+              <button className="btn-ghost" title="Move ink slot left without changing the image" disabled={activeInk <= 0} onClick={() => swapInkSlots(activeInk, activeInk - 1)} style={{ flex: 1, padding: '5px 3px', fontSize: '9px' }}>← Slot</button>
+              <button className="btn-ghost" title="Move ink slot right without changing the image" disabled={activeInk >= inkCount - 1} onClick={() => swapInkSlots(activeInk, activeInk + 1)} style={{ flex: 1, padding: '5px 3px', fontSize: '9px' }}>Slot →</button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '4px', marginTop: '7px' }}>
+              <select className="pixel-input" aria-label="Replacement ink" value={replaceInkTarget} onChange={e => setReplaceInkTarget(Number(e.target.value))} style={{ width: '62px', padding: '4px', fontSize: '10px' }}>
+                {Array.from({ length: inkCount }, (_, ink) => <option key={ink} value={ink}>INK {ink}</option>)}
+              </select>
+              <button className="btn-ghost" disabled={replaceInkTarget === activeInk || currentInkUsage[activeInk] === 0} title="Replace selected ink in current frame" onClick={() => replaceInk(activeInk, replaceInkTarget, false)} style={{ flex: 1, padding: '5px 3px', fontSize: '8px' }}>Replace frame</button>
+              <button className="btn-ghost" disabled={replaceInkTarget === activeInk || totalInkUsage[activeInk] === 0} title="Replace selected ink in every frame" onClick={() => replaceInk(activeInk, replaceInkTarget, true)} style={{ flex: 1, padding: '5px 3px', fontSize: '8px' }}>All frames</button>
             </div>
           </div>
 
