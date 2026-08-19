@@ -192,6 +192,8 @@ El editor permite copiar (`Ctrl+C`), cortar (`Ctrl+X`), pegar (`Ctrl+V`) con pre
 
 El usuario maneja tinta frontal y de fondo; puede intercambiarlas, elegir la frontal con clic izquierdo y la de fondo con clic derecho. Cada ranura se asigna a uno de los 27 colores CPC. La tinta 0 se visualiza como transparencia.
 
+La tecla `X` intercambia inmediatamente las tintas frontal y de fondo, salvo cuando el foco está dentro de un campo de entrada.
+
 Las paletas se importan/exportan como JASC-PAL (`.pal`). Al importar, cada RGB se aproxima al color CPC más cercano por distancia euclídea.
 
 ### Frames y animación

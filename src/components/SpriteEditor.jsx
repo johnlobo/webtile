@@ -1417,6 +1417,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [toolbarMenu,  setToolbarMenu]  = useState(null)
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
+  const colorsRef      = useRef({ activeInk, bgInk })
+
+  useEffect(() => { colorsRef.current = { activeInk, bgInk } }, [activeInk, bgInk])
 
   useEffect(() => {
     const closeMenu = (e) => {
@@ -1564,7 +1567,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e) => {
-      if (e.target.tagName === 'INPUT') return
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
 
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleRedoRef.current?.(); return }
@@ -1574,6 +1577,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
 
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
+      if (e.key === 'x' || e.key === 'X') {
+        const { activeInk: foreground, bgInk: background } = colorsRef.current
+        setActiveInk(background)
+        setBgInk(foreground)
+        return
+      }
       if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
       if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); setIsPasting(false); return }
       if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
@@ -2132,7 +2141,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         <div className="sprite-color-compact" title="Foreground / background inks">
           <div className="sprite-bg-chip" style={{ background: bgInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[bgInk] ?? 0] }} />
           <div className="sprite-fg-chip" style={{ background: activeInk === 0 ? 'repeating-conic-gradient(#111820 0% 25%, #0c1219 0% 50%) 0 0 / 6px 6px' : CPC_COLORS[palette[activeInk] ?? 0] }} />
-          <button title="Swap foreground / background" onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}>⇄</button>
+          <button title="Swap foreground / background [X]" onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}>⇄</button>
         </div>
 
         <div className="sprite-toolbar-menu-wrap">
