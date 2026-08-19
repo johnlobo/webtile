@@ -375,6 +375,45 @@ function bresenhamLine(x0, y0, x1, y1) {
   return cells
 }
 
+function rectangleOutline(a, b) {
+  const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x)
+  const top = Math.min(a.y, b.y), bottom = Math.max(a.y, b.y)
+  const cells = []
+  for (let x = left; x <= right; x++) {
+    cells.push({ x, y: top })
+    if (bottom !== top) cells.push({ x, y: bottom })
+  }
+  for (let y = top + 1; y < bottom; y++) {
+    cells.push({ x: left, y })
+    if (right !== left) cells.push({ x: right, y })
+  }
+  return cells
+}
+
+function ellipseOutline(a, b) {
+  const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x)
+  const top = Math.min(a.y, b.y), bottom = Math.max(a.y, b.y)
+  if (left === right) return bresenhamLine(left, top, right, bottom)
+  if (top === bottom) return bresenhamLine(left, top, right, bottom)
+  const cx = (left + right) / 2, cy = (top + bottom) / 2
+  const rx = (right - left) / 2, ry = (bottom - top) / 2
+  const steps = Math.max(24, Math.ceil(4 * Math.PI * Math.max(rx, ry)))
+  const unique = new Map()
+  for (let i = 0; i < steps; i++) {
+    const angle = i * Math.PI * 2 / steps
+    const cell = { x: Math.round(cx + rx * Math.cos(angle)), y: Math.round(cy + ry * Math.sin(angle)) }
+    unique.set(`${cell.x},${cell.y}`, cell)
+  }
+  return [...unique.values()]
+}
+
+function shapeCells(tool, start, end) {
+  if (tool === 'line') return bresenhamLine(start.x, start.y, end.x, end.y)
+  if (tool === 'rectangle') return rectangleOutline(start, end)
+  if (tool === 'ellipse') return ellipseOutline(start, end)
+  return []
+}
+
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
   gridCellW, gridCellH, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
   const canvasRef   = useRef(null)
@@ -386,8 +425,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const moveAnchor  = useRef(null)
   const moveSel     = useRef(null)
   const movePixels  = useRef(null)
+  const shapeAnchor = useRef(null)
+  const shapeEnd    = useRef(null)
+  const shapeInk    = useRef(activeInk)
+  const shapeTool   = useRef(null)
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
+  const [shapePreview, setShapePreview] = useState(null)
   const [blink,     setBlink]     = useState(true)
   const [altPressed, setAltPressed] = useState(false)
 
@@ -416,6 +460,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   }, [activeTool])
 
   useEffect(() => { lineAnchor.current = null }, [activeTool])
+
+  useEffect(() => {
+    shapeAnchor.current = null
+    shapeEnd.current = null
+    shapeTool.current = null
+    setShapePreview(null)
+  }, [activeTool])
 
   const cellW = CELL_W_BASE[videoMode] * zoom * (doubleWidth ? 2 : 1)
   const cellH = CELL_H_BASE * zoom
@@ -492,7 +543,16 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         ctx.fillRect(cx, cy, cellW, cellH * GLYPH_H)
       }
     }
-  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink, onionLayers])
+
+    if (shapePreview) {
+      const ctx = canvas.getContext('2d')
+      const cells = shapeCells(shapePreview.tool, shapePreview.start, shapePreview.end)
+      ctx.globalAlpha = 0.72
+      ctx.fillStyle = shapePreview.ink === 0 ? '#ff4058' : CPC_COLORS[palette[shapePreview.ink] ?? 0]
+      for (const { x, y } of cells) ctx.fillRect(x * cellW, y * cellH, cellW, cellH)
+      ctx.globalAlpha = 1
+    }
+  }, [pixels, width, height, videoMode, palette, cellW, cellH, gridCellW, gridCellH, textOverlay, doubleWidth, blink, onionLayers, shapePreview])
 
   const getCellFromEvent = useCallback((e) => {
     const canvas = canvasRef.current
@@ -566,6 +626,17 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       return
     }
 
+    if (['line', 'rectangle', 'ellipse'].includes(activeTool) && cell) {
+      onStrokeStart?.()
+      const ink = e.button === 2 ? 0 : activeInk
+      shapeAnchor.current = cell
+      shapeEnd.current = cell
+      shapeInk.current = ink
+      shapeTool.current = activeTool
+      setShapePreview({ tool: activeTool, start: cell, end: cell, ink })
+      return
+    }
+
     onStrokeStart?.()
     if (activeTool === 'eraser' && selection) { onEraseSelection(); return }
     if (e.button === 2) { erasing.current = true; eraseCell(cell); return }
@@ -597,6 +668,11 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       if (selAnchor.current && cell) onSelectionChange(normalizeSelection(selAnchor.current, cell))
       return
     }
+    if (shapeAnchor.current && cell) {
+      shapeEnd.current = cell
+      setShapePreview({ tool: shapeTool.current, start: shapeAnchor.current, end: cell, ink: shapeInk.current })
+      return
+    }
     if (erasing.current) { eraseCell(cell); return }
     if (!painting.current || activeTool === 'picker') return
     if (cell) paintCell(e, cell)
@@ -607,12 +683,19 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     painting.current = false
     erasing.current  = false
     lastCell.current = null
+    if (shapeAnchor.current && shapeEnd.current && shapeTool.current) {
+      onPaintLine(shapeCells(shapeTool.current, shapeAnchor.current, shapeEnd.current), shapeInk.current)
+      shapeAnchor.current = null
+      shapeEnd.current = null
+      shapeTool.current = null
+      setShapePreview(null)
+    }
     if (moveAnchor.current) {
       onMoveCommit(movePos, movePixels.current, moveSel.current)
       moveAnchor.current = null
       setMovePos(null)
     }
-  }, [movePos, onMoveCommit])
+  }, [movePos, onMoveCommit, onPaintLine])
 
   const handleWheel = useCallback((e) => {
     e.preventDefault()
@@ -657,6 +740,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     : activeTool === 'select'                 ? 'crosshair'
     : activeTool === 'picker'                 ? 'crosshair'
     : activeTool === 'fill'                   ? 'crosshair'
+    : ['line', 'rectangle', 'ellipse'].includes(activeTool) ? 'crosshair'
     : activeTool === 'text'                   ? 'text'
     : paintCursor                             ?? 'default'
 
@@ -1586,6 +1670,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if (e.key === 'b' || e.key === 'B') { setActiveTool('pencil'); setIsPasting(false); return }
       if (e.key === 'e' || e.key === 'E') { setActiveTool('eraser'); setIsPasting(false); return }
       if (e.key === 'f' || e.key === 'F') { setActiveTool('fill');   setIsPasting(false); return }
+      if (e.key === 'l' || e.key === 'L') { setActiveTool('line'); setIsPasting(false); return }
+      if (e.key === 'r' || e.key === 'R') { setActiveTool('rectangle'); setIsPasting(false); return }
+      if (e.key === 'o' || e.key === 'O') { setActiveTool('ellipse'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('select'); setIsPasting(false); return }
       if (e.key === 'v' || e.key === 'V') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
@@ -2097,6 +2184,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
           <ToolBtn label="⊕" name="PICK" title="Color Picker" active={activeTool === 'picker'} onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
           <ToolBtn label="▪" name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
+          <ToolBtn label="╱" name="LINE" title="Line [L] — right button = erase" active={activeTool === 'line'} onClick={() => { setActiveTool('line'); setIsPasting(false) }} />
+          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false) }} />
+          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false) }} />
           <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
         </div>
 

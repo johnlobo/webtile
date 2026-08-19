@@ -183,6 +183,9 @@ También puede crearse desde PNG. El importador deja elegir modo, nombre y dimen
 | Pick | Toma la tinta de un píxel. |
 | Select (`M`) | Define un rectángulo para copiar, cortar, pegar, borrar, rellenar o transformar. |
 | Fill (`F`) | Relleno contiguo, restringido a la selección si existe; `Alt` toma color. |
+| Line (`L`) | Traza una línea recta con previsualización durante el arrastre. |
+| Rectangle (`R`) | Traza el contorno rectangular definido al arrastrar. |
+| Ellipse (`O`) | Traza una elipse o círculo dentro del área definida al arrastrar. |
 | Move (`V`) | Mueve la selección y su contenido. |
 | Text (`T`) | Coloca texto desde una fuente bitmap 3×9; convierte a mayúsculas, usa la tinta frontal e ignora caracteres no soportados. |
 
@@ -288,7 +291,7 @@ Antes de exportar exige que los IDs de sala formen la secuencia contigua `0..N-1
 
 | Atajo | Acción |
 |---|---|
-| `B`, `E`, `F`, `M`, `V`, `T` | Pencil, Erase, Fill, Select, Move, Text |
+| `B`, `E`, `F`, `L`, `R`, `O`, `M`, `V`, `T` | Pencil, Erase, Fill, Line, Rectangle, Ellipse, Select, Move, Text |
 | `D` | Ancho visual doble |
 | `Ctrl+C`, `Ctrl+X`, `Ctrl+V` | Copiar, cortar, pegar |
 | `Ctrl+Z` | Deshacer |
