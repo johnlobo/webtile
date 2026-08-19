@@ -376,6 +376,21 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
   const [blink,     setBlink]     = useState(true)
+  const [altPressed, setAltPressed] = useState(false)
+
+  useEffect(() => {
+    const onKeyDown = (e) => { if (e.key === 'Alt') setAltPressed(true) }
+    const onKeyUp = (e) => { if (e.key === 'Alt') setAltPressed(false) }
+    const onBlur = () => setAltPressed(false)
+    window.addEventListener('keydown', onKeyDown)
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [])
 
   useEffect(() => {
     if (!textOverlay) return
@@ -481,7 +496,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     const key = `${cell.x},${cell.y}`
     if (key === lastCell.current && activeTool !== 'picker') return
     lastCell.current = key
-    if (activeTool === 'picker') { onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true); return }
+    if (activeTool === 'picker') { onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true, e.button === 2); return }
     if (activeTool === 'eraser' && !cellInSelection(cell.x, cell.y, selection)) return
     onPaint(cell.x, cell.y, activeTool === 'eraser' ? 0 : activeInk, false)
   }, [activeTool, activeInk, pixels, width, onPaint, selection])
@@ -502,8 +517,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (isPasting && cell) { onPasteCommit(cell.x, cell.y); return }
 
+    const canAltPick = activeTool === 'pencil' || activeTool === 'fill' || activeTool === 'eraser'
+    if ((activeTool === 'picker' || (e.altKey && canAltPick)) && cell) {
+      onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true, e.button === 2)
+      return
+    }
+
     if (activeTool === 'fill' && cell) {
-      if (e.altKey) { onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true); return }
       onFill(cell.x, cell.y, e.button === 2 ? bgInk : activeInk)
       return
     }
@@ -535,10 +555,6 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     onStrokeStart?.()
     if (activeTool === 'eraser' && selection) { onEraseSelection(); return }
     if (e.button === 2) { erasing.current = true; eraseCell(cell); return }
-    if (e.altKey && activeTool === 'pencil' && cell) {
-      onPaint(cell.x, cell.y, pixels[cell.y * width + cell.x], true)
-      return
-    }
     painting.current = true
     if (cell) {
       if (activeTool === 'pencil' && e.shiftKey && lineAnchor.current) {
@@ -618,8 +634,10 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     return `url(${canvas.toDataURL()}) ${hx} ${hy}, crosshair`
   }, [activeTool, activeInk, palette, cellW, cellH])
 
+  const temporaryPicker = altPressed && (activeTool === 'pencil' || activeTool === 'fill' || activeTool === 'eraser')
   const cursor = isPasting                    ? 'copy'
     : movePos !== null                        ? 'grabbing'
+    : temporaryPicker                         ? 'crosshair'
     : activeTool === 'move'                   ? (selection ? 'grab' : 'default')
     : activeTool === 'select'                 ? 'crosshair'
     : activeTool === 'picker'                 ? 'crosshair'
@@ -1432,9 +1450,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   }, [])
 
   // Paint handler
-  const handlePaint = useCallback((cx, cy, ink, isPick) => {
+  const handlePaint = useCallback((cx, cy, ink, isPick, pickBackground = false) => {
     if (isPick) {
-      setActiveInk(ink)
+      if (pickBackground) setBgInk(ink)
+      else setActiveInk(ink)
       return
     }
     updateSprite(prev => {
