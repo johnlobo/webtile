@@ -40,7 +40,7 @@ export default function StudioExplorer({
   pages, activePageId, maps, activeMapId, sprites, selectedSpriteId,
   onSelectPage, onAddPage, onRenamePage, onDeletePage,
   onSelectMap, onNewMap, onDeleteMap, onMoveMapToPage,
-  onSelectSprite, onNewSprite, onDeleteSprite,
+  onSelectSprite, onNewSprite, onDeleteSprite, onImportSprite, onImportSpriteSheet,
 }) {
   if (collapsed) {
     return (
@@ -125,6 +125,9 @@ export default function StudioExplorer({
               />
             ))}
             {sprites.length === 0 && <div className="studio-tree-empty">No sprites yet</div>}
+            <button className="studio-add-row" onClick={onNewSprite}>+ New sprite</button>
+            <button className="studio-add-row" onClick={onImportSprite}>↑ Import PNG</button>
+            <button className="studio-add-row" onClick={onImportSpriteSheet}>↑ Import spritesheet</button>
           </Section>
         </div>
       )}

@@ -200,7 +200,9 @@ El sprite admite varios frames, selección por miniatura, alta, duplicado, elimi
 
 El inspector incorpora una previsualización animada permanente cuando el sprite tiene más de un frame. Esta vista encaja el sprite completo respetando la proporción de píxel del modo CPC y utiliza la velocidad FPS configurada en la línea de tiempo.
 
-La animación puede intercambiarse como spritesheet PNG horizontal o vertical. Al importar, el editor divide la imagen usando las dimensiones actuales del sprite, admite una separación configurable entre frames, conserva el orden visual y aproxima cada color a la paleta CPC activa. La importación sustituye todos los frames en una única operación deshacible. La exportación compone todos los frames en orden, sin separación y conservando la transparencia de la tinta 0.
+La animación puede intercambiarse como spritesheet PNG horizontal o vertical. Desde el explorador del proyecto se puede importar una hoja para crear directamente un nuevo sprite animado, eligiendo nombre, modo CPC, dimensiones de frame, orientación y separación. El diálogo detecta la cantidad de frames y muestra sobre la imagen los cortes que realizará.
+
+Dentro de un sprite existente, la importación divide la imagen usando sus dimensiones actuales, admite una separación configurable, conserva el orden visual y aproxima cada color a la paleta CPC activa. Esta variante sustituye todos los frames en una única operación deshacible. La exportación compone todos los frames en orden, sin separación y conservando la transparencia de la tinta 0.
 
 ### Vista y propiedades
 

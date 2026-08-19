@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 
-const CPC_COLORS = [
+export const CPC_COLORS = [
   '#000000', '#000080', '#0000FF', '#800000', '#800080', '#8000FF',
   '#FF0000', '#FF0080', '#FF00FF', '#008000', '#008080', '#0080FF',
   '#808000', '#808080', '#8080FF', '#FF8000', '#FF8080', '#FF80FF',
@@ -8,7 +8,7 @@ const CPC_COLORS = [
   '#FFFF00', '#FFFF80', '#FFFFFF',
 ]
 
-const MODE_INFO = [
+export const MODE_INFO = [
   { mode: 0, label: 'Mode 0', desc: '160×200 · 16 colors · 2:1 pixels', inkCount: 16, multiple: 2 },
   { mode: 1, label: 'Mode 1', desc: '320×200 · 4 colors · 1:1 pixels',  inkCount: 4,  multiple: 4 },
   { mode: 2, label: 'Mode 2', desc: '640×200 · 2 colors · 1:2 pixels',  inkCount: 2,  multiple: 8 },
@@ -29,7 +29,7 @@ function nearestCpcColor(r, g, b) {
   return best
 }
 
-function snapToMultiple(value, multiple) {
+export function snapToMultiple(value, multiple) {
   const n = Math.max(multiple, Math.round(value / multiple) * multiple)
   return n
 }
@@ -41,7 +41,7 @@ function snapToMultiple(value, multiple) {
  * and pixels is an array of ink indices (0-based into palette).
  * Ink 0 = transparent (background).
  */
-function quantizeImage(imageData, width, height, inkCount) {
+export function quantizeImage(imageData, width, height, inkCount) {
   const { data } = imageData  // RGBA flat array
 
   // Build palette by collecting unique CPC colors from the image

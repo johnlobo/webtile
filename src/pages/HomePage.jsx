@@ -11,6 +11,7 @@ import Toolbar from '../components/Toolbar'
 import SpriteEditor from '../components/SpriteEditor'
 import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
+import ImportSpriteSheetModal from '../components/ImportSpriteSheetModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
 import StudioExplorer from '../components/StudioExplorer'
@@ -370,6 +371,7 @@ function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMa
         <NavSep />
         <NavItem label="+ NEW SPRITE"  icon="✦" onClick={() => { onAction('sprites', 'new'); close() }} />
         <NavItem label="↑ LOAD PNG"   icon="↑" onClick={() => { onAction('sprites', 'import-png'); close() }} />
+        <NavItem label="↑ LOAD SPRITESHEET" icon="↑" onClick={() => { onAction('sprites', 'import-sheet'); close() }} />
         {selectedSpriteId && (
           <>
             <NavSep />
@@ -599,7 +601,9 @@ export default function HomePage() {
   const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
+  const [importSpriteSheetFile, setImportSpriteSheetFile] = useState(null)
   const spritePngInputRef = useRef(null)
+  const spriteSheetInputRef = useRef(null)
 
   // Modals
   const [showNewProjectModal, setShowNewProjectModal] = useState(false)
@@ -708,11 +712,12 @@ export default function HomePage() {
     }
   }
 
-  const handleImportSprite = async ({ name, videoMode, width, height, palette, pixels }) => {
+  const handleImportSprite = async ({ name, videoMode, width, height, palette, pixels, frames }) => {
     setImportSpriteFile(null)
+    setImportSpriteSheetFile(null)
     setSaveStatus('saving')
     try {
-      const sid = await createSpriteFromImport(user.uid, projectId, { name, videoMode, width, height, palette, pixels })
+      const sid = await createSpriteFromImport(user.uid, projectId, { name, videoMode, width, height, palette, pixels, frames })
       setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
       setSelectedSpriteId(sid)
       setSaveStatus('saved')
@@ -848,6 +853,7 @@ export default function HomePage() {
   const handleAction = useCallback(async (group, item, payload) => {
     if (group === 'sprites' && item === 'new') { if (projectId) setShowNewSpriteModal(true); return }
     if (group === 'sprites' && item === 'import-png') { if (projectId) spritePngInputRef.current?.click(); return }
+    if (group === 'sprites' && item === 'import-sheet') { if (projectId) spriteSheetInputRef.current?.click(); return }
     if (group === 'project' && item === 'new')  { setShowNewProjectModal(true); return }
     if (group === 'project' && item === 'load') { setShowLoadModal(true); return }
     if (group === 'project' && item === 'export-package') {
@@ -1564,6 +1570,8 @@ export default function HomePage() {
           onMoveMapToPage={handleMoveMapToPage}
           onSelectSprite={handleSelectSprite}
           onNewSprite={() => setShowNewSpriteModal(true)}
+          onImportSprite={() => spritePngInputRef.current?.click()}
+          onImportSpriteSheet={() => spriteSheetInputRef.current?.click()}
           onDeleteSprite={handleDeleteSprite}
         />
 
@@ -1686,11 +1694,29 @@ export default function HomePage() {
           e.target.value = ''
         }}
       />
+      <input
+        ref={spriteSheetInputRef}
+        type="file"
+        accept="image/png"
+        style={{ display: 'none' }}
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) setImportSpriteSheetFile(f)
+          e.target.value = ''
+        }}
+      />
       {importSpriteFile && (
         <ImportSpriteModal
           file={importSpriteFile}
           onConfirm={handleImportSprite}
           onCancel={() => setImportSpriteFile(null)}
+        />
+      )}
+      {importSpriteSheetFile && (
+        <ImportSpriteSheetModal
+          file={importSpriteSheetFile}
+          onConfirm={handleImportSprite}
+          onCancel={() => setImportSpriteSheetFile(null)}
         />
       )}
       {dialog && (

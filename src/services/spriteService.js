@@ -86,7 +86,7 @@ export async function listSprites(userId, projectId) {
  * Create a sprite from an imported PNG (pre-quantized pixel data).
  * Returns the generated Firestore sprite ID.
  */
-export async function createSpriteFromImport(userId, projectId, { name, videoMode, width, height, palette, pixels }) {
+export async function createSpriteFromImport(userId, projectId, { name, videoMode, width, height, palette, pixels, frames }) {
   const ref = doc(spritesCol(userId, projectId))
   await setDoc(ref, {
     name,
@@ -94,7 +94,7 @@ export async function createSpriteFromImport(userId, projectId, { name, videoMod
     width,
     height,
     palette,
-    frames: [{ pixels }],
+    frames: frames?.length ? frames : [{ pixels }],
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
