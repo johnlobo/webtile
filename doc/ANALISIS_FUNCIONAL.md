@@ -189,7 +189,7 @@ También puede crearse desde PNG. El importador deja elegir modo, nombre y dimen
 | Move (`V`) | Mueve la selección y su contenido. |
 | Text (`T`) | Coloca texto desde una fuente bitmap 3×9; convierte a mayúsculas, usa la tinta frontal e ignora caracteres no soportados. |
 
-El editor permite copiar (`Ctrl+C`), cortar (`Ctrl+X`), pegar (`Ctrl+V`) con previsualización, voltear horizontal/verticalmente, deshacer y rehacer hasta 50 estados. `Escape` cancela texto o pegado, limpia la selección y, si procede, vuelve al lápiz.
+El editor permite copiar (`Ctrl+C`), cortar (`Ctrl+X`) y pegar (`Ctrl+V`) con previsualización. El menú de transformación de la selección permite reflejar horizontal o verticalmente, girar 90 grados a izquierda o derecha, desplazar el contenido un píxel y redimensionarlo mediante vecino más cercano con conservación opcional de la proporción. Cada transformación ocupa una única entrada del historial de deshacer, que conserva hasta 50 estados. `Escape` cancela texto o pegado, limpia la selección y, si procede, vuelve al lápiz.
 
 ### Tintas y paleta
 

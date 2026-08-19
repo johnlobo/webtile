@@ -1467,6 +1467,43 @@ function ToolBtn({ label, name, title, active, onClick, disabled }) {
   )
 }
 
+function ScaleSelectionModal({ selection, onApply, onCancel }) {
+  const [widthValue, setWidthValue] = useState(String(selection.w))
+  const [heightValue, setHeightValue] = useState(String(selection.h))
+  const [keepRatio, setKeepRatio] = useState(true)
+  const width = Math.max(1, Math.round(Number(widthValue) || 1))
+  const height = Math.max(1, Math.round(Number(heightValue) || 1))
+
+  const updateWidth = value => {
+    setWidthValue(value)
+    if (keepRatio && value !== '') setHeightValue(String(Math.max(1, Math.round(Number(value) * selection.h / selection.w))))
+  }
+  const updateHeight = value => {
+    setHeightValue(value)
+    if (keepRatio && value !== '') setWidthValue(String(Math.max(1, Math.round(Number(value) * selection.w / selection.h))))
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 150, background: 'rgba(0,0,0,.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="pixel-panel fade-up" style={{ width: '100%', maxWidth: '360px', padding: '30px' }}>
+        <div style={{ fontFamily: "'Press Start 2P', monospace", fontSize: '9px', color: 'var(--accent)', marginBottom: '22px' }}>SCALE SELECTION</div>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ flex: 1 }}><label className="pixel-label">Width</label><input className="pixel-input" type="number" min="1" value={widthValue} onChange={e => updateWidth(e.target.value)} onBlur={() => setWidthValue(String(width))} style={{ width: '100%' }} /></div>
+          <div style={{ flex: 1 }}><label className="pixel-label">Height</label><input className="pixel-input" type="number" min="1" value={heightValue} onChange={e => updateHeight(e.target.value)} onBlur={() => setHeightValue(String(height))} style={{ width: '100%' }} /></div>
+        </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '9px', marginTop: '16px', color: 'var(--text-dim)', cursor: 'pointer', fontSize: '12px' }}>
+          <input type="checkbox" checked={keepRatio} onChange={e => setKeepRatio(e.target.checked)} /> Keep aspect ratio
+        </label>
+        <div style={{ marginTop: '12px', color: 'var(--text-dim)', fontSize: '11px', lineHeight: 1.5 }}>Nearest-neighbour scaling preserves hard pixel edges.</div>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '22px' }}>
+          <button className="btn-pixel" onClick={() => onApply(width, height)} style={{ flex: 1 }}>APPLY</button>
+          <button className="btn-ghost" onClick={onCancel} style={{ flex: 1 }}>CANCEL</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── SpriteEditor ──────────────────────────────────────────────────────────────
 
 export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatus, onDeleted }) {
@@ -1487,6 +1524,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [showExport,      setShowExport]      = useState(false)
   const [showProperties,  setShowProperties]  = useState(false)
   const [showSettings,    setShowSettings]    = useState(false)
+  const [showScaleSelection, setShowScaleSelection] = useState(false)
   const [spriteSheetFile, setSpriteSheetFile] = useState(null)
   const [gridCellW,    setGridCellW]    = useState(8)
   const [gridCellH,    setGridCellH]    = useState(8)
@@ -1769,6 +1807,85 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       return { ...prev, frames }
     })
   }, [currentFrame, selection, updateSprite, pushHistory])
+
+  const rotateSelection = useCallback((clockwise) => {
+    if (!selection || !sprite) return
+    const { x, y, w, h } = selection
+    const newW = h, newH = w
+    if (x + newW > sprite.width || y + newH > sprite.height) return
+    pushHistory()
+    updateSprite(prev => {
+      const frames = prev.frames.map((frame, fi) => {
+        if (fi !== currentFrame) return frame
+        const source = []
+        for (let sy = 0; sy < h; sy++)
+          for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
+        const rotated = Array(newW * newH).fill(0)
+        for (let sy = 0; sy < h; sy++) {
+          for (let sx = 0; sx < w; sx++) {
+            const dx = clockwise ? h - 1 - sy : sy
+            const dy = clockwise ? sx : w - 1 - sx
+            rotated[dy * newW + dx] = source[sy * w + sx]
+          }
+        }
+        const pixels = [...frame.pixels]
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let dy = 0; dy < newH; dy++) for (let dx = 0; dx < newW; dx++) pixels[(y + dy) * prev.width + x + dx] = rotated[dy * newW + dx]
+        return { ...frame, pixels }
+      })
+      return { ...prev, frames }
+    })
+    setSelection({ x, y, w: newW, h: newH })
+  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
+
+  const nudgeSelection = useCallback((dx, dy) => {
+    if (!selection || !sprite) return
+    const { x, y, w, h } = selection
+    const nx = x + dx, ny = y + dy
+    if (nx < 0 || ny < 0 || nx + w > sprite.width || ny + h > sprite.height) return
+    pushHistory()
+    updateSprite(prev => {
+      const frames = prev.frames.map((frame, fi) => {
+        if (fi !== currentFrame) return frame
+        const source = []
+        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
+        const pixels = [...frame.pixels]
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) pixels[(ny + sy) * prev.width + nx + sx] = source[sy * w + sx]
+        return { ...frame, pixels }
+      })
+      return { ...prev, frames }
+    })
+    setSelection({ x: nx, y: ny, w, h })
+  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
+
+  const scaleSelection = useCallback((newW, newH) => {
+    if (!selection || !sprite) return
+    const { x, y, w, h } = selection
+    const targetW = Math.min(newW, sprite.width - x)
+    const targetH = Math.min(newH, sprite.height - y)
+    pushHistory()
+    updateSprite(prev => {
+      const frames = prev.frames.map((frame, fi) => {
+        if (fi !== currentFrame) return frame
+        const source = []
+        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
+        const pixels = [...frame.pixels]
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = 0
+        for (let dy = 0; dy < targetH; dy++) {
+          for (let dx = 0; dx < targetW; dx++) {
+            const sx = Math.min(w - 1, Math.floor(dx * w / targetW))
+            const sy = Math.min(h - 1, Math.floor(dy * h / targetH))
+            pixels[(y + dy) * prev.width + x + dx] = source[sy * w + sx]
+          }
+        }
+        return { ...frame, pixels }
+      })
+      return { ...prev, frames }
+    })
+    setSelection({ x, y, w: targetW, h: targetH })
+    setShowScaleSelection(false)
+  }, [selection, sprite, currentFrame, updateSprite, pushHistory])
 
   // Add frame (clone current)
   const addFrame = useCallback(() => {
@@ -2202,8 +2319,23 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             <span>{selection.w}×{selection.h}</span>
             <button title="Copy [Ctrl+C]" onClick={handleCopy}>Copy</button>
             <button title="Cut [Ctrl+X]" onClick={handleCut}>Cut</button>
-            <button title="Flip horizontal" onClick={flipH}>↔</button>
-            <button title="Flip vertical" onClick={flipV}>↕</button>
+            <div className="sprite-toolbar-menu-wrap">
+              <button title="Selection transformations" onClick={() => setToolbarMenu(m => m === 'transform' ? null : 'transform')}>Transform⌄</button>
+              {toolbarMenu === 'transform' && (
+                <div className="sprite-toolbar-dropdown">
+                  <button onClick={() => { setToolbarMenu(null); flipH() }}>↔ Mirror horizontally</button>
+                  <button onClick={() => { setToolbarMenu(null); flipV() }}>↕ Mirror vertically</button>
+                  <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => { setToolbarMenu(null); rotateSelection(false) }}>↶ Rotate 90° left</button>
+                  <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => { setToolbarMenu(null); rotateSelection(true) }}>↷ Rotate 90° right</button>
+                  <button onClick={() => { setToolbarMenu(null); setShowScaleSelection(true) }}>⤢ Scale selection…</button>
+                  <div />
+                  <button disabled={selection.y <= 0} onClick={() => nudgeSelection(0, -1)}>↑ Move 1 px up</button>
+                  <button disabled={selection.y + selection.h >= height} onClick={() => nudgeSelection(0, 1)}>↓ Move 1 px down</button>
+                  <button disabled={selection.x <= 0} onClick={() => nudgeSelection(-1, 0)}>← Move 1 px left</button>
+                  <button disabled={selection.x + selection.w >= width} onClick={() => nudgeSelection(1, 0)}>→ Move 1 px right</button>
+                </div>
+              )}
+            </div>
             <button title="Clear selection" onClick={handleEraseSelection}>Delete</button>
           </div>
         )}
@@ -2583,6 +2715,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             setShowSettings(false)
           }}
           onCancel={() => setShowSettings(false)}
+        />
+      )}
+
+      {showScaleSelection && selection && (
+        <ScaleSelectionModal
+          selection={selection}
+          onApply={scaleSelection}
+          onCancel={() => setShowScaleSelection(false)}
         />
       )}
 

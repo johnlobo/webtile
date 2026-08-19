@@ -430,6 +430,7 @@ body {
 .sprite-toolbar-dropdown.align-right { left: auto; right: 0; min-width: 170px; }
 .sprite-toolbar-dropdown button { width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; text-align: left; font-size: 12px; }
 .sprite-toolbar-dropdown button:hover { color: var(--accent); background: var(--green-glow); }
+.sprite-toolbar-dropdown button:disabled { opacity: .35; cursor: default; color: var(--text-dim); background: transparent; }
 .sprite-toolbar-dropdown > div { height: 1px; margin: 4px 3px; background: var(--border); }
 
 .sprite-timeline {
