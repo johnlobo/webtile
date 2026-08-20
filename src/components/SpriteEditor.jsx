@@ -3,6 +3,7 @@ import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
+import { parseJascPalette } from '../services/paletteService'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -1391,6 +1392,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [textCursor,   setTextCursor]   = useState({ x: 0, y: 0 })
   const [fontReady,    setFontReady]    = useState(false)
   const [toolbarMenu,  setToolbarMenu]  = useState(null)
+  const [paletteImportStatus, setPaletteImportStatus] = useState(null)
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
@@ -2128,32 +2130,23 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   const importPaletteRef = useRef(null)
 
-  const importPalette = useCallback((file) => {
+  const importPalette = useCallback(async (file) => {
     if (!file || !sprite) return
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const lines = e.target.result.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-      const rgb = []
-      let countExpected = 0, countSeen = 0
-      for (const line of lines) {
-        if (line === 'JASC-PAL' || line === '0100') continue
-        if (countExpected === 0 && /^\d+$/.test(line)) { countExpected = parseInt(line); continue }
-        const m = line.match(/^(\d+)\s+(\d+)\s+(\d+)/)
-        if (m) { rgb.push([parseInt(m[1]), parseInt(m[2]), parseInt(m[3])]); countSeen++ }
-        if (countExpected > 0 && countSeen >= countExpected) break
-      }
-      if (rgb.length === 0) return
+    try {
+      const rgb = parseJascPalette(await file.text())
       pushHistory()
+      const importedCount = Math.min(rgb.length, MODE_INK_COUNT[sprite.videoMode])
       updateSprite(prev => {
         const palette = [...prev.palette]
-        const count = MODE_INK_COUNT[prev.videoMode]
-        for (let i = 0; i < Math.min(rgb.length, count); i++) {
+        for (let i = 0; i < importedCount; i++) {
           palette[i] = nearestCpcColor(...rgb[i])
         }
         return { ...prev, palette }
       })
+      setPaletteImportStatus({ type: 'success', message: `Imported ${importedCount} inks from ${file.name}` })
+    } catch (error) {
+      setPaletteImportStatus({ type: 'error', message: error.message })
     }
-    reader.readAsText(file)
   }, [sprite, updateSprite, pushHistory])
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -2549,6 +2542,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             style={{ display: 'none' }}
             onChange={e => { importPalette(e.target.files?.[0]); e.target.value = '' }}
           />
+
+          {paletteImportStatus && (
+            <div className={`sprite-palette-import-status ${paletteImportStatus.type}`} role="status">
+              <span>{paletteImportStatus.message}</span>
+              <button aria-label="Dismiss palette import message" onClick={() => setPaletteImportStatus(null)}>×</button>
+            </div>
+          )}
 
           <div style={dividerStyle} />
 

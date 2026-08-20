@@ -436,6 +436,11 @@ body {
 .sprite-fg-chip { left: 4px; top: 2px; z-index: 1; border-color: var(--accent); }
 .sprite-color-compact button { position: absolute; right: 0; top: 6px; width: 20px; height: 22px; padding: 0; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 15px; }
 .sprite-color-compact button:hover { color: var(--accent); }
+.sprite-palette-import-status { display: flex; align-items: flex-start; gap: 6px; padding: 7px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 10px; line-height: 1.4; }
+.sprite-palette-import-status.success { color: var(--green); border-color: var(--green-dim); background: var(--green-glow); }
+.sprite-palette-import-status.error { color: var(--red); border-color: var(--red); background: rgba(234,6,6,.07); }
+.sprite-palette-import-status span { flex: 1; }
+.sprite-palette-import-status button { padding: 0; border: 0; background: transparent; color: currentColor; cursor: pointer; font-size: 14px; }
 
 .sprite-toolbar-menu-wrap { position: relative; flex-shrink: 0; }
 .sprite-io-menu .sprite-toolbar-dropdown { left: 0; right: auto; }
