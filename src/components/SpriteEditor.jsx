@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 import { encodeFrame } from '../services/cpcEncoding'
-import { bresenhamLine, fillPixels, shapeCells } from '../services/spriteDrawing'
+import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -1373,6 +1373,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [showProperties,  setShowProperties]  = useState(false)
   const [showSettings,    setShowSettings]    = useState(false)
   const [showScaleSelection, setShowScaleSelection] = useState(false)
+  const [showScaleClipboard, setShowScaleClipboard] = useState(false)
   const [spriteSheetFile, setSpriteSheetFile] = useState(null)
   const [gridCellW,    setGridCellW]    = useState(8)
   const [gridCellH,    setGridCellH]    = useState(8)
@@ -1530,6 +1531,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   const handleUndoRef = useRef(null)
   const handleRedoRef = useRef(null)
+  const handleEraseSelectionRef = useRef(null)
   useEffect(() => { handleUndoRef.current = handleUndo }, [handleUndo])
   useEffect(() => { handleRedoRef.current = handleRedo }, [handleRedo])
 
@@ -1547,9 +1549,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { e.preventDefault(); handleRedoRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); handleUndoRef.current?.(); return }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') { e.preventDefault(); handleCopyRef.current?.(); return }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'x') { e.preventDefault(); handleCutRef.current?.(); return }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
+      const key = e.key.toLowerCase()
+      if ((e.ctrlKey || e.metaKey) && key === 'c') { e.preventDefault(); handleCopyRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && key === 'x') { e.preventDefault(); handleCutRef.current?.(); return }
+      if ((e.ctrlKey || e.metaKey) && key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
+      if (e.key === 'Delete') { e.preventDefault(); handleEraseSelectionRef.current?.(); return }
 
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'g' || e.key === 'G') { setShowGrid(v => !v); return }
@@ -1857,7 +1861,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const handleCut = useCallback(() => {
     if (!selection || !sprite) return
     handleCopyRef.current?.()
-    // eraseSelection runs its own pushHistory — skip a second push here
+    pushHistory()
     const { x, y, w, h } = selection
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
@@ -1871,7 +1875,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [selection, sprite, bgInk, currentFrame, updateSprite])
+  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
 
   useEffect(() => { handleCutRef.current = handleCut }, [handleCut])
 
@@ -1899,6 +1903,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     setIsPasting(false)
     setSelection(null)
   }, [clipboard, currentFrame, updateSprite, pushHistory])
+
+  const transformClipboard = useCallback((operation) => {
+    setClipboard(block => transformPixelBlock(block, operation))
+    setIsPasting(true)
+  }, [])
+
+  const scaleClipboard = useCallback((newW, newH) => {
+    setClipboard(block => scalePixelBlock(block, newW, newH))
+    setShowScaleClipboard(false)
+    setIsPasting(true)
+  }, [])
 
   // ── Fill ────────────────────────────────────────────────────────────────────
 
@@ -1934,6 +1949,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       return { ...prev, frames }
     })
   }, [selection, bgInk, currentFrame, updateSprite, pushHistory])
+
+  useEffect(() => { handleEraseSelectionRef.current = handleEraseSelection }, [handleEraseSelection])
 
   // ── Move ─────────────────────────────────────────────────────────────────────
 
@@ -2185,44 +2202,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="✏" name="PENCIL" title="Pencil [B] — Alt = pick" active={activeTool === 'pencil'} onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
           <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
           <ToolBtn label="⊕" name="PICK" title="Color Picker" active={activeTool === 'picker'} onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label={<FillBucketIcon />} name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false); setToolbarMenu('tool-options') }} />
+          <ToolBtn label={<FillBucketIcon />} name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
           <ToolBtn label="╱" name="LINE" title="Line [L] — right button = erase" active={activeTool === 'line'} onClick={() => { setActiveTool('line'); setIsPasting(false) }} />
-          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false); setToolbarMenu('tool-options') }} />
-          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false); setToolbarMenu('tool-options') }} />
+          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false) }} />
+          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false) }} />
           <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
         </div>
-
-        {(activeTool === 'fill' || activeTool === 'rectangle' || activeTool === 'ellipse') && (
-          <div className="sprite-toolbar-menu-wrap">
-            <button
-              className={`sprite-toolbar-menu-btn compact${toolbarMenu === 'tool-options' ? ' active' : ''}`}
-              title="Drawing tool options"
-              aria-label="Drawing tool options"
-              onClick={() => setToolbarMenu(menu => menu === 'tool-options' ? null : 'tool-options')}
-            >⚙</button>
-            {toolbarMenu === 'tool-options' && (
-              <div className="sprite-toolbar-dropdown sprite-tool-options-dropdown">
-                <strong>TOOL OPTIONS</strong>
-                {activeTool === 'fill' && (
-                  <label>
-                    Fill scope
-                    <select value={fillMode} onChange={event => setFillMode(event.target.value)}>
-                      <option value="contiguous">Contiguous pixels</option>
-                      <option value="matching">All matching pixels</option>
-                    </select>
-                  </label>
-                )}
-                {(activeTool === 'rectangle' || activeTool === 'ellipse') && (
-                  <label className="sprite-tool-checkbox">
-                    <input type="checkbox" checked={shapeFilled} onChange={event => setShapeFilled(event.target.checked)} />
-                    Fill with foreground ink
-                  </label>
-                )}
-                <small>{selection ? 'Limited to the active selection' : 'Applied to the current frame'}</small>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="sprite-toolbar-separator" />
 
@@ -2231,31 +2216,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="✥" name="MOVE" title="Move selection [V]" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
         </div>
 
-        {selection && (
-          <div className="sprite-selection-actions">
-            <span>{selection.w}×{selection.h}</span>
-            <button title="Copy [Ctrl+C]" onClick={handleCopy}>Copy</button>
-            <button title="Cut [Ctrl+X]" onClick={handleCut}>Cut</button>
-            <div className="sprite-toolbar-menu-wrap">
-              <button title="Selection transformations" onClick={() => setToolbarMenu(m => m === 'transform' ? null : 'transform')}>Transform⌄</button>
-              {toolbarMenu === 'transform' && (
-                <div className="sprite-toolbar-dropdown">
-                  <button onClick={() => { setToolbarMenu(null); flipH() }}>↔ Mirror horizontally</button>
-                  <button onClick={() => { setToolbarMenu(null); flipV() }}>↕ Mirror vertically</button>
-                  <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => { setToolbarMenu(null); rotateSelection(false) }}>↶ Rotate 90° left</button>
-                  <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => { setToolbarMenu(null); rotateSelection(true) }}>↷ Rotate 90° right</button>
-                  <button onClick={() => { setToolbarMenu(null); setShowScaleSelection(true) }}>⤢ Scale selection…</button>
-                  <div />
-                  <button disabled={selection.y <= 0} onClick={() => nudgeSelection(0, -1)}>↑ Move 1 px up</button>
-                  <button disabled={selection.y + selection.h >= height} onClick={() => nudgeSelection(0, 1)}>↓ Move 1 px down</button>
-                  <button disabled={selection.x <= 0} onClick={() => nudgeSelection(-1, 0)}>← Move 1 px left</button>
-                  <button disabled={selection.x + selection.w >= width} onClick={() => nudgeSelection(1, 0)}>→ Move 1 px right</button>
-                </div>
-              )}
-            </div>
-            <button title="Clear selection" onClick={handleEraseSelection}>Delete</button>
-          </div>
-        )}
         {clipboard && <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]" active={isPasting} onClick={() => { setIsPasting(true); setActiveTool('select') }} />}
 
         <div className="sprite-toolbar-separator" />
@@ -2315,6 +2275,71 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
         <input ref={importPngRef} type="file" accept="image/png,image/*" style={{ display: 'none' }} onChange={e => { importPNG(e.target.files?.[0]); e.target.value = '' }} />
         <input ref={importSheetRef} type="file" accept="image/png,image/*" style={{ display: 'none' }} onChange={e => { setSpriteSheetFile(e.target.files?.[0] ?? null); e.target.value = '' }} />
+      </div>
+
+      <div className="sprite-fixed-tool-options" aria-label="Tool and selection options">
+        <span className="sprite-fixed-tool-title">OPTIONS</span>
+        {isPasting && clipboard ? (
+          <>
+            <span className="sprite-option-context">PASTE {clipboard.w}×{clipboard.h}</span>
+            <button onClick={() => transformClipboard('flipH')}>↔ Flip H</button>
+            <button onClick={() => transformClipboard('flipV')}>↕ Flip V</button>
+            <button onClick={() => transformClipboard('rotateLeft')}>↶ Rotate L</button>
+            <button onClick={() => transformClipboard('rotateRight')}>↷ Rotate R</button>
+            <button onClick={() => setShowScaleClipboard(true)}>⤢ Scale…</button>
+            <button onClick={() => setIsPasting(false)}>Cancel <kbd>Esc</kbd></button>
+            <span className="sprite-option-hint">Transform, then click the canvas to place</span>
+          </>
+        ) : selection ? (
+          <>
+            <span className="sprite-option-context">SELECTION {selection.w}×{selection.h}</span>
+            {activeTool === 'fill' && (
+              <label>Fill scope
+                <select value={fillMode} onChange={event => setFillMode(event.target.value)}>
+                  <option value="contiguous">Contiguous pixels</option>
+                  <option value="matching">All matching pixels</option>
+                </select>
+              </label>
+            )}
+            {(activeTool === 'rectangle' || activeTool === 'ellipse') && (
+              <label className="sprite-option-checkbox">
+                <input type="checkbox" checked={shapeFilled} onChange={event => setShapeFilled(event.target.checked)} />
+                Fill shape
+              </label>
+            )}
+            <button onClick={handleCopy}>Copy <kbd>Ctrl+C</kbd></button>
+            <button onClick={handleCut}>Cut <kbd>Ctrl+X</kbd></button>
+            {clipboard && <button onClick={() => { setIsPasting(true); setActiveTool('select') }}>Paste <kbd>Ctrl+V</kbd></button>}
+            <button onClick={handleEraseSelection}>Delete <kbd>Del</kbd></button>
+            <span className="sprite-option-divider" />
+            <button onClick={flipH}>↔ Flip H</button>
+            <button onClick={flipV}>↕ Flip V</button>
+            <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
+            <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
+            <button onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
+          </>
+        ) : activeTool === 'fill' ? (
+          <>
+            <span className="sprite-option-context">FILL</span>
+            <label>Scope
+              <select value={fillMode} onChange={event => setFillMode(event.target.value)}>
+                <option value="contiguous">Contiguous pixels</option>
+                <option value="matching">All matching pixels</option>
+              </select>
+            </label>
+            <span className="sprite-option-hint">Applied to the current frame</span>
+          </>
+        ) : (activeTool === 'rectangle' || activeTool === 'ellipse') ? (
+          <>
+            <span className="sprite-option-context">{activeTool.toUpperCase()}</span>
+            <label className="sprite-option-checkbox">
+              <input type="checkbox" checked={shapeFilled} onChange={event => setShapeFilled(event.target.checked)} />
+              Fill with foreground ink
+            </label>
+          </>
+        ) : (
+          <span className="sprite-option-hint">{activeTool.toUpperCase()} has no additional options</span>
+        )}
       </div>
 
       {/* TOP AREA */}
@@ -2673,6 +2698,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           selection={selection}
           onApply={scaleSelection}
           onCancel={() => setShowScaleSelection(false)}
+        />
+      )}
+
+      {showScaleClipboard && clipboard && (
+        <ScaleSelectionModal
+          selection={{ x: 0, y: 0, w: clipboard.w, h: clipboard.h }}
+          onApply={scaleClipboard}
+          onCancel={() => setShowScaleClipboard(false)}
         />
       )}
 

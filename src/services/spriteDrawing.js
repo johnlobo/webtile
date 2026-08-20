@@ -101,3 +101,42 @@ export function shapeCells(tool, start, end, filled = false) {
   if (tool === 'ellipse') return ellipseCells(start, end, filled)
   return []
 }
+
+export function transformPixelBlock(block, operation) {
+  if (!block) return block
+  const { w, h, pixels } = block
+  if (operation === 'flipH') {
+    return { w, h, pixels: Array.from({ length: h }, (_, y) =>
+      Array.from({ length: w }, (_, x) => pixels[y * w + (w - 1 - x)])).flat() }
+  }
+  if (operation === 'flipV') {
+    return { w, h, pixels: Array.from({ length: h }, (_, y) =>
+      pixels.slice((h - 1 - y) * w, (h - y) * w)).flat() }
+  }
+  if (operation === 'rotateLeft' || operation === 'rotateRight') {
+    const newW = h, newH = w
+    const rotated = Array(newW * newH)
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const newX = operation === 'rotateRight' ? h - 1 - y : y
+        const newY = operation === 'rotateRight' ? x : w - 1 - x
+        rotated[newY * newW + newX] = pixels[y * w + x]
+      }
+    }
+    return { w: newW, h: newH, pixels: rotated }
+  }
+  return block
+}
+
+export function scalePixelBlock(block, newW, newH) {
+  if (!block) return block
+  const width = Math.max(1, Math.round(newW))
+  const height = Math.max(1, Math.round(newH))
+  const pixels = Array.from({ length: height }, (_, y) =>
+    Array.from({ length: width }, (_, x) => {
+      const sourceX = Math.min(block.w - 1, Math.floor(x * block.w / width))
+      const sourceY = Math.min(block.h - 1, Math.floor(y * block.h / height))
+      return block.pixels[sourceY * block.w + sourceX]
+    })).flat()
+  return { w: width, h: height, pixels }
+}

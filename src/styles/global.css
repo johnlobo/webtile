@@ -390,28 +390,32 @@ body {
 .sprite-fill-icon { width: 21px; height: 21px; overflow: visible; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .sprite-toolbar-separator { width: 1px; height: 28px; margin: 0 2px; background: var(--border); flex-shrink: 0; }
 .sprite-toolbar-spacer { flex: 1; min-width: 4px; }
-.sprite-toolbar-menu-btn.active { color: #fff; border-color: var(--accent); background: var(--accent); }
-.sprite-tool-options-dropdown { min-width: 240px; padding: 11px; color: var(--text); }
-.sprite-tool-options-dropdown strong { display: block; margin-bottom: 11px; color: var(--accent); font-size: 9px; letter-spacing: 1px; }
-.sprite-tool-options-dropdown label { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; }
-.sprite-tool-options-dropdown select { height: 28px; padding: 0 7px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 5px; font-size: 11px; }
-.sprite-tool-options-dropdown .sprite-tool-checkbox { justify-content: flex-start; cursor: pointer; }
-.sprite-tool-options-dropdown small { display: block; margin-top: 10px; color: var(--text-dim); font-size: 10px; }
-
-.sprite-selection-actions {
-  height: 34px;
-  padding: 0 4px 0 8px;
+.sprite-fixed-tool-options {
+  height: 40px;
+  min-height: 40px;
+  padding: 4px 9px;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 6px;
   flex-shrink: 0;
-  border: 1px solid rgba(33,82,255,.18);
-  border-radius: 6px;
-  background: rgba(33,82,255,.04);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--text-dim);
+  white-space: nowrap;
 }
-.sprite-selection-actions > span { color: var(--accent); font: 600 10px 'Roboto Mono', monospace; margin-right: 2px; }
-.sprite-selection-actions button { height: 24px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 10px; }
-.sprite-selection-actions button:hover { color: var(--accent); background: rgba(33,82,255,.08); }
+.sprite-fixed-tool-title { color: var(--accent); font-size: 9px; font-weight: 700; letter-spacing: 1px; margin-right: 3px; }
+.sprite-option-context { color: var(--text); font: 600 10px 'Roboto Mono', monospace; }
+.sprite-fixed-tool-options button { height: 27px; padding: 0 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); color: var(--text-dim); cursor: pointer; font-size: 10px; }
+.sprite-fixed-tool-options button:hover:not(:disabled) { color: var(--accent); border-color: var(--green-dim); background: var(--green-glow); }
+.sprite-fixed-tool-options button:disabled { opacity: .35; cursor: default; }
+.sprite-fixed-tool-options label { display: flex; align-items: center; gap: 7px; color: var(--text); font-size: 11px; }
+.sprite-fixed-tool-options select { height: 27px; padding: 0 7px; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 5px; font-size: 11px; }
+.sprite-option-checkbox { cursor: pointer; }
+.sprite-option-divider { width: 1px; height: 23px; margin: 0 2px; background: var(--border); }
+.sprite-option-hint { color: var(--text-dim); font-size: 10px; }
+.sprite-fixed-tool-options kbd { margin-left: 3px; color: var(--text-dim); font: 8px 'Roboto Mono', monospace; }
 
 .sprite-zoom-control { height: 34px; display: flex; align-items: center; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
 .sprite-zoom-control button { width: 27px; height: 100%; border: 0; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 16px; }
