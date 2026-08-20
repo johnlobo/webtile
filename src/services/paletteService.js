@@ -51,3 +51,33 @@ export function decodePaletteBytes(input) {
   }
   return new TextDecoder('utf-8').decode(bytes)
 }
+
+function hexToRgb(hex) {
+  const value = Number.parseInt(hex.slice(1), 16)
+  return [(value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF]
+}
+
+export function createPaletteRemap(oldPalette, newPalette, hardwareColors) {
+  return oldPalette.map(oldColorIndex => {
+    const [oldR, oldG, oldB] = hexToRgb(hardwareColors[oldColorIndex] ?? hardwareColors[0])
+    let nearestInk = 0
+    let nearestDistance = Infinity
+    for (let ink = 0; ink < newPalette.length; ink++) {
+      const [newR, newG, newB] = hexToRgb(hardwareColors[newPalette[ink]] ?? hardwareColors[0])
+      const distance = (oldR - newR) ** 2 + (oldG - newG) ** 2 + (oldB - newB) ** 2
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearestInk = ink
+      }
+    }
+    return nearestInk
+  })
+}
+
+export function remapFramesToPalette(frames, oldPalette, newPalette, hardwareColors) {
+  const inkRemap = createPaletteRemap(oldPalette, newPalette, hardwareColors)
+  return frames.map(frame => ({
+    ...frame,
+    pixels: frame.pixels.map(ink => inkRemap[ink] ?? 0),
+  }))
+}

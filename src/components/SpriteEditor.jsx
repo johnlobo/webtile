@@ -3,7 +3,7 @@ import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
-import { decodePaletteBytes, parseJascPalette } from '../services/paletteService'
+import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -2141,9 +2141,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let i = 0; i < importedCount; i++) {
           palette[i] = nearestCpcColor(...rgb[i])
         }
-        return { ...prev, palette }
+        const frames = remapFramesToPalette(prev.frames, prev.palette, palette, CPC_COLORS)
+        return { ...prev, palette, frames }
       })
-      setPaletteImportStatus({ type: 'success', message: `Imported ${importedCount} inks from ${file.name}` })
+      setPaletteImportStatus({ type: 'success', message: `Imported ${importedCount} inks and remapped all frames from ${file.name}` })
     } catch (error) {
       setPaletteImportStatus({ type: 'error', message: error.message })
     }
