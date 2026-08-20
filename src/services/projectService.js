@@ -4,32 +4,10 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { GENERIC_PROFILE_ID, normalizeProfileId } from '../model01Profile'
+import { decodeTiles, encodeTiles } from './tileCodec'
 
 // ── Tile encoding ──────────────────────────────────────────────────────────────
 // Flat int array: -1 = empty, otherwise (tileRow * 1000 + tileCol)
-
-function encodeTiles(mapTiles) {
-  return mapTiles.flat().map(t => (t ? t.row * 1000 + t.col : -1))
-}
-
-function decodeTiles(flat, mapW, mapH, tilesetCols) {
-  const grid = []
-  for (let r = 0; r < mapH; r++) {
-    const row = []
-    for (let c = 0; c < mapW; c++) {
-      const v = flat[r * mapW + c]
-      if (v === -1 || v == null) {
-        row.push(null)
-      } else {
-        const tCol = v % 1000
-        const tRow = Math.floor(v / 1000)
-        row.push({ col: tCol, row: tRow, idx: tRow * tilesetCols + tCol })
-      }
-    }
-    grid.push(row)
-  }
-  return grid
-}
 
 // ── Tileset image helpers ──────────────────────────────────────────────────────
 

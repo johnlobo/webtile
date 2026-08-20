@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
+import { encodeFrame } from '../services/cpcEncoding'
+import { bresenhamLine, fillPixels, shapeCells } from '../services/spriteDrawing'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -18,75 +20,6 @@ const CELL_H_BASE         = 8             // same for all modes
 const SPRITE_ZOOM_LEVELS  = [0.25, 0.5, 1, 2, 4, 8]
 
 // ── CPC encoding ──────────────────────────────────────────────────────────────
-
-function encodeRow_Mode0(rowPixels) {
-  // 2 CPC pixels per byte
-  // Bit7=p0b0, Bit6=p1b0, Bit5=p0b1, Bit4=p1b1, Bit3=p0b2, Bit2=p1b2, Bit1=p0b3, Bit0=p1b3
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 2) {
-    const p0 = rowPixels[i]     & 0xF
-    const p1 = (rowPixels[i + 1] ?? 0) & 0xF
-    let b = 0
-    b |= ((p0 >> 0) & 1) << 7
-    b |= ((p1 >> 0) & 1) << 6
-    b |= ((p0 >> 1) & 1) << 5
-    b |= ((p1 >> 1) & 1) << 4
-    b |= ((p0 >> 2) & 1) << 3
-    b |= ((p1 >> 2) & 1) << 2
-    b |= ((p0 >> 3) & 1) << 1
-    b |= ((p1 >> 3) & 1) << 0
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function encodeRow_Mode1(rowPixels) {
-  // 4 CPC pixels per byte
-  // Bit7=p0b0, Bit6=p2b0, Bit5=p1b0, Bit4=p3b0, Bit3=p0b1, Bit2=p2b1, Bit1=p1b1, Bit0=p3b1
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 4) {
-    const p0 = rowPixels[i]     & 0x3
-    const p1 = (rowPixels[i + 1] ?? 0) & 0x3
-    const p2 = (rowPixels[i + 2] ?? 0) & 0x3
-    const p3 = (rowPixels[i + 3] ?? 0) & 0x3
-    let b = 0
-    b |= ((p0 >> 0) & 1) << 7
-    b |= ((p2 >> 0) & 1) << 6
-    b |= ((p1 >> 0) & 1) << 5
-    b |= ((p3 >> 0) & 1) << 4
-    b |= ((p0 >> 1) & 1) << 3
-    b |= ((p2 >> 1) & 1) << 2
-    b |= ((p1 >> 1) & 1) << 1
-    b |= ((p3 >> 1) & 1) << 0
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function encodeRow_Mode2(rowPixels) {
-  // 8 CPC pixels per byte — simple 1-bit: Bit7=p0, Bit6=p1, ..., Bit0=p7
-  const bytes = []
-  for (let i = 0; i < rowPixels.length; i += 8) {
-    let b = 0
-    for (let bit = 0; bit < 8; bit++) {
-      const p = (rowPixels[i + bit] ?? 0) & 0x1
-      b |= p << (7 - bit)
-    }
-    bytes.push(b)
-  }
-  return bytes
-}
-
-function encodeFrame(pixels, width, height, videoMode) {
-  const encodeRow = videoMode === 0 ? encodeRow_Mode0 : videoMode === 1 ? encodeRow_Mode1 : encodeRow_Mode2
-  const rows = []
-  for (let y = 0; y < height; y++) {
-    const rowPixels = pixels.slice(y * width, (y + 1) * width)
-    const sprBytes  = encodeRow(rowPixels)
-    rows.push({ y, bytes: sprBytes })
-  }
-  return rows
-}
 
 function interleavedOrder(height) {
   return Array.from({ length: height }, (_, y) => ({
@@ -278,85 +211,8 @@ function cellInSelection(x, y, sel) {
   return x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h
 }
 
-function spriteFill(pixels, startX, startY, width, height, fillInk, selection) {
-  if (selection && !cellInSelection(startX, startY, selection)) return pixels
-  const targetInk = pixels[startY * width + startX]
-  if (targetInk === fillInk) return pixels
-  const result = [...pixels]
-  const visited = new Uint8Array(width * height)
-  const queue = [[startX, startY]]
-  visited[startY * width + startX] = 1
-  while (queue.length) {
-    const [x, y] = queue.shift()
-    result[y * width + x] = fillInk
-    for (const [nx, ny] of [[x-1,y],[x+1,y],[x,y-1],[x,y+1]]) {
-      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue
-      if (visited[ny * width + nx]) continue
-      if (pixels[ny * width + nx] !== targetInk) continue
-      if (!cellInSelection(nx, ny, selection)) continue
-      visited[ny * width + nx] = 1
-      queue.push([nx, ny])
-    }
-  }
-  return result
-}
-
-function bresenhamLine(x0, y0, x1, y1) {
-  const cells = []
-  let dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0)
-  let sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1
-  let err = dx - dy
-  while (true) {
-    cells.push({ x: x0, y: y0 })
-    if (x0 === x1 && y0 === y1) break
-    const e2 = 2 * err
-    if (e2 > -dy) { err -= dy; x0 += sx }
-    if (e2 <  dx) { err += dx; y0 += sy }
-  }
-  return cells
-}
-
-function rectangleOutline(a, b) {
-  const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x)
-  const top = Math.min(a.y, b.y), bottom = Math.max(a.y, b.y)
-  const cells = []
-  for (let x = left; x <= right; x++) {
-    cells.push({ x, y: top })
-    if (bottom !== top) cells.push({ x, y: bottom })
-  }
-  for (let y = top + 1; y < bottom; y++) {
-    cells.push({ x: left, y })
-    if (right !== left) cells.push({ x: right, y })
-  }
-  return cells
-}
-
-function ellipseOutline(a, b) {
-  const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x)
-  const top = Math.min(a.y, b.y), bottom = Math.max(a.y, b.y)
-  if (left === right) return bresenhamLine(left, top, right, bottom)
-  if (top === bottom) return bresenhamLine(left, top, right, bottom)
-  const cx = (left + right) / 2, cy = (top + bottom) / 2
-  const rx = (right - left) / 2, ry = (bottom - top) / 2
-  const steps = Math.max(24, Math.ceil(4 * Math.PI * Math.max(rx, ry)))
-  const unique = new Map()
-  for (let i = 0; i < steps; i++) {
-    const angle = i * Math.PI * 2 / steps
-    const cell = { x: Math.round(cx + rx * Math.cos(angle)), y: Math.round(cy + ry * Math.sin(angle)) }
-    unique.set(`${cell.x},${cell.y}`, cell)
-  }
-  return [...unique.values()]
-}
-
-function shapeCells(tool, start, end) {
-  if (tool === 'line') return bresenhamLine(start.x, start.y, end.x, end.y)
-  if (tool === 'rectangle') return rectangleOutline(start, end)
-  if (tool === 'ellipse') return ellipseOutline(start, end)
-  return []
-}
-
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers }) {
+  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled }) {
   const canvasRef   = useRef(null)
   const scrollRef   = useRef(null)
   const painting    = useRef(false)
@@ -371,6 +227,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const shapeEnd    = useRef(null)
   const shapeInk    = useRef(activeInk)
   const shapeTool   = useRef(null)
+  const shapeFill   = useRef(false)
   const [pastePos,  setPastePos]  = useState(null)
   const [movePos,   setMovePos]   = useState(null)
   const [shapePreview, setShapePreview] = useState(null)
@@ -488,7 +345,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
     if (shapePreview) {
       const ctx = canvas.getContext('2d')
-      const cells = shapeCells(shapePreview.tool, shapePreview.start, shapePreview.end)
+      const cells = shapeCells(shapePreview.tool, shapePreview.start, shapePreview.end, shapePreview.filled)
       ctx.globalAlpha = 0.72
       ctx.fillStyle = CPC_COLORS[palette[shapePreview.ink] ?? 0]
       for (const { x, y } of cells) ctx.fillRect(x * cellW, y * cellH, cellW, cellH)
@@ -575,7 +432,8 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       shapeEnd.current = cell
       shapeInk.current = ink
       shapeTool.current = activeTool
-      setShapePreview({ tool: activeTool, start: cell, end: cell, ink })
+      shapeFill.current = shapeFilled && activeTool !== 'line'
+      setShapePreview({ tool: activeTool, start: cell, end: cell, ink, filled: shapeFill.current })
       return
     }
 
@@ -593,7 +451,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         lineAnchor.current = cell
       }
     }
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width])
+  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled])
 
   const handleMouseMove = useCallback((e) => {
     setAltPressed(e.altKey)
@@ -612,7 +470,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     }
     if (shapeAnchor.current && cell) {
       shapeEnd.current = cell
-      setShapePreview({ tool: shapeTool.current, start: shapeAnchor.current, end: cell, ink: shapeInk.current })
+      setShapePreview({ tool: shapeTool.current, start: shapeAnchor.current, end: cell, ink: shapeInk.current, filled: shapeFill.current })
       return
     }
     if (erasing.current) { eraseCell(cell); return }
@@ -626,7 +484,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     erasing.current  = false
     lastCell.current = null
     if (shapeAnchor.current && shapeEnd.current && shapeTool.current) {
-      onPaintLine(shapeCells(shapeTool.current, shapeAnchor.current, shapeEnd.current), shapeInk.current)
+      onPaintLine(shapeCells(shapeTool.current, shapeAnchor.current, shapeEnd.current, shapeFill.current), shapeInk.current)
       shapeAnchor.current = null
       shapeEnd.current = null
       shapeTool.current = null
@@ -1443,6 +1301,17 @@ function ToolBtn({ label, name, title, active, onClick, disabled }) {
   )
 }
 
+function FillBucketIcon() {
+  return (
+    <svg className="sprite-fill-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4.2 13.1 12 5.3l7.8 7.8-7.8 7.8z" />
+      <path d="m8.2 9.1-2-2" />
+      <path d="M3 20.5c0-1.5 2-3.7 2-3.7s2 2.2 2 3.7a2 2 0 0 1-4 0Z" />
+      <path d="M5.7 14.6h12.6" />
+    </svg>
+  )
+}
+
 function ScaleSelectionModal({ selection, onApply, onCancel }) {
   const [widthValue, setWidthValue] = useState(String(selection.w))
   const [heightValue, setHeightValue] = useState(String(selection.h))
@@ -1487,6 +1356,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [loading,      setLoading]      = useState(true)
   const [currentFrame, setCurrentFrame] = useState(0)
   const [activeTool,   setActiveTool]   = useState('pencil')
+  const [fillMode,     setFillMode]     = useState('contiguous')
+  const [shapeFilled,  setShapeFilled]  = useState(false)
   const [activeInk,    setActiveInk]    = useState(1)
   const [bgInk,        setBgInk]        = useState(0)
   const [replaceInkTarget, setReplaceInkTarget] = useState(0)
@@ -1738,14 +1609,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         if (fi !== currentFrame) return f
         const pixels = [...f.pixels]
         for (const { x, y } of cells) {
-          if (x >= 0 && x < prev.width && y >= 0 && y < prev.height)
+          if (x >= 0 && x < prev.width && y >= 0 && y < prev.height && cellInSelection(x, y, selection))
             pixels[y * prev.width + x] = ink
         }
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, updateSprite])
+  }, [currentFrame, selection, updateSprite])
 
   // Flip H
   const flipH = useCallback(() => {
@@ -2037,12 +1908,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
-        const pixels = spriteFill(f.pixels, cx, cy, prev.width, prev.height, fillInk, selection)
+        const pixels = fillPixels(f.pixels, cx, cy, prev.width, prev.height, fillInk, selection, fillMode)
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, activeInk, selection, updateSprite, pushHistory])
+  }, [currentFrame, activeInk, selection, fillMode, updateSprite, pushHistory])
 
   // ── Erase selection ─────────────────────────────────────────────────────────
 
@@ -2314,12 +2185,44 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="✏" name="PENCIL" title="Pencil [B] — Alt = pick" active={activeTool === 'pencil'} onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
           <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
           <ToolBtn label="⊕" name="PICK" title="Color Picker" active={activeTool === 'picker'} onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label="▪" name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
+          <ToolBtn label={<FillBucketIcon />} name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false); setToolbarMenu('tool-options') }} />
           <ToolBtn label="╱" name="LINE" title="Line [L] — right button = erase" active={activeTool === 'line'} onClick={() => { setActiveTool('line'); setIsPasting(false) }} />
-          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false) }} />
-          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false) }} />
+          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false); setToolbarMenu('tool-options') }} />
+          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false); setToolbarMenu('tool-options') }} />
           <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
         </div>
+
+        {(activeTool === 'fill' || activeTool === 'rectangle' || activeTool === 'ellipse') && (
+          <div className="sprite-toolbar-menu-wrap">
+            <button
+              className={`sprite-toolbar-menu-btn compact${toolbarMenu === 'tool-options' ? ' active' : ''}`}
+              title="Drawing tool options"
+              aria-label="Drawing tool options"
+              onClick={() => setToolbarMenu(menu => menu === 'tool-options' ? null : 'tool-options')}
+            >⚙</button>
+            {toolbarMenu === 'tool-options' && (
+              <div className="sprite-toolbar-dropdown sprite-tool-options-dropdown">
+                <strong>TOOL OPTIONS</strong>
+                {activeTool === 'fill' && (
+                  <label>
+                    Fill scope
+                    <select value={fillMode} onChange={event => setFillMode(event.target.value)}>
+                      <option value="contiguous">Contiguous pixels</option>
+                      <option value="matching">All matching pixels</option>
+                    </select>
+                  </label>
+                )}
+                {(activeTool === 'rectangle' || activeTool === 'ellipse') && (
+                  <label className="sprite-tool-checkbox">
+                    <input type="checkbox" checked={shapeFilled} onChange={event => setShapeFilled(event.target.checked)} />
+                    Fill with foreground ink
+                  </label>
+                )}
+                <small>{selection ? 'Limited to the active selection' : 'Applied to the current frame'}</small>
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="sprite-toolbar-separator" />
 
@@ -2452,6 +2355,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onCursorPos={setCursorPos}
           onTextClick={handleTextClick}
           onionLayers={onionLayers}
+          shapeFilled={shapeFilled}
           textOverlay={textMode ? { startX: textMode.x, startY: textMode.y, text: textBuffer, ink: activeInk } : null}
         />
 

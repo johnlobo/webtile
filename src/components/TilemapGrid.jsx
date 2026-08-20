@@ -1,34 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { ZOOM_LEVELS } from '../services/constants'
-
-function floodFill(mapTiles, startCol, startRow, mapW, mapH) {
-  const targetTile = mapTiles[startRow][startCol]
-  const targetIdx  = targetTile?.idx ?? null
-  const visited    = new Uint8Array(mapW * mapH)
-  const result     = []
-  const queue      = [startCol + startRow * mapW]
-  visited[startCol + startRow * mapW] = 1
-
-  while (queue.length) {
-    const idx = queue.pop()
-    const col = idx % mapW
-    const row = (idx / mapW) | 0
-    result.push({ col, row })
-
-    for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
-      const nc = col + dc
-      const nr = row + dr
-      if (nc < 0 || nc >= mapW || nr < 0 || nr >= mapH) continue
-      const ni = nc + nr * mapW
-      if (visited[ni]) continue
-      visited[ni] = 1
-      const cell = mapTiles[nr][nc]
-      const cellIdx = cell?.idx ?? null
-      if (cellIdx === targetIdx) queue.push(ni)
-    }
-  }
-  return result
-}
+import { floodFillCells } from '../services/gridAlgorithms'
 
 function getBorderDirection(col, row, mapW, mapH) {
   if (row === 0) return 'north'
@@ -173,7 +145,7 @@ export default function TilemapGrid({
       }
       onPaintCell(col, row, null)
     } else if (activeTool === 'fill' && selectedTile && tileset) {
-      const cells = floodFill(mapTiles, col, row, mapW, mapH)
+      const cells = floodFillCells(mapTiles, col, row, mapW, mapH)
       if (cells.length === 1 && mapTiles[row][col]?.idx === selectedTile.idx) return
       onFillCells(cells, selectedTile)
     } else if (activeTool === 'stamp' && selectedTile && tileset) {

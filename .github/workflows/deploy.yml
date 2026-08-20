@@ -22,8 +22,14 @@ jobs:
           node-version: 24 # Actualizamos a la versión recomendada
           cache: 'npm'
 
-      - name: 3. Construir aplicación (Build)
-        run: npm install && npm run build
+      - name: 3. Instalar dependencias
+        run: npm ci
+
+      - name: 4. Ejecutar pruebas
+        run: npm test
+
+      - name: 5. Construir aplicación (Build)
+        run: npm run build
         env:
           # Inyecta aquí TODAS las variables que necesite tu Firebase
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -33,7 +39,7 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID : ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID : ${{ secrets.VITE_FIREBASE_APP_ID }}
 
-      - name: 4. Enviar a VPS mediante SCP
+      - name: 6. Enviar a VPS mediante SCP
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.SSH_HOST }}
