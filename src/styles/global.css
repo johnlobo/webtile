@@ -438,6 +438,7 @@ body {
 .sprite-color-compact button:hover { color: var(--accent); }
 
 .sprite-toolbar-menu-wrap { position: relative; flex-shrink: 0; }
+.sprite-io-menu .sprite-toolbar-dropdown { left: 0; right: auto; }
 .sprite-toolbar-dropdown { position: absolute; top: calc(100% + 6px); left: 0; min-width: 205px; padding: 5px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-md); z-index: 100; }
 .sprite-toolbar-dropdown.align-right { left: auto; right: 0; min-width: 170px; }
 .sprite-toolbar-dropdown button { width: 100%; padding: 8px 10px; border: 0; border-radius: 5px; background: transparent; color: var(--text); cursor: pointer; text-align: left; font-size: 12px; }

@@ -2209,6 +2209,25 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
         </div>
 
+        <div className="sprite-toolbar-menu-wrap sprite-io-menu">
+          <button className="sprite-toolbar-menu-btn" onClick={() => setToolbarMenu(m => m === 'io' ? null : 'io')}>Import / Export⌄</button>
+          {toolbarMenu === 'io' && (
+            <div className="sprite-toolbar-dropdown">
+              <button onClick={() => { setToolbarMenu(null); importPngRef.current?.click() }}>Import PNG…</button>
+              <button onClick={() => { setToolbarMenu(null); exportPNG() }}>Export current frame PNG</button>
+              <div />
+              <button onClick={() => { setToolbarMenu(null); importSheetRef.current?.click() }}>Import spritesheet…</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal') }}>Export spritesheet →</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical') }}>Export spritesheet ↓</button>
+              <div />
+              <button onClick={() => { setToolbarMenu(null); importPaletteRef.current?.click() }}>Import palette…</button>
+              <button onClick={() => { setToolbarMenu(null); exportPalette() }}>Export palette</button>
+              <div />
+              <button onClick={() => { setToolbarMenu(null); setShowExport(true) }}>Export CPC data…</button>
+            </div>
+          )}
+        </div>
+
         <div className="sprite-toolbar-separator" />
 
         <div className="sprite-tool-group" aria-label="Selection tools">
@@ -2242,25 +2261,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <div className="sprite-bg-chip" style={{ background: CPC_COLORS[palette[bgInk] ?? 0] }} />
           <div className="sprite-fg-chip" style={{ background: CPC_COLORS[palette[activeInk] ?? 0] }} />
           <button title="Swap foreground / background [X]" onClick={() => { const tmp = activeInk; setActiveInk(bgInk); setBgInk(tmp) }}>⇄</button>
-        </div>
-
-        <div className="sprite-toolbar-menu-wrap">
-          <button className="sprite-toolbar-menu-btn" onClick={() => setToolbarMenu(m => m === 'io' ? null : 'io')}>Import / Export⌄</button>
-          {toolbarMenu === 'io' && (
-            <div className="sprite-toolbar-dropdown">
-              <button onClick={() => { setToolbarMenu(null); importPngRef.current?.click() }}>Import PNG…</button>
-              <button onClick={() => { setToolbarMenu(null); exportPNG() }}>Export current frame PNG</button>
-              <div />
-              <button onClick={() => { setToolbarMenu(null); importSheetRef.current?.click() }}>Import spritesheet…</button>
-              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal') }}>Export spritesheet →</button>
-              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical') }}>Export spritesheet ↓</button>
-              <div />
-              <button onClick={() => { setToolbarMenu(null); importPaletteRef.current?.click() }}>Import palette…</button>
-              <button onClick={() => { setToolbarMenu(null); exportPalette() }}>Export palette</button>
-              <div />
-              <button onClick={() => { setToolbarMenu(null); setShowExport(true) }}>Export CPC data…</button>
-            </div>
-          )}
         </div>
 
         <div className="sprite-toolbar-menu-wrap">
