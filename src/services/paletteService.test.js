@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseJascPalette } from './paletteService'
+import { decodePaletteBytes, parseJascPalette } from './paletteService'
 
 const reportedPalette = `JASC-PAL\r
 0100\r
@@ -32,5 +32,17 @@ describe('parseJascPalette', () => {
   it('rejects incomplete and unsupported palettes with an actionable error', () => {
     expect(() => parseJascPalette('GIMP Palette\n0 0 0')).toThrow(/JASC-PAL/)
     expect(() => parseJascPalette('JASC-PAL\n0100\n2\n0 0 0')).toThrow(/declares 2/)
+  })
+
+  it('decodes UTF-16LE files with a BOM before parsing', () => {
+    const encoded = new TextEncoder().encode(reportedPalette.split('').map(character => `${character}\0`).join(''))
+    const bytes = new Uint8Array(encoded.length + 2)
+    bytes.set([0xFF, 0xFE])
+    bytes.set(encoded, 2)
+    expect(parseJascPalette(decodePaletteBytes(bytes))).toHaveLength(16)
+  })
+
+  it('ignores HTML-encoded trailing spaces in the header', () => {
+    expect(parseJascPalette(reportedPalette.replace('JASC-PAL', 'JASC-PAL&#x20;'))).toHaveLength(16)
   })
 })

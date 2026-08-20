@@ -1,5 +1,9 @@
 export function parseJascPalette(text) {
-  const lines = String(text).replace(/^\uFEFF/, '').split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+  const lines = String(text)
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .map(line => line.replace(/(?:&#x20;|&#32;|&nbsp;)+$/gi, '').trim())
+    .filter(Boolean)
   if (lines[0]?.toUpperCase() !== 'JASC-PAL' || lines[1] !== '0100') {
     throw new Error('Unsupported palette format. Expected a JASC-PAL 0100 file.')
   }
@@ -21,4 +25,29 @@ export function parseJascPalette(text) {
     throw new Error(`The palette declares ${declaredCount} colors but contains ${colors.length}.`)
   }
   return colors
+}
+
+export function decodePaletteBytes(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input)
+  if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+    return new TextDecoder('utf-16le').decode(bytes.subarray(2))
+  }
+  if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+    const swapped = new Uint8Array(bytes.length - 2)
+    for (let i = 2; i + 1 < bytes.length; i += 2) {
+      swapped[i - 2] = bytes[i + 1]
+      swapped[i - 1] = bytes[i]
+    }
+    return new TextDecoder('utf-16le').decode(swapped)
+  }
+
+  // Some UTF-16LE writers omit the BOM. ASCII-range text then has a NUL in
+  // almost every odd byte, which is reliable for the JASC header.
+  const sampleLength = Math.min(bytes.length, 64)
+  let oddNuls = 0
+  for (let i = 1; i < sampleLength; i += 2) if (bytes[i] === 0) oddNuls++
+  if (sampleLength >= 8 && oddNuls >= Math.floor(sampleLength / 4)) {
+    return new TextDecoder('utf-16le').decode(bytes)
+  }
+  return new TextDecoder('utf-8').decode(bytes)
 }

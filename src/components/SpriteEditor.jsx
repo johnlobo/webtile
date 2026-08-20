@@ -3,7 +3,7 @@ import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
-import { parseJascPalette } from '../services/paletteService'
+import { decodePaletteBytes, parseJascPalette } from '../services/paletteService'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -2133,7 +2133,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const importPalette = useCallback(async (file) => {
     if (!file || !sprite) return
     try {
-      const rgb = parseJascPalette(await file.text())
+      const rgb = parseJascPalette(decodePaletteBytes(await file.arrayBuffer()))
       pushHistory()
       const importedCount = Math.min(rgb.length, MODE_INK_COUNT[sprite.videoMode])
       updateSprite(prev => {
