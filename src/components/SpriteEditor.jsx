@@ -1479,6 +1479,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           height:    updatedSprite.height,
           palette:   updatedSprite.palette,
           frames:    updatedSprite.frames,
+          schemaVersion: updatedSprite.schemaVersion,
+          layers: updatedSprite.layers,
         })
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus(null), 2000)

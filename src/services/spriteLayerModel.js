@@ -74,3 +74,38 @@ export function compositeFrame(sprite, frameIndex, backgroundInk = 0) {
   }
   return output
 }
+
+// Temporary compatibility view used while the editor is being migrated in
+// phases. The persisted source of truth remains `cels`; `pixels` is a composed
+// working buffer understood by the current single-layer editor.
+export function prepareSpriteForEditor(sprite) {
+  const layered = migrateLegacySprite(sprite)
+  if (!layered) return layered
+  return {
+    ...layered,
+    frames: layered.frames.map((frame, frameIndex) => ({
+      ...frame,
+      pixels: compositeFrame(layered, frameIndex),
+    })),
+  }
+}
+
+export function prepareSpriteForStorage(sprite) {
+  const layered = migrateLegacySprite(sprite)
+  if (!layered) return layered
+  const editableLayerId = layered.layers[0]?.id ?? BASE_LAYER_ID
+  return {
+    ...layered,
+    schemaVersion: SPRITE_SCHEMA_VERSION,
+    frames: layered.frames.map(frame => {
+      const { pixels, ...frameData } = frame
+      const cels = Object.fromEntries(Object.entries(frame.cels ?? {}).map(([layerId, cel]) => [
+        layerId,
+        { ...cel, pixels: [...(cel.pixels ?? [])] },
+      ]))
+      if (pixels) cels[editableLayerId] = createCel(layered.width, layered.height, pixels)
+      if (!cels[editableLayerId]) cels[editableLayerId] = createCel(layered.width, layered.height)
+      return { ...frameData, cels }
+    }),
+  }
+}

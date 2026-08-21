@@ -6,4 +6,5 @@
 - Do not ask the user to test an uncommitted or unpushed working tree.
 - Use semantic versioning and keep `package.json` and `package-lock.json` versions aligned with the release tag.
 - Include a concise release note describing user-visible changes and verification performed.
+- Whenever reporting a deployment or asking the user to verify it, state the exact semantic version prominently so they can compare it with the version shown by the application.
 - Before committing, preserve unrelated user changes and inspect the final diff for accidental files or secrets.

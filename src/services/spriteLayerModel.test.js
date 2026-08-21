@@ -8,6 +8,8 @@ import {
   createLayer,
   createLayeredFrame,
   migrateLegacySprite,
+  prepareSpriteForEditor,
+  prepareSpriteForStorage,
 } from './spriteLayerModel'
 
 describe('sprite layer model', () => {
@@ -53,5 +55,19 @@ describe('sprite layer model', () => {
     const clone = migrateLegacySprite(sprite)
     clone.frames[0].cels.base.pixels[0] = 9
     expect(sprite.frames[0].cels.base.pixels[0]).toBe(2)
+  })
+
+  it('round-trips legacy editor pixels through schema v2 storage', () => {
+    const legacy = { width: 2, height: 1, frames: [{ pixels: [0, 4] }] }
+    const stored = prepareSpriteForStorage(legacy)
+    expect(stored.frames[0].pixels).toBeUndefined()
+    expect(stored.frames[0].cels.base.pixels).toEqual([0, 4])
+    expect(prepareSpriteForEditor(stored).frames[0].pixels).toEqual([0, 4])
+  })
+
+  it('writes an edited compatibility buffer back to the base cel', () => {
+    const editorSprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 2] }] })
+    editorSprite.frames[0].pixels = [3, 0]
+    expect(prepareSpriteForStorage(editorSprite).frames[0].cels.base.pixels).toEqual([3, 0])
   })
 })
