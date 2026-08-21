@@ -84,6 +84,7 @@ export function prepareSpriteForEditor(sprite) {
   const editableLayerId = layered.layers[0]?.id ?? BASE_LAYER_ID
   return {
     ...layered,
+    activeLayerId: editableLayerId,
     frames: layered.frames.map(frame => ({
       ...frame,
       pixels: [...(frame.cels?.[editableLayerId]?.pixels ?? createTransparentPixels(layered.width, layered.height))],
@@ -94,7 +95,7 @@ export function prepareSpriteForEditor(sprite) {
 export function compositeEditorFrame(sprite, frameIndex, backgroundInk = 0) {
   const frame = sprite.frames?.[frameIndex]
   if (!frame?.pixels) return compositeFrame(sprite, frameIndex, backgroundInk)
-  const editableLayerId = sprite.layers?.[0]?.id ?? BASE_LAYER_ID
+  const editableLayerId = sprite.activeLayerId ?? sprite.layers?.[0]?.id ?? BASE_LAYER_ID
   const projected = {
     ...sprite,
     frames: sprite.frames.map((candidate, index) => index === frameIndex ? {
@@ -111,7 +112,7 @@ export function compositeEditorFrame(sprite, frameIndex, backgroundInk = 0) {
 export function prepareSpriteForStorage(sprite) {
   const layered = migrateLegacySprite(sprite)
   if (!layered) return layered
-  const editableLayerId = layered.layers[0]?.id ?? BASE_LAYER_ID
+  const editableLayerId = sprite.activeLayerId ?? layered.layers[0]?.id ?? BASE_LAYER_ID
   return {
     ...layered,
     schemaVersion: SPRITE_SCHEMA_VERSION,
@@ -126,4 +127,77 @@ export function prepareSpriteForStorage(sprite) {
       return { ...frameData, cels }
     }),
   }
+}
+
+export function commitWorkingLayer(sprite) {
+  if (!sprite) return sprite
+  const activeLayerId = sprite.activeLayerId ?? sprite.layers?.[0]?.id
+  if (!activeLayerId) return sprite
+  return {
+    ...sprite,
+    frames: sprite.frames.map(frame => ({
+      ...frame,
+      cels: {
+        ...(frame.cels ?? {}),
+        [activeLayerId]: createCel(sprite.width, sprite.height, frame.pixels),
+      },
+    })),
+  }
+}
+
+export function selectEditorLayer(sprite, layerId) {
+  if (!sprite?.layers?.some(layer => layer.id === layerId)) return sprite
+  const committed = commitWorkingLayer(sprite)
+  return {
+    ...committed,
+    activeLayerId: layerId,
+    frames: committed.frames.map(frame => ({
+      ...frame,
+      pixels: [...(frame.cels?.[layerId]?.pixels ?? createTransparentPixels(sprite.width, sprite.height))],
+    })),
+  }
+}
+
+export function addEditorLayer(sprite, layer, { duplicateActive = false } = {}) {
+  const committed = commitWorkingLayer(sprite)
+  const activeIndex = Math.max(0, committed.layers.findIndex(item => item.id === committed.activeLayerId))
+  const layers = [...committed.layers]
+  layers.splice(activeIndex + 1, 0, createLayer(layer))
+  const frames = committed.frames.map(frame => {
+    const pixels = duplicateActive
+      ? [...(frame.cels?.[committed.activeLayerId]?.pixels ?? createTransparentPixels(sprite.width, sprite.height))]
+      : createTransparentPixels(sprite.width, sprite.height)
+    return {
+      ...frame,
+      pixels,
+      cels: { ...(frame.cels ?? {}), [layer.id]: createCel(sprite.width, sprite.height, pixels) },
+    }
+  })
+  return { ...committed, layers, frames, activeLayerId: layer.id }
+}
+
+export function deleteEditorLayer(sprite, layerId) {
+  if (!sprite || sprite.layers.length <= 1) return sprite
+  const committed = commitWorkingLayer(sprite)
+  const removedIndex = committed.layers.findIndex(layer => layer.id === layerId)
+  if (removedIndex < 0) return sprite
+  const layers = committed.layers.filter(layer => layer.id !== layerId)
+  const nextLayer = layers[Math.min(removedIndex, layers.length - 1)]
+  const frames = committed.frames.map(frame => {
+    const cels = { ...(frame.cels ?? {}) }
+    delete cels[layerId]
+    return { ...frame, cels, pixels: [...(cels[nextLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height))] }
+  })
+  return { ...committed, layers, frames, activeLayerId: nextLayer.id }
+}
+
+export function moveEditorLayer(sprite, layerId, offset) {
+  const committed = commitWorkingLayer(sprite)
+  const index = committed.layers.findIndex(layer => layer.id === layerId)
+  const target = index + offset
+  if (index < 0 || target < 0 || target >= committed.layers.length) return committed
+  const layers = [...committed.layers]
+  const [layer] = layers.splice(index, 1)
+  layers.splice(target, 0, layer)
+  return { ...committed, layers }
 }

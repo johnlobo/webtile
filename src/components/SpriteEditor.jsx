@@ -4,7 +4,15 @@ import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../serv
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
-import { compositeEditorFrame } from '../services/spriteLayerModel'
+import {
+  TRANSPARENT_INK,
+  addEditorLayer,
+  commitWorkingLayer,
+  compositeEditorFrame,
+  deleteEditorLayer,
+  moveEditorLayer,
+  selectEditorLayer,
+} from '../services/spriteLayerModel'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -214,7 +222,7 @@ function cellInSelection(x, y, sel) {
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled }) {
+  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled, layerLocked }) {
   const canvasRef   = useRef(null)
   const scrollRef   = useRef(null)
   const painting    = useRef(false)
@@ -386,6 +394,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
+    if (layerLocked && (isPasting || !['picker', 'select'].includes(activeTool))) return
     setAltPressed(e.altKey)
     lastCell.current = null
     const cell = getCellFromEvent(e)
@@ -453,7 +462,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         lineAnchor.current = cell
       }
     }
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled])
+  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled, layerLocked])
 
   const handleMouseMove = useCallback((e) => {
     setAltPressed(e.altKey)
@@ -1314,6 +1323,37 @@ function FillBucketIcon() {
   )
 }
 
+function LayerPanel({ layers, activeLayerId, onSelect, onAdd, onDuplicate, onRename, onToggleVisible, onToggleLocked, onMove, onDelete }) {
+  const ordered = [...layers].reverse()
+  return (
+    <div className="sprite-layers-panel">
+      <div className="sprite-layers-header">
+        <span>LAYERS</span>
+        <div>
+          <button title="Add layer" onClick={onAdd}>+</button>
+          <button title="Duplicate active layer" onClick={onDuplicate}>⧉</button>
+        </div>
+      </div>
+      <div className="sprite-layers-list">
+        {ordered.map(layer => {
+          const sourceIndex = layers.findIndex(item => item.id === layer.id)
+          return (
+            <div key={layer.id} className={`sprite-layer-row${layer.id === activeLayerId ? ' active' : ''}`} onClick={() => onSelect(layer.id)}>
+              <button title={layer.visible ? 'Hide layer' : 'Show layer'} onClick={event => { event.stopPropagation(); onToggleVisible(layer.id) }}>{layer.visible ? '◉' : '○'}</button>
+              <button title={layer.locked ? 'Unlock layer' : 'Lock layer'} onClick={event => { event.stopPropagation(); onToggleLocked(layer.id) }}>{layer.locked ? '▣' : '□'}</button>
+              <span title={layer.name} onDoubleClick={event => { event.stopPropagation(); onRename(layer.id) }}>{layer.name}</span>
+              <button title="Move layer up" disabled={sourceIndex >= layers.length - 1} onClick={event => { event.stopPropagation(); onMove(layer.id, 1) }}>↑</button>
+              <button title="Move layer down" disabled={sourceIndex <= 0} onClick={event => { event.stopPropagation(); onMove(layer.id, -1) }}>↓</button>
+              <button className="danger" title="Delete layer" disabled={layers.length <= 1} onClick={event => { event.stopPropagation(); onDelete(layer.id) }}>×</button>
+            </div>
+          )
+        })}
+      </div>
+      <div className="sprite-layers-help">Double-click a name to rename</div>
+    </div>
+  )
+}
+
 function ScaleSelectionModal({ selection, onApply, onCancel }) {
   const [widthValue, setWidthValue] = useState(String(selection.w))
   const [heightValue, setHeightValue] = useState(String(selection.h))
@@ -1397,6 +1437,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
+  const activeLayer = sprite?.layers?.find(layer => layer.id === sprite.activeLayerId) ?? sprite?.layers?.[0]
+  const activeLayerLocked = Boolean(activeLayer?.locked)
+  const layerEraseInk = (sprite?.layers?.length ?? 0) > 1 ? TRANSPARENT_INK : bgInk
 
   useEffect(() => { colorsRef.current = { activeInk, bgInk } }, [activeInk, bgInk])
 
@@ -1482,6 +1525,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           frames:    updatedSprite.frames,
           schemaVersion: updatedSprite.schemaVersion,
           layers: updatedSprite.layers,
+          activeLayerId: updatedSprite.activeLayerId,
         })
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus(null), 2000)
@@ -1511,6 +1555,61 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     setCanUndo(true)
     setCanRedo(false)
   }, [])
+
+  const createLayerDescriptor = useCallback((name) => ({
+    id: globalThis.crypto?.randomUUID?.() ?? `layer-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name,
+  }), [])
+
+  const handleSelectLayer = useCallback((layerId) => {
+    setSelection(null)
+    setIsPasting(false)
+    setSprite(prev => selectEditorLayer(prev, layerId))
+  }, [])
+
+  const handleAddLayer = useCallback(() => {
+    pushHistory()
+    updateSprite(prev => addEditorLayer(prev, createLayerDescriptor(`Layer ${prev.layers.length + 1}`)))
+  }, [createLayerDescriptor, pushHistory, updateSprite])
+
+  const handleDuplicateLayer = useCallback(() => {
+    if (!spriteRef.current) return
+    const source = spriteRef.current.layers.find(layer => layer.id === spriteRef.current.activeLayerId)
+    pushHistory()
+    updateSprite(prev => addEditorLayer(prev, createLayerDescriptor(`${source?.name ?? 'Layer'} copy`), { duplicateActive: true }))
+  }, [createLayerDescriptor, pushHistory, updateSprite])
+
+  const handleRenameLayer = useCallback((layerId) => {
+    const current = spriteRef.current?.layers.find(layer => layer.id === layerId)
+    const name = window.prompt('Layer name', current?.name ?? 'Layer')?.trim()
+    if (!name || name === current?.name) return
+    pushHistory()
+    updateSprite(prev => ({
+      ...commitWorkingLayer(prev),
+      layers: prev.layers.map(layer => layer.id === layerId ? { ...layer, name } : layer),
+    }))
+  }, [pushHistory, updateSprite])
+
+  const updateLayerFlag = useCallback((layerId, key) => {
+    pushHistory()
+    updateSprite(prev => {
+      const committed = commitWorkingLayer(prev)
+      return { ...committed, layers: committed.layers.map(layer => layer.id === layerId ? { ...layer, [key]: !layer[key] } : layer) }
+    })
+  }, [pushHistory, updateSprite])
+
+  const handleMoveLayer = useCallback((layerId, offset) => {
+    pushHistory()
+    updateSprite(prev => moveEditorLayer(prev, layerId, offset))
+  }, [pushHistory, updateSprite])
+
+  const handleDeleteLayer = useCallback((layerId) => {
+    if ((spriteRef.current?.layers.length ?? 0) <= 1) return
+    const layer = spriteRef.current.layers.find(item => item.id === layerId)
+    if (!window.confirm(`Delete layer "${layer?.name ?? 'Layer'}" from every frame?`)) return
+    pushHistory()
+    updateSprite(prev => deleteEditorLayer(prev, layerId))
+  }, [pushHistory, updateSprite])
 
   const handleUndo = useCallback(() => {
     const prev = historyRef.current.pop()
@@ -1600,6 +1699,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       else setActiveInk(ink)
       return
     }
+    if (activeLayerLocked) return
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
@@ -1609,10 +1709,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, updateSprite])
+  }, [currentFrame, activeLayerLocked, updateSprite])
 
   // Paint line handler (Shift+click)
   const handlePaintLine = useCallback((cells, ink) => {
+    if (activeLayerLocked) return
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
@@ -1625,10 +1726,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, selection, updateSprite])
+  }, [currentFrame, selection, activeLayerLocked, updateSprite])
 
   // Flip H
   const flipH = useCallback(() => {
+    if (activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
       const { width, height } = prev
@@ -1647,10 +1749,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, selection, updateSprite, pushHistory])
+  }, [currentFrame, selection, activeLayerLocked, updateSprite, pushHistory])
 
   // Flip V
   const flipV = useCallback(() => {
+    if (activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
       const { width, height } = prev
@@ -1669,10 +1772,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, selection, updateSprite, pushHistory])
+  }, [currentFrame, selection, activeLayerLocked, updateSprite, pushHistory])
 
   const rotateSelection = useCallback((clockwise) => {
-    if (!selection || !sprite) return
+    if (!selection || !sprite || activeLayerLocked) return
     const { x, y, w, h } = selection
     const newW = h, newH = w
     if (x + newW > sprite.width || y + newH > sprite.height) return
@@ -1692,17 +1795,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           }
         }
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = layerEraseInk
         for (let dy = 0; dy < newH; dy++) for (let dx = 0; dx < newW; dx++) pixels[(y + dy) * prev.width + x + dx] = rotated[dy * newW + dx]
         return { ...frame, pixels }
       })
       return { ...prev, frames }
     })
     setSelection({ x, y, w: newW, h: newH })
-  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   const nudgeSelection = useCallback((dx, dy) => {
-    if (!selection || !sprite) return
+    if (!selection || !sprite || activeLayerLocked) return
     const { x, y, w, h } = selection
     const nx = x + dx, ny = y + dy
     if (nx < 0 || ny < 0 || nx + w > sprite.width || ny + h > sprite.height) return
@@ -1713,17 +1816,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         const source = []
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = layerEraseInk
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) pixels[(ny + sy) * prev.width + nx + sx] = source[sy * w + sx]
         return { ...frame, pixels }
       })
       return { ...prev, frames }
     })
     setSelection({ x: nx, y: ny, w, h })
-  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   const scaleSelection = useCallback((newW, newH) => {
-    if (!selection || !sprite) return
+    if (!selection || !sprite || activeLayerLocked) return
     const { x, y, w, h } = selection
     const targetW = Math.min(newW, sprite.width - x)
     const targetH = Math.min(newH, sprite.height - y)
@@ -1734,7 +1837,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         const source = []
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = bgInk
+        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = layerEraseInk
         for (let dy = 0; dy < targetH; dy++) {
           for (let dx = 0; dx < targetW; dx++) {
             const sx = Math.min(w - 1, Math.floor(dx * w / targetW))
@@ -1748,19 +1851,22 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
     setSelection({ x, y, w: targetW, h: targetH })
     setShowScaleSelection(false)
-  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   // Add frame (clone current)
   const addFrame = useCallback(() => {
     pushHistory()
     updateSprite(prev => {
-      const clone = { pixels: [...prev.frames[currentFrame].pixels] }
+      const committed = commitWorkingLayer(prev)
+      const source = committed.frames[currentFrame]
+      const cels = Object.fromEntries(Object.entries(source.cels ?? {}).map(([layerId, cel]) => [layerId, { ...cel, pixels: [...cel.pixels] }]))
+      const clone = { ...source, cels, pixels: [...(cels[committed.activeLayerId]?.pixels ?? source.pixels)] }
       const frames = [
-        ...prev.frames.slice(0, currentFrame + 1),
+        ...committed.frames.slice(0, currentFrame + 1),
         clone,
-        ...prev.frames.slice(currentFrame + 1),
+        ...committed.frames.slice(currentFrame + 1),
       ]
-      return { ...prev, frames }
+      return { ...committed, frames }
     })
     setCurrentFrame(fi => fi + 1)
   }, [currentFrame, updateSprite, pushHistory])
@@ -1768,13 +1874,16 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const addBlankFrame = useCallback(() => {
     pushHistory()
     updateSprite(prev => {
-      const blank = { pixels: Array(prev.width * prev.height).fill(0) }
+      const committed = commitWorkingLayer(prev)
+      const fill = committed.layers.length === 1 ? 0 : TRANSPARENT_INK
+      const cels = Object.fromEntries(committed.layers.map(layer => [layer.id, { pixels: Array(prev.width * prev.height).fill(fill) }]))
+      const blank = { cels, pixels: [...cels[committed.activeLayerId].pixels] }
       const frames = [
-        ...prev.frames.slice(0, currentFrame + 1),
+        ...committed.frames.slice(0, currentFrame + 1),
         blank,
-        ...prev.frames.slice(currentFrame + 1),
+        ...committed.frames.slice(currentFrame + 1),
       ]
-      return { ...prev, frames }
+      return { ...committed, frames }
     })
     setCurrentFrame(fi => fi + 1)
   }, [currentFrame, updateSprite, pushHistory])
@@ -1822,6 +1931,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       const frames = prev.frames.map(frame => ({
         ...frame,
         pixels: frame.pixels.map(ink => ink === first ? second : ink === second ? first : ink),
+        cels: Object.fromEntries(Object.entries(frame.cels ?? {}).map(([layerId, cel]) => [layerId, {
+          ...cel,
+          pixels: cel.pixels.map(ink => ink === first ? second : ink === second ? first : ink),
+        }])),
       }))
       return { ...prev, palette, frames }
     })
@@ -1864,7 +1977,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const handleCutRef = useRef(null)
 
   const handleCut = useCallback(() => {
-    if (!selection || !sprite) return
+    if (!selection || !sprite || activeLayerLocked) return
     handleCopyRef.current?.()
     pushHistory()
     const { x, y, w, h } = selection
@@ -1875,17 +1988,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
             if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
-              pixels[py * prev.width + px] = bgInk
+              pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [selection, sprite, bgInk, currentFrame, updateSprite, pushHistory])
+  }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   useEffect(() => { handleCutRef.current = handleCut }, [handleCut])
 
   const handlePasteCommit = useCallback((px, py) => {
-    if (!clipboard) return
+    if (!clipboard || activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
@@ -1907,7 +2020,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     })
     setIsPasting(false)
     setSelection(null)
-  }, [clipboard, currentFrame, updateSprite, pushHistory])
+  }, [clipboard, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   const transformClipboard = useCallback((operation) => {
     setClipboard(block => transformPixelBlock(block, operation))
@@ -1923,6 +2036,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   // ── Fill ────────────────────────────────────────────────────────────────────
 
   const handleFill = useCallback((cx, cy, ink) => {
+    if (activeLayerLocked) return
     pushHistory()
     const fillInk = ink ?? activeInk
     updateSprite(prev => {
@@ -1933,12 +2047,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...prev, frames }
     })
-  }, [currentFrame, activeInk, selection, fillMode, updateSprite, pushHistory])
+  }, [currentFrame, activeInk, selection, fillMode, activeLayerLocked, updateSprite, pushHistory])
 
   // ── Erase selection ─────────────────────────────────────────────────────────
 
   const handleEraseSelection = useCallback(() => {
-    if (!selection) return
+    if (!selection || activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
       const { x, y, w, h } = selection
@@ -1948,18 +2062,19 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
             if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
-              pixels[py * prev.width + px] = bgInk
+              pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [selection, bgInk, currentFrame, updateSprite, pushHistory])
+  }, [selection, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   useEffect(() => { handleEraseSelectionRef.current = handleEraseSelection }, [handleEraseSelection])
 
   // ── Move ─────────────────────────────────────────────────────────────────────
 
   const handleMoveStart = useCallback((sel, _capturedPixels) => {
+    if (activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
       const { x, y, w, h } = sel
@@ -1969,15 +2084,15 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
             if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
-              pixels[py * prev.width + px] = bgInk
+              pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-  }, [bgInk, currentFrame, updateSprite, pushHistory])
+  }, [layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
   const handleMoveCommit = useCallback((newPos, capturedPixels, origSel) => {
-    if (!newPos || !capturedPixels || !origSel) return
+    if (!newPos || !capturedPixels || !origSel || activeLayerLocked) return
     const { w, h } = origSel
     updateSprite(prev => {
       const frames = prev.frames.map((f, fi) => {
@@ -1995,7 +2110,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       return { ...prev, frames }
     })
     setSelection({ x: newPos.x, y: newPos.y, w: origSel.w, h: origSel.h })
-  }, [currentFrame, updateSprite])
+  }, [currentFrame, activeLayerLocked, updateSprite])
 
   // ── Properties apply ───────────────────────────────────────────────────────
 
@@ -2006,8 +2121,23 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     updateSprite(prev => {
       const next = { ...prev, name: name.trim() || prev.name }
       if (newW === prev.width && newH === prev.height) return next
-      const resized = resizeFrames(prev.frames, prev.width, prev.height, newW, newH, anchorCol, anchorRow, bgInk)
-      return { ...next, width: newW, height: newH, frames: resized }
+      const committed = commitWorkingLayer(prev)
+      const resizedByLayer = Object.fromEntries(committed.layers.map(layer => [
+        layer.id,
+        resizeFrames(
+          committed.frames.map(frame => ({ pixels: frame.cels[layer.id].pixels })),
+          prev.width, prev.height, newW, newH, anchorCol, anchorRow,
+          layer.id === committed.activeLayerId ? bgInk : TRANSPARENT_INK,
+        ),
+      ]))
+      const frames = committed.frames.map((frame, frameIndex) => {
+        const cels = Object.fromEntries(committed.layers.map(layer => [layer.id, {
+          ...frame.cels[layer.id],
+          pixels: resizedByLayer[layer.id][frameIndex].pixels,
+        }]))
+        return { ...frame, cels, pixels: [...cels[committed.activeLayerId].pixels] }
+      })
+      return { ...next, width: newW, height: newH, frames }
     })
     setCurrentFrame(f => 0)
   }, [updateSprite, pushHistory])
@@ -2092,7 +2222,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             const g = imageData[i * 4 + 1]
             const b = imageData[i * 4 + 2]
             const a = imageData[i * 4 + 3]
-            pixels[i] = a < 128 ? 0 : nearestPaletteInk(r, g, b, prev.palette)
+            pixels[i] = a < 128 && prev.layers.length > 1 ? TRANSPARENT_INK : a < 128 ? 0 : nearestPaletteInk(r, g, b, prev.palette)
           }
           return { ...f, pixels }
         })
@@ -2106,7 +2236,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const importSpriteSheetFrames = useCallback((importedFrames) => {
     if (!importedFrames.length) return
     pushHistory()
-    updateSprite(prev => ({ ...prev, frames: importedFrames }))
+    updateSprite(prev => {
+      const frames = importedFrames.map(imported => {
+        const cels = Object.fromEntries(prev.layers.map(layer => [layer.id, {
+          pixels: layer.id === prev.activeLayerId
+            ? [...imported.pixels]
+            : Array(prev.width * prev.height).fill(TRANSPARENT_INK),
+        }]))
+        return { ...imported, cels, pixels: [...imported.pixels] }
+      })
+      return { ...prev, frames }
+    })
     setCurrentFrame(0)
     setIsPlaying(false)
     setSelection(null)
@@ -2200,14 +2340,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       {/* COMPACT HORIZONTAL TOOLBAR */}
       <div ref={toolbarRef} className="sprite-toolbar">
         <div className="sprite-tool-group" aria-label="Drawing tools">
-          <ToolBtn label="✏" name="PENCIL" title="Pencil [B] — Alt = pick" active={activeTool === 'pencil'} onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
-          <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
+          <ToolBtn label="✏" name="PENCIL" title="Pencil [B] — Alt = pick" disabled={activeLayerLocked} active={activeTool === 'pencil'} onClick={() => { setActiveTool('pencil'); setIsPasting(false) }} />
+          <ToolBtn label="⌫" name="ERASE" title="Eraser [E] — Alt = pick" disabled={activeLayerLocked} active={activeTool === 'eraser'} onClick={() => { setActiveTool('eraser'); setIsPasting(false) }} />
           <ToolBtn label="⊕" name="PICK" title="Color Picker" active={activeTool === 'picker'} onClick={() => { setActiveTool('picker'); setIsPasting(false) }} />
-          <ToolBtn label={<FillBucketIcon />} name="FILL" title="Fill [F] — Alt = pick" active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
-          <ToolBtn label="╱" name="LINE" title="Line [L] — right button = erase" active={activeTool === 'line'} onClick={() => { setActiveTool('line'); setIsPasting(false) }} />
-          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false) }} />
-          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false) }} />
-          <ToolBtn label="T" name="TEXT" title="Text [T]" active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
+          <ToolBtn label={<FillBucketIcon />} name="FILL" title="Fill [F] — Alt = pick" disabled={activeLayerLocked} active={activeTool === 'fill'} onClick={() => { setActiveTool('fill'); setIsPasting(false) }} />
+          <ToolBtn label="╱" name="LINE" title="Line [L] — right button = erase" disabled={activeLayerLocked} active={activeTool === 'line'} onClick={() => { setActiveTool('line'); setIsPasting(false) }} />
+          <ToolBtn label="□" name="RECT" title="Rectangle [R] — right button = erase" disabled={activeLayerLocked} active={activeTool === 'rectangle'} onClick={() => { setActiveTool('rectangle'); setIsPasting(false) }} />
+          <ToolBtn label="○" name="ELLIPSE" title="Ellipse [O] — right button = erase" disabled={activeLayerLocked} active={activeTool === 'ellipse'} onClick={() => { setActiveTool('ellipse'); setIsPasting(false) }} />
+          <ToolBtn label="T" name="TEXT" title="Text [T]" disabled={activeLayerLocked} active={activeTool === 'text'} onClick={() => { setActiveTool('text'); setIsPasting(false) }} />
         </div>
 
         <div className="sprite-toolbar-menu-wrap sprite-io-menu">
@@ -2236,7 +2376,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <ToolBtn label="✥" name="MOVE" title="Move selection [V]" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
         </div>
 
-        {clipboard && <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]" active={isPasting} onClick={() => { setIsPasting(true); setActiveTool('select') }} />}
+        {clipboard && <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]" disabled={activeLayerLocked} active={isPasting} onClick={() => { setIsPasting(true); setActiveTool('select') }} />}
 
         <div className="sprite-toolbar-separator" />
         <div className="sprite-tool-group" aria-label="History">
@@ -2309,15 +2449,15 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
               </label>
             )}
             <button onClick={handleCopy}>Copy <kbd>Ctrl+C</kbd></button>
-            <button onClick={handleCut}>Cut <kbd>Ctrl+X</kbd></button>
-            {clipboard && <button onClick={() => { setIsPasting(true); setActiveTool('select') }}>Paste <kbd>Ctrl+V</kbd></button>}
-            <button onClick={handleEraseSelection}>Delete <kbd>Del</kbd></button>
+            <button disabled={activeLayerLocked} onClick={handleCut}>Cut <kbd>Ctrl+X</kbd></button>
+            {clipboard && <button disabled={activeLayerLocked} onClick={() => { setIsPasting(true); setActiveTool('select') }}>Paste <kbd>Ctrl+V</kbd></button>}
+            <button disabled={activeLayerLocked} onClick={handleEraseSelection}>Delete <kbd>Del</kbd></button>
             <span className="sprite-option-divider" />
-            <button onClick={flipH}>↔ Flip H</button>
-            <button onClick={flipV}>↕ Flip V</button>
-            <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
-            <button disabled={selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
-            <button onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
+            <button disabled={activeLayerLocked} onClick={flipH}>↔ Flip H</button>
+            <button disabled={activeLayerLocked} onClick={flipV}>↕ Flip V</button>
+            <button disabled={activeLayerLocked || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
+            <button disabled={activeLayerLocked || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
+            <button disabled={activeLayerLocked} onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
           </>
         ) : activeTool === 'fill' ? (
           <>
@@ -2357,7 +2497,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           doubleWidth={doubleWidth}
           activeTool={activeTool}
           activeInk={activeInk}
-          bgInk={bgInk}
+          bgInk={layerEraseInk}
           onPaint={handlePaint}
           onZoomChange={setZoom}
           gridCellW={gridCellW}
@@ -2382,6 +2522,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           onTextClick={handleTextClick}
           onionLayers={onionLayers}
           shapeFilled={shapeFilled}
+          layerLocked={activeLayerLocked}
           textOverlay={textMode ? { startX: textMode.x, startY: textMode.y, text: textBuffer, ink: activeInk } : null}
         />
 
@@ -2402,6 +2543,20 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             height={height}
             videoMode={videoMode}
             palette={palette}
+          />
+
+          <div style={dividerStyle} />
+          <LayerPanel
+            layers={sprite.layers}
+            activeLayerId={sprite.activeLayerId}
+            onSelect={handleSelectLayer}
+            onAdd={handleAddLayer}
+            onDuplicate={handleDuplicateLayer}
+            onRename={handleRenameLayer}
+            onToggleVisible={layerId => updateLayerFlag(layerId, 'visible')}
+            onToggleLocked={layerId => updateLayerFlag(layerId, 'locked')}
+            onMove={handleMoveLayer}
+            onDelete={handleDeleteLayer}
           />
 
           {frames.length > 1 && (

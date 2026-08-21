@@ -79,5 +79,11 @@ export function remapFramesToPalette(frames, oldPalette, newPalette, hardwareCol
   return frames.map(frame => ({
     ...frame,
     pixels: frame.pixels.map(ink => inkRemap[ink] ?? 0),
+    ...(frame.cels ? {
+      cels: Object.fromEntries(Object.entries(frame.cels).map(([layerId, cel]) => [layerId, {
+        ...cel,
+        pixels: cel.pixels.map(ink => ink < 0 ? ink : (inkRemap[ink] ?? 0)),
+      }])),
+    } : {}),
   }))
 }

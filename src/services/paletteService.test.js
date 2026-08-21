@@ -61,4 +61,11 @@ describe('palette remapping', () => {
   it('uses the nearest available imported color when there is no exact match', () => {
     expect(createPaletteRemap([1], [0, 2], hardwareColors)).toEqual([0])
   })
+
+  it('remaps every layer cel while preserving transparent pixels', () => {
+    const frames = [{ pixels: [0, 1], cels: { base: { pixels: [0, -1] }, top: { pixels: [1, 0] } } }]
+    expect(remapFramesToPalette(frames, [0, 1], [1, 0], hardwareColors)).toEqual([
+      { pixels: [1, 0], cels: { base: { pixels: [1, -1] }, top: { pixels: [0, 1] } } },
+    ])
+  })
 })

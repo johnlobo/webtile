@@ -11,6 +11,10 @@ import {
   migrateLegacySprite,
   prepareSpriteForEditor,
   prepareSpriteForStorage,
+  addEditorLayer,
+  deleteEditorLayer,
+  moveEditorLayer,
+  selectEditorLayer,
 } from './spriteLayerModel'
 
 describe('sprite layer model', () => {
@@ -91,5 +95,26 @@ describe('sprite layer model', () => {
     }
     expect(compositeEditorFrame(sprite, 0)).toEqual([3, 7])
     expect(sprite.frames[0].cels.base.pixels).toEqual([1, 1])
+  })
+
+  it('commits and switches the editable layer across every frame', () => {
+    let sprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 2] }, { pixels: [3, 4] }] })
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    sprite.frames[0].pixels = [5, TRANSPARENT_INK]
+    sprite.frames[1].pixels = [TRANSPARENT_INK, 6]
+    sprite = selectEditorLayer(sprite, BASE_LAYER_ID)
+    expect(sprite.frames.map(frame => frame.pixels)).toEqual([[1, 2], [3, 4]])
+    expect(sprite.frames[0].cels.top.pixels).toEqual([5, TRANSPARENT_INK])
+  })
+
+  it('duplicates, reorders, and deletes layers without losing cels', () => {
+    let sprite = prepareSpriteForEditor({ width: 1, height: 1, frames: [{ pixels: [7] }] })
+    sprite = addEditorLayer(sprite, { id: 'copy', name: 'Copy' }, { duplicateActive: true })
+    expect(sprite.frames[0].pixels).toEqual([7])
+    sprite = moveEditorLayer(sprite, 'copy', -1)
+    expect(sprite.layers.map(layer => layer.id)).toEqual(['copy', BASE_LAYER_ID])
+    sprite = deleteEditorLayer(sprite, 'copy')
+    expect(sprite.layers.map(layer => layer.id)).toEqual([BASE_LAYER_ID])
+    expect(sprite.frames[0].pixels).toEqual([7])
   })
 })
