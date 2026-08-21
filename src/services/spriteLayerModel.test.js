@@ -4,6 +4,7 @@ import {
   SPRITE_SCHEMA_VERSION,
   TRANSPARENT_INK,
   compositeFrame,
+  compositeEditorFrame,
   createCel,
   createLayer,
   createLayeredFrame,
@@ -69,5 +70,26 @@ describe('sprite layer model', () => {
     const editorSprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 2] }] })
     editorSprite.frames[0].pixels = [3, 0]
     expect(prepareSpriteForStorage(editorSprite).frames[0].cels.base.pixels).toEqual([3, 0])
+  })
+
+  it('renders the working base buffer through upper visible layers', () => {
+    const sprite = {
+      width: 2,
+      height: 1,
+      schemaVersion: SPRITE_SCHEMA_VERSION,
+      layers: [
+        createLayer({ id: 'base', name: 'Base' }),
+        createLayer({ id: 'top', name: 'Top' }),
+      ],
+      frames: [{
+        pixels: [3, 4],
+        cels: {
+          base: createCel(2, 1, [1, 1]),
+          top: createCel(2, 1, [TRANSPARENT_INK, 7]),
+        },
+      }],
+    }
+    expect(compositeEditorFrame(sprite, 0)).toEqual([3, 7])
+    expect(sprite.frames[0].cels.base.pixels).toEqual([1, 1])
   })
 })

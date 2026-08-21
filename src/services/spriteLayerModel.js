@@ -81,13 +81,31 @@ export function compositeFrame(sprite, frameIndex, backgroundInk = 0) {
 export function prepareSpriteForEditor(sprite) {
   const layered = migrateLegacySprite(sprite)
   if (!layered) return layered
+  const editableLayerId = layered.layers[0]?.id ?? BASE_LAYER_ID
   return {
     ...layered,
-    frames: layered.frames.map((frame, frameIndex) => ({
+    frames: layered.frames.map(frame => ({
       ...frame,
-      pixels: compositeFrame(layered, frameIndex),
+      pixels: [...(frame.cels?.[editableLayerId]?.pixels ?? createTransparentPixels(layered.width, layered.height))],
     })),
   }
+}
+
+export function compositeEditorFrame(sprite, frameIndex, backgroundInk = 0) {
+  const frame = sprite.frames?.[frameIndex]
+  if (!frame?.pixels) return compositeFrame(sprite, frameIndex, backgroundInk)
+  const editableLayerId = sprite.layers?.[0]?.id ?? BASE_LAYER_ID
+  const projected = {
+    ...sprite,
+    frames: sprite.frames.map((candidate, index) => index === frameIndex ? {
+      ...candidate,
+      cels: {
+        ...(candidate.cels ?? {}),
+        [editableLayerId]: { ...(candidate.cels?.[editableLayerId] ?? {}), pixels: candidate.pixels },
+      },
+    } : candidate),
+  }
+  return compositeFrame(projected, frameIndex, backgroundInk)
 }
 
 export function prepareSpriteForStorage(sprite) {

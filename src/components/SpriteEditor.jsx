@@ -4,6 +4,7 @@ import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../serv
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
+import { compositeEditorFrame } from '../services/spriteLayerModel'
 
 // ── CPC color table ───────────────────────────────────────────────────────────
 
@@ -2152,6 +2153,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     }
   }, [sprite, updateSprite, pushHistory])
 
+  const renderedFrames = useMemo(() => sprite
+    ? sprite.frames.map((frame, index) => ({ ...frame, pixels: compositeEditorFrame(sprite, index) }))
+    : [], [sprite])
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -2176,15 +2181,15 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   const { videoMode, width, height, palette, frames } = sprite
   const inkCount    = MODE_INK_COUNT[videoMode]
-  const currentPixels = frames[currentFrame]?.pixels ?? []
+  const currentPixels = renderedFrames[currentFrame]?.pixels ?? []
   const currentInkUsage = Array(inkCount).fill(0)
   const totalInkUsage = Array(inkCount).fill(0)
   for (const ink of currentPixels) if (ink >= 0 && ink < inkCount) currentInkUsage[ink]++
-  for (const frame of frames) for (const ink of frame.pixels) if (ink >= 0 && ink < inkCount) totalInkUsage[ink]++
+  for (const frame of renderedFrames) for (const ink of frame.pixels) if (ink >= 0 && ink < inkCount) totalInkUsage[ink]++
   const onionLayers = []
   if (!isPlaying) {
-    if (onionPrevious && currentFrame > 0) onionLayers.push({ pixels: frames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
-    if (onionNext && currentFrame < frames.length - 1) onionLayers.push({ pixels: frames[currentFrame + 1]?.pixels, color: 'rgba(33,82,255,0.24)' })
+    if (onionPrevious && currentFrame > 0) onionLayers.push({ pixels: renderedFrames[currentFrame - 1]?.pixels, color: 'rgba(246,146,26,0.28)' })
+    if (onionNext && currentFrame < frames.length - 1) onionLayers.push({ pixels: renderedFrames[currentFrame + 1]?.pixels, color: 'rgba(33,82,255,0.24)' })
   }
 
   const dividerStyle = { height: '1px', background: 'var(--border)', margin: '2px 0', gridColumn: '1 / -1' }
@@ -2403,7 +2408,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             <>
               <div style={dividerStyle} />
               <AnimPreview
-                frames={frames}
+                frames={renderedFrames}
                 width={width}
                 height={height}
                 videoMode={videoMode}
@@ -2599,7 +2604,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         </div>
 
         <div className="sprite-frame-strip">
-          {frames.map((frame, index) => (
+          {renderedFrames.map((frame, index) => (
             <FrameThumb
               key={index}
               index={index}
