@@ -714,6 +714,32 @@ function FrameThumb({ pixels, width, height, videoMode, palette, active, index, 
   )
 }
 
+function TimelineCelThumb({ pixels, width, height, videoMode, palette }) {
+  const canvasRef = useRef(null)
+  const scale = Math.min(1, 54 / (width * CELL_W_BASE[videoMode]), 32 / (height * CELL_H_BASE))
+  const cellW = CELL_W_BASE[videoMode] * scale
+  const cellH = CELL_H_BASE * scale
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.width = Math.max(1, Math.ceil(width * cellW))
+    canvas.height = Math.max(1, Math.ceil(height * cellH))
+    const context = canvas.getContext('2d')
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const ink = pixels?.[y * width + x]
+        if (ink == null || ink === TRANSPARENT_INK) continue
+        context.fillStyle = CPC_COLORS[palette[ink] ?? 0]
+        context.fillRect(x * cellW, y * cellH, Math.ceil(cellW), Math.ceil(cellH))
+      }
+    }
+  }, [pixels, width, height, palette, cellW, cellH])
+
+  return <canvas ref={canvasRef} className="sprite-timeline-cel-canvas" />
+}
+
 // ── AnimPreview ───────────────────────────────────────────────────────────────
 
 function AnimPreview({ frames, width, height, videoMode, palette, fps }) {
@@ -2545,20 +2571,6 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             palette={palette}
           />
 
-          <div style={dividerStyle} />
-          <LayerPanel
-            layers={sprite.layers}
-            activeLayerId={sprite.activeLayerId}
-            onSelect={handleSelectLayer}
-            onAdd={handleAddLayer}
-            onDuplicate={handleDuplicateLayer}
-            onRename={handleRenameLayer}
-            onToggleVisible={layerId => updateLayerFlag(layerId, 'visible')}
-            onToggleLocked={layerId => updateLayerFlag(layerId, 'locked')}
-            onMove={handleMoveLayer}
-            onDelete={handleDeleteLayer}
-          />
-
           {frames.length > 1 && (
             <>
               <div style={dividerStyle} />
@@ -2744,10 +2756,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         </div>
       </div>
 
-      {/* FRAME TIMELINE */}
-      <div className="sprite-timeline">
-        <div className="sprite-timeline-controls">
-          <div className="sprite-timeline-title">FRAMES <span>{frames.length}</span></div>
+      {/* LAYER / FRAME TIMELINE */}
+      <div className="sprite-layer-timeline">
+        <div className="sprite-layer-timeline-toolbar">
+          <div className="sprite-layer-timeline-title">LAYERS × FRAMES <span>{sprite.layers.length} × {frames.length}</span></div>
+          <div className="sprite-layer-timeline-controls">
           <button className={isPlaying ? 'active' : ''} title={isPlaying ? 'Pause animation' : 'Play animation'} onClick={() => setIsPlaying(v => !v)}>{isPlaying ? 'Ⅱ' : '▶'}</button>
           <button className={loopPlayback ? 'active' : ''} title="Loop playback" onClick={() => setLoopPlayback(v => !v)}>↻</button>
           <label className="sprite-fps-control" title="Frames per second">
@@ -2756,35 +2769,65 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
           <div className="sprite-timeline-divider" />
           <button className={onionPrevious ? 'onion-prev active' : 'onion-prev'} title="Show previous frame onion skin" onClick={() => setOnionPrevious(v => !v)}>−1</button>
           <button className={onionNext ? 'onion-next active' : 'onion-next'} title="Show next frame onion skin" onClick={() => setOnionNext(v => !v)}>+1</button>
+          </div>
+          <div className="sprite-layer-timeline-actions">
+            <button title="Add layer" onClick={handleAddLayer}>+ Layer</button>
+            <button title="Duplicate active layer" onClick={handleDuplicateLayer}>⧉ Layer</button>
+            <button title="Duplicate current frame" onClick={addFrame}>⧉ Frame</button>
+            <button title="Add blank frame" onClick={addBlankFrame}>+ Blank</button>
+            <button className="danger" title="Delete current frame" disabled={frames.length <= 1} onClick={() => deleteFrame(currentFrame)}>Delete frame</button>
+          </div>
         </div>
 
-        <div className="sprite-frame-strip">
-          {renderedFrames.map((frame, index) => (
-            <FrameThumb
-              key={index}
-              index={index}
-              pixels={frame.pixels}
-              width={width}
-              height={height}
-              videoMode={videoMode}
-              palette={palette}
-              active={index === currentFrame}
-              dragging={index === draggedFrame}
-              canDelete={frames.length > 1}
-              onClick={() => { setCurrentFrame(index); setIsPlaying(false) }}
-              onDelete={() => deleteFrame(index)}
-              onDragStart={e => { setDraggedFrame(index); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index)) }}
-              onDragEnd={() => setDraggedFrame(null)}
-              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
-              onDrop={e => { e.preventDefault(); reorderFrame(Number(e.dataTransfer.getData('text/plain')), index) }}
-            />
-          ))}
-        </div>
-
-        <div className="sprite-timeline-actions">
-          <button title="Duplicate current frame" onClick={addFrame}>⧉ Duplicate</button>
-          <button title="Add blank frame" onClick={addBlankFrame}>+ Blank</button>
-          <button className="danger" title="Delete current frame" disabled={frames.length <= 1} onClick={() => deleteFrame(currentFrame)}>Delete</button>
+        <div className="sprite-layer-timeline-scroll">
+          <div className="sprite-layer-timeline-grid" style={{ gridTemplateColumns: `190px repeat(${frames.length}, 76px)` }}>
+            <div className="sprite-layer-timeline-corner">LAYERS / FRAMES</div>
+            {renderedFrames.map((frame, frameIndex) => (
+              <button
+                key={`frame-${frameIndex}`}
+                className={`sprite-layer-timeline-frame${frameIndex === currentFrame ? ' active' : ''}${frameIndex === draggedFrame ? ' dragging' : ''}`}
+                title={`Frame ${frameIndex + 1} — drag to reorder`}
+                draggable
+                onClick={() => { setCurrentFrame(frameIndex); setIsPlaying(false) }}
+                onDragStart={event => { setDraggedFrame(frameIndex); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(frameIndex)) }}
+                onDragEnd={() => setDraggedFrame(null)}
+                onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }}
+                onDrop={event => { event.preventDefault(); reorderFrame(Number(event.dataTransfer.getData('text/plain')), frameIndex) }}
+              >
+                <TimelineCelThumb pixels={frame.pixels} width={width} height={height} videoMode={videoMode} palette={palette} />
+                <span>{frameIndex + 1}</span>
+              </button>
+            ))}
+            {[...sprite.layers].reverse().map(layer => {
+              const sourceIndex = sprite.layers.findIndex(item => item.id === layer.id)
+              return (
+                <div key={layer.id} className="sprite-layer-timeline-row">
+                  <div className={`sprite-layer-timeline-layer${layer.id === sprite.activeLayerId ? ' active' : ''}`} onClick={() => handleSelectLayer(layer.id)}>
+                    <button title={layer.visible ? 'Hide layer' : 'Show layer'} onClick={event => { event.stopPropagation(); updateLayerFlag(layer.id, 'visible') }}>{layer.visible ? '◉' : '○'}</button>
+                    <button title={layer.locked ? 'Unlock layer' : 'Lock layer'} onClick={event => { event.stopPropagation(); updateLayerFlag(layer.id, 'locked') }}>{layer.locked ? '▣' : '□'}</button>
+                    <span title={`${layer.name} — double-click to rename`} onDoubleClick={event => { event.stopPropagation(); handleRenameLayer(layer.id) }}>{layer.name}</span>
+                    <button title="Move layer up" disabled={sourceIndex >= sprite.layers.length - 1} onClick={event => { event.stopPropagation(); handleMoveLayer(layer.id, 1) }}>↑</button>
+                    <button title="Move layer down" disabled={sourceIndex <= 0} onClick={event => { event.stopPropagation(); handleMoveLayer(layer.id, -1) }}>↓</button>
+                    <button className="danger" title="Delete layer" disabled={sprite.layers.length <= 1} onClick={event => { event.stopPropagation(); handleDeleteLayer(layer.id) }}>×</button>
+                  </div>
+                  {frames.map((frame, frameIndex) => {
+                    const active = layer.id === sprite.activeLayerId && frameIndex === currentFrame
+                    const pixels = layer.id === sprite.activeLayerId ? frame.pixels : frame.cels?.[layer.id]?.pixels
+                    return (
+                      <button
+                        key={`${layer.id}-${frameIndex}`}
+                        className={`sprite-layer-timeline-cell${active ? ' active' : ''}`}
+                        title={`${layer.name}, frame ${frameIndex + 1}`}
+                        onClick={() => { handleSelectLayer(layer.id); setCurrentFrame(frameIndex); setIsPlaying(false) }}
+                      >
+                        <TimelineCelThumb pixels={pixels} width={width} height={height} videoMode={videoMode} palette={palette} />
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
 
