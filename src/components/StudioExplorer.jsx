@@ -36,7 +36,7 @@ function TreeRow({ active, icon, label, meta, onClick, onDelete, children }) {
 }
 
 export default function StudioExplorer({
-  collapsed, onToggle, projectName, profileLabel,
+  collapsed, onToggle, width, onResizeStart, projectName, profileLabel,
   pages, activePageId, maps, activeMapId, sprites, selectedSpriteId,
   onSelectPage, onAddPage, onRenamePage, onDeletePage,
   onSelectMap, onNewMap, onDeleteMap, onMoveMapToPage,
@@ -51,7 +51,8 @@ export default function StudioExplorer({
   }
 
   return (
-    <aside className="studio-explorer">
+    <aside className="studio-explorer" style={{ width, flexBasis: width }}>
+      <div className="studio-panel-resize-handle right" title="Resize explorer" onPointerDown={onResizeStart} />
       <div className="studio-panel-header">
         <div>
           <div className="studio-panel-eyebrow">EXPLORER</div>

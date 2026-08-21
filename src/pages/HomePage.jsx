@@ -523,12 +523,13 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   )
 }
 
-function StudioInspector({ collapsed, onToggle, tab, onTabChange, selectedEntity, capacity, pageLabel, pageMaps, rightSidebarProps, mapDataProps }) {
+function StudioInspector({ collapsed, onToggle, width, onResizeStart, tab, onTabChange, selectedEntity, capacity, pageLabel, pageMaps, rightSidebarProps, mapDataProps }) {
   if (collapsed) return <aside className="studio-inspector studio-inspector-collapsed"><button className="studio-panel-toggle" title="Open inspector" onClick={onToggle}>‹</button></aside>
   const tabs = [['assets', 'ASSETS'], ['room', 'ROOM'], ['entity', 'ENTITY'], ...(capacity ? [['capacity', 'BUDGET']] : [])]
   const pct = capacity ? Math.round(capacity.used / capacity.budget * 100) : 0
   return (
-    <aside className="studio-inspector">
+    <aside className="studio-inspector" style={{ width, flexBasis: width }}>
+      <div className="studio-panel-resize-handle left" title="Resize inspector" onPointerDown={onResizeStart} />
       <div className="studio-panel-header studio-inspector-title">
         <div><div className="studio-panel-eyebrow">INSPECTOR</div><div className="studio-project-name">{tab === 'entity' && selectedEntity ? selectedEntity.type : tab}</div></div>
         <button className="studio-panel-toggle" title="Collapse inspector" onClick={onToggle}>›</button>
@@ -594,6 +595,8 @@ export default function HomePage() {
   const [selectedEntityId, setSelectedEntityId] = useState(null)
   const [explorerCollapsed, setExplorerCollapsed] = useState(false)
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false)
+  const [explorerWidth, setExplorerWidth] = useState(() => Math.max(180, Math.min(420, Number(localStorage.getItem('webtile.explorerWidth')) || 244)))
+  const [inspectorWidth, setInspectorWidth] = useState(() => Math.max(220, Math.min(480, Number(localStorage.getItem('webtile.inspectorWidth')) || 288)))
   const [inspectorTab, setInspectorTab] = useState('assets')
 
   // Sprites
@@ -626,6 +629,34 @@ export default function HomePage() {
   const historyRef      = useRef([])
   const redoRef         = useRef([])
   const [canRedo, setCanRedo] = useState(false)
+
+  useEffect(() => { localStorage.setItem('webtile.explorerWidth', String(explorerWidth)) }, [explorerWidth])
+  useEffect(() => { localStorage.setItem('webtile.inspectorWidth', String(inspectorWidth)) }, [inspectorWidth])
+
+  const startPanelResize = useCallback((event, side) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = side === 'explorer' ? explorerWidth : inspectorWidth
+    const setWidth = side === 'explorer' ? setExplorerWidth : setInspectorWidth
+    const minWidth = side === 'explorer' ? 180 : 220
+    const maxWidth = side === 'explorer' ? 420 : 480
+    const direction = side === 'explorer' ? 1 : -1
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = moveEvent => setWidth(Math.max(minWidth, Math.min(maxWidth, startWidth + (moveEvent.clientX - startX) * direction)))
+    const onEnd = () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+  }, [explorerWidth, inspectorWidth])
   const tmxInputRef     = useRef(null)
   const packageInputRef = useRef(null)
 
@@ -1552,6 +1583,8 @@ export default function HomePage() {
         <StudioExplorer
           collapsed={explorerCollapsed}
           onToggle={() => setExplorerCollapsed(v => !v)}
+          width={explorerWidth}
+          onResizeStart={event => startPanelResize(event, 'explorer')}
           projectName={projectName}
           profileLabel={getProjectProfile(projectProfileId).label}
           pages={pages}
@@ -1630,6 +1663,8 @@ export default function HomePage() {
           <StudioInspector
             collapsed={inspectorCollapsed}
             onToggle={() => setInspectorCollapsed(v => !v)}
+            width={inspectorWidth}
+            onResizeStart={event => startPanelResize(event, 'inspector')}
             tab={inspectorTab}
             onTabChange={setInspectorTab}
             selectedEntity={getSelectedEntity()}

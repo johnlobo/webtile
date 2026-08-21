@@ -1437,6 +1437,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [onionPrevious, setOnionPrevious] = useState(true)
   const [onionNext,    setOnionNext]    = useState(false)
   const [draggedFrame, setDraggedFrame] = useState(null)
+  const [timelineHeight, setTimelineHeight] = useState(() => Math.max(140, Math.min(420, Number(localStorage.getItem('webtile.spriteTimelineHeight')) || 220)))
+  const [sidePanelWidth, setSidePanelWidth] = useState(() => Math.max(170, Math.min(420, Number(localStorage.getItem('webtile.spriteSidePanelWidth')) || 200)))
   const [showExport,      setShowExport]      = useState(false)
   const [showProperties,  setShowProperties]  = useState(false)
   const [showSettings,    setShowSettings]    = useState(false)
@@ -2299,6 +2301,51 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   const importPaletteRef = useRef(null)
 
+  useEffect(() => { localStorage.setItem('webtile.spriteTimelineHeight', String(timelineHeight)) }, [timelineHeight])
+  useEffect(() => { localStorage.setItem('webtile.spriteSidePanelWidth', String(sidePanelWidth)) }, [sidePanelWidth])
+
+  const startTimelineResize = useCallback((event) => {
+    event.preventDefault()
+    const startY = event.clientY
+    const startHeight = timelineHeight
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'row-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = moveEvent => setTimelineHeight(Math.max(140, Math.min(420, startHeight + startY - moveEvent.clientY)))
+    const onEnd = () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+  }, [timelineHeight])
+
+  const startSidePanelResize = useCallback((event) => {
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = sidePanelWidth
+    const previousCursor = document.body.style.cursor
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+    const onMove = moveEvent => setSidePanelWidth(Math.max(170, Math.min(420, startWidth + startX - moveEvent.clientX)))
+    const onEnd = () => {
+      document.body.style.cursor = previousCursor
+      document.body.style.userSelect = previousUserSelect
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onEnd)
+      window.removeEventListener('pointercancel', onEnd)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onEnd)
+    window.addEventListener('pointercancel', onEnd)
+  }, [sidePanelWidth])
+
   const importPalette = useCallback(async (file) => {
     if (!file || !sprite) return
     try {
@@ -2554,14 +2601,16 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
         {/* RIGHT PANEL */}
         <div style={{
-          width: '200px', flexShrink: 0,
+          width: `${sidePanelWidth}px`, flexShrink: 0,
           background: 'var(--panel)',
           borderLeft: '1px solid var(--border)',
           display: 'flex', flexDirection: 'column',
           overflowY: 'auto',
           padding: '12px',
           gap: '14px',
+          position: 'relative',
         }}>
+          <div className="studio-panel-resize-handle left" title="Resize sprite options" onPointerDown={startSidePanelResize} />
           {/* Minimap */}
           <SpriteMinimap
             pixels={currentPixels}
@@ -2757,7 +2806,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       </div>
 
       {/* LAYER / FRAME TIMELINE */}
-      <div className="sprite-layer-timeline">
+      <div className="sprite-layer-timeline" style={{ height: timelineHeight }}>
+        <div className="sprite-timeline-resize-handle" title="Resize layers and frames" onPointerDown={startTimelineResize} />
         <div className="sprite-layer-timeline-toolbar">
           <div className="sprite-layer-timeline-title">LAYERS × FRAMES <span>{sprite.layers.length} × {frames.length}</span></div>
           <div className="sprite-layer-timeline-controls">
