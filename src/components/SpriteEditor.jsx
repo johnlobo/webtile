@@ -2761,18 +2761,16 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         <div className="sprite-layer-timeline-toolbar">
           <div className="sprite-layer-timeline-title">LAYERS × FRAMES <span>{sprite.layers.length} × {frames.length}</span></div>
           <div className="sprite-layer-timeline-controls">
-          <button className={isPlaying ? 'active' : ''} title={isPlaying ? 'Pause animation' : 'Play animation'} onClick={() => setIsPlaying(v => !v)}>{isPlaying ? 'Ⅱ' : '▶'}</button>
-          <button className={loopPlayback ? 'active' : ''} title="Loop playback" onClick={() => setLoopPlayback(v => !v)}>↻</button>
-          <label className="sprite-fps-control" title="Frames per second">
-            <input type="number" min="1" max="60" value={playFps} onChange={e => setPlayFps(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} /> FPS
-          </label>
-          <div className="sprite-timeline-divider" />
-          <button className={onionPrevious ? 'onion-prev active' : 'onion-prev'} title="Show previous frame onion skin" onClick={() => setOnionPrevious(v => !v)}>−1</button>
-          <button className={onionNext ? 'onion-next active' : 'onion-next'} title="Show next frame onion skin" onClick={() => setOnionNext(v => !v)}>+1</button>
+            <button className={isPlaying ? 'active' : ''} title={isPlaying ? 'Pause animation' : 'Play animation'} onClick={() => setIsPlaying(v => !v)}>{isPlaying ? 'Ⅱ' : '▶'}</button>
+            <button className={loopPlayback ? 'active' : ''} title="Loop playback" onClick={() => setLoopPlayback(v => !v)}>↻</button>
+            <label className="sprite-fps-control" title="Frames per second">
+              <input type="number" min="1" max="60" value={playFps} onChange={e => setPlayFps(Math.max(1, Math.min(60, Number(e.target.value) || 1)))} /> FPS
+            </label>
+            <div className="sprite-timeline-divider" />
+            <button className={onionPrevious ? 'onion-prev active' : 'onion-prev'} title="Show previous frame onion skin" onClick={() => setOnionPrevious(v => !v)}>−1</button>
+            <button className={onionNext ? 'onion-next active' : 'onion-next'} title="Show next frame onion skin" onClick={() => setOnionNext(v => !v)}>+1</button>
           </div>
           <div className="sprite-layer-timeline-actions">
-            <button title="Add layer" onClick={handleAddLayer}>+ Layer</button>
-            <button title="Duplicate active layer" onClick={handleDuplicateLayer}>⧉ Layer</button>
             <button title="Duplicate current frame" onClick={addFrame}>⧉ Frame</button>
             <button title="Add blank frame" onClick={addBlankFrame}>+ Blank</button>
             <button className="danger" title="Delete current frame" disabled={frames.length <= 1} onClick={() => deleteFrame(currentFrame)}>Delete frame</button>
@@ -2781,7 +2779,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
         <div className="sprite-layer-timeline-scroll">
           <div className="sprite-layer-timeline-grid" style={{ gridTemplateColumns: `190px repeat(${frames.length}, 76px)` }}>
-            <div className="sprite-layer-timeline-corner">LAYERS / FRAMES</div>
+            <div className="sprite-layer-timeline-corner">
+              <span>LAYERS</span>
+              <div className="sprite-layer-timeline-layer-actions">
+                <button title="Add layer" aria-label="Add layer" onClick={handleAddLayer}>+</button>
+                <button title="Duplicate active layer" aria-label="Duplicate active layer" onClick={handleDuplicateLayer}>⧉</button>
+              </div>
+            </div>
             {renderedFrames.map((frame, frameIndex) => (
               <button
                 key={`frame-${frameIndex}`}
