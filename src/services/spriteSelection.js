@@ -32,6 +32,21 @@ export function selectionContains(selection, x, y) {
   return !selection.mask || Boolean(selection.mask[ry * selection.w + rx])
 }
 
+export function combineSelections(first, second) {
+  if (!first) return second
+  if (!second) return first
+  const x = Math.min(first.x, second.x)
+  const y = Math.min(first.y, second.y)
+  const maxX = Math.max(first.x + first.w, second.x + second.w)
+  const maxY = Math.max(first.y + first.h, second.y + second.h)
+  const w = maxX - x, h = maxY - y
+  const mask = Array(w * h).fill(false)
+  for (let py = y; py < maxY; py++) for (let px = x; px < maxX; px++) {
+    mask[(py - y) * w + px - x] = selectionContains(first, px, py) || selectionContains(second, px, py)
+  }
+  return { x, y, w, h, mask }
+}
+
 export function selectPixelsByColor(pixels, width, height, startX, startY, mode, tolerance, paletteColors, palette) {
   if (startX < 0 || startY < 0 || startX >= width || startY >= height) return null
   const target = pixels[startY * width + startX]

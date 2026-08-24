@@ -4,7 +4,7 @@ import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../serv
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
-import { invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
+import { combineSelections, invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
 import {
   TRANSPARENT_INK,
   addEditorLayer,
@@ -235,6 +235,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const erasing     = useRef(false)
   const lastCell    = useRef(null)
   const selAnchor   = useRef(null)
+  const selectionBase = useRef(null)
   const lineAnchor  = useRef(null)
   const moveAnchor  = useRef(null)
   const moveSel     = useRef(null)
@@ -295,11 +296,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       const rect = canvas.getBoundingClientRect()
       const x = Math.max(0, Math.min(width - 1, Math.floor((e.clientX - rect.left) / cellW)))
       const y = Math.max(0, Math.min(height - 1, Math.floor((e.clientY - rect.top)  / cellH)))
-      onSelectionChange(normalizeSelection(selAnchor.current, { x, y }))
+      const next = normalizeSelection(selAnchor.current, { x, y })
+      onSelectionChange(selectionBase.current ? combineSelections(selectionBase.current, next) : next)
     }
     const onGlobalUp = () => {
       if (!selAnchor.current) return
       selAnchor.current = null
+      selectionBase.current = null
       painting.current  = false
       erasing.current   = false
       lastCell.current  = null
@@ -424,12 +427,17 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     }
 
     if (activeTool === 'wand' && cell) {
-      onSelectColor?.(cell.x, cell.y)
+      onSelectColor?.(cell.x, cell.y, e.shiftKey)
       return
     }
 
     if (activeTool === 'select') {
-      if (cell) { selAnchor.current = cell; onSelectionChange(normalizeSelection(cell, cell)) }
+      if (cell) {
+        selAnchor.current = cell
+        selectionBase.current = e.shiftKey ? selection : null
+        const next = normalizeSelection(cell, cell)
+        onSelectionChange(selectionBase.current ? combineSelections(selectionBase.current, next) : next)
+      }
       return
     }
 
@@ -487,7 +495,10 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       return
     }
     if (activeTool === 'select') {
-      if (selAnchor.current && cell) onSelectionChange(normalizeSelection(selAnchor.current, cell))
+      if (selAnchor.current && cell) {
+        const next = normalizeSelection(selAnchor.current, cell)
+        onSelectionChange(selectionBase.current ? combineSelections(selectionBase.current, next) : next)
+      }
       return
     }
     if (shapeAnchor.current && cell) {
@@ -502,6 +513,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseUp = useCallback(() => {
     selAnchor.current = null
+    selectionBase.current = null
     painting.current = false
     erasing.current  = false
     lastCell.current = null
@@ -2049,11 +2061,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
   useEffect(() => { nudgeSelectionRef.current = nudgeSelection }, [nudgeSelection])
 
-  const handleSelectColor = useCallback((x, y) => {
+  const handleSelectColor = useCallback((x, y, addToSelection = false) => {
     const current = spriteRef.current
     if (!current) return
     const pixels = current.frames[currentFrame]?.pixels ?? []
-    setSelection(selectPixelsByColor(pixels, current.width, current.height, x, y, colorSelectionMode, colorSelectionTolerance, CPC_COLORS, current.palette))
+    const next = selectPixelsByColor(pixels, current.width, current.height, x, y, colorSelectionMode, colorSelectionTolerance, CPC_COLORS, current.palette)
+    setSelection(previous => addToSelection ? combineSelections(previous, next) : next)
   }, [currentFrame, colorSelectionMode, colorSelectionTolerance])
 
   const growSelection = useCallback((amount) => {
@@ -2761,8 +2774,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         <div className="sprite-toolbar-separator" />
 
         <div className="sprite-tool-group" aria-label="Selection tools">
-          <ToolBtn label="⬚" name="SELECT" title="Select [M]" active={activeTool === 'select'} onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="✦" name="WAND" title="Select pixels by color [W]" active={activeTool === 'wand'} onClick={() => { setActiveTool('wand'); setIsPasting(false) }} />
+          <ToolBtn label="⬚" name="SELECT" title="Select [M] — Shift = add" active={activeTool === 'select'} onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
+          <ToolBtn label="✦" name="WAND" title="Select pixels by color [W] — Shift = add" active={activeTool === 'wand'} onClick={() => { setActiveTool('wand'); setIsPasting(false) }} />
           <ToolBtn label="✥" name="MOVE" title="Move selection [V] — Alt = duplicate" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
         </div>
 
@@ -2824,6 +2837,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         ) : selection ? (
           <>
             <span className="sprite-option-context">SELECTION {selection.w}×{selection.h}</span>
+            <span className="sprite-option-hint">Shift + selection adds to current</span>
             {activeTool === 'wand' && (
               <>
                 <label>Color scope
@@ -2879,7 +2893,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
               <input className="sprite-option-number" type="number" min="0" max="441" value={colorSelectionTolerance} onChange={event => setColorSelectionTolerance(Math.max(0, Math.min(441, Number(event.target.value) || 0)))} />
             </label>
             <button onClick={() => setSelection({ x: 0, y: 0, w: width, h: height })}>Select all <kbd>Ctrl+A</kbd></button>
-            <span className="sprite-option-hint">Click a pixel to select its color</span>
+            <span className="sprite-option-hint">Click a pixel · Shift adds to current</span>
           </>
         ) : activeTool === 'fill' ? (
           <>
