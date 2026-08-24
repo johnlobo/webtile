@@ -521,6 +521,7 @@ body {
 .sprite-layer-merge-menu { position: absolute; top: 29px; right: 0; z-index: 20; width: 122px; padding: 4px; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); box-shadow: var(--shadow-md); }
 .sprite-layer-merge-menu button { width: 100%; height: 27px; padding: 0 7px; border: 0; text-align: left; white-space: nowrap; font-size: 9px; }
 .sprite-layer-merge-menu button:hover:not(:disabled) { color: var(--accent); background: var(--green-glow); }
+.sprite-layer-menu-separator { height: 1px; margin: 2px 3px; background: var(--border); }
 .sprite-layer-timeline-frame { position: sticky; top: 0; z-index: 3; min-width: 0; padding: 3px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); color: var(--text-dim); cursor: grab; }
 .sprite-layer-timeline-frame:hover, .sprite-layer-timeline-frame.active { color: var(--accent); background: var(--green-glow); }
 .sprite-layer-timeline-frame.active { box-shadow: inset 0 -2px var(--accent); }

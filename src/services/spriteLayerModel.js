@@ -184,6 +184,25 @@ export function addEditorLayer(sprite, layer, { duplicateActive = false } = {}) 
   return { ...committed, layers, frames, activeLayerId: layer.id }
 }
 
+export function addEditorLayerWithFrames(sprite, layer, layerFrames = []) {
+  const committed = commitWorkingLayer(sprite)
+  const activeIndex = Math.max(0, committed.layers.findIndex(item => item.id === committed.activeLayerId))
+  const layers = [...committed.layers]
+  layers.splice(activeIndex + 1, 0, createLayer(layer))
+  const frames = committed.frames.map((frame, frameIndex) => {
+    const sourcePixels = layerFrames[frameIndex]
+    const pixels = sourcePixels?.length === sprite.width * sprite.height
+      ? [...sourcePixels]
+      : createTransparentPixels(sprite.width, sprite.height)
+    return {
+      ...frame,
+      pixels,
+      cels: { ...(frame.cels ?? {}), [layer.id]: createCel(sprite.width, sprite.height, pixels) },
+    }
+  })
+  return { ...committed, layers, frames, activeLayerId: layer.id }
+}
+
 export function deleteEditorLayer(sprite, layerId) {
   if (!sprite || sprite.layers.length <= 1) return sprite
   const committed = commitWorkingLayer(sprite)

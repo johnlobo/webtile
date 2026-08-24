@@ -662,6 +662,7 @@ export default function HomePage() {
   const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
   const [openSpriteIds,      setOpenSpriteIds]      = useState([])
   const [spriteClipboard,    setSpriteClipboard]    = useState(null)
+  const [spriteLayerClipboard, setSpriteLayerClipboard] = useState(null)
   const [spriteTabsReady,    setSpriteTabsReady]    = useState(false)
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
@@ -739,6 +740,7 @@ export default function HomePage() {
     setOpenSpriteIds([])
     setSelectedSpriteId(null)
     setSpriteClipboard(null)
+    setSpriteLayerClipboard(null)
     if (!projectId) {
       setSprites([])
       setSpriteTabsReady(true)
@@ -1765,6 +1767,8 @@ export default function HomePage() {
                         activeEditor={spriteId === selectedSpriteId}
                         sharedClipboard={spriteClipboard}
                         setSharedClipboard={setSpriteClipboard}
+                        sharedLayerClipboard={spriteLayerClipboard}
+                        setSharedLayerClipboard={setSpriteLayerClipboard}
                         setSaveStatus={setSaveStatus}
                         onDeleted={() => handleCloseSpriteTab(spriteId)}
                         onMetadataChange={changes => setSprites(prev => prev.map(sprite => sprite.id === spriteId ? { ...sprite, ...changes } : sprite))}

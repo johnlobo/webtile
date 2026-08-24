@@ -7,6 +7,7 @@ import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../s
 import {
   TRANSPARENT_INK,
   addEditorLayer,
+  addEditorLayerWithFrames,
   commitWorkingLayer,
   compositeEditorFrame,
   deleteEditorLayer,
@@ -1433,7 +1434,7 @@ function ScaleSelectionModal({ selection, onApply, onCancel }) {
 
 // ── SpriteEditor ──────────────────────────────────────────────────────────────
 
-export default function SpriteEditor({ userId, projectId, spriteId, activeEditor = true, sharedClipboard, setSharedClipboard, setSaveStatus, onDeleted, onMetadataChange }) {
+export default function SpriteEditor({ userId, projectId, spriteId, activeEditor = true, sharedClipboard, setSharedClipboard, sharedLayerClipboard, setSharedLayerClipboard, setSaveStatus, onDeleted, onMetadataChange }) {
   const [sprite,       setSprite]       = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [currentFrame, setCurrentFrame] = useState(0)
@@ -1481,6 +1482,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const [layerMergeMenu, setLayerMergeMenu] = useState(false)
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
+  const layerMenuRef   = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
   const activeLayer = sprite?.layers?.find(layer => layer.id === sprite.activeLayerId) ?? sprite?.layers?.[0]
   const activeLayerLocked = Boolean(activeLayer?.locked)
@@ -1491,6 +1493,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   useEffect(() => {
     const closeMenu = (e) => {
       if (toolbarRef.current && !toolbarRef.current.contains(e.target)) setToolbarMenu(null)
+      if (layerMenuRef.current && !layerMenuRef.current.contains(e.target)) setLayerMergeMenu(false)
     }
     document.addEventListener('mousedown', closeMenu)
     return () => document.removeEventListener('mousedown', closeMenu)
@@ -1623,6 +1626,50 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     pushHistory()
     updateSprite(prev => addEditorLayer(prev, createLayerDescriptor(`${source?.name ?? 'Layer'} copy`), { duplicateActive: true }))
   }, [createLayerDescriptor, pushHistory, updateSprite])
+
+  const handleCopyActiveLayer = useCallback(() => {
+    const current = spriteRef.current
+    if (!current) return
+    const layer = current.layers.find(item => item.id === current.activeLayerId)
+    if (!layer) return
+    setSharedLayerClipboard({
+      name: layer.name,
+      width: current.width,
+      height: current.height,
+      palette: [...current.palette],
+      frames: current.frames.map((_, frameIndex) => getEditorLayerFrame(current, frameIndex, layer.id)),
+    })
+    setLayerMergeMenu(false)
+    setMergedCopyStatus('LAYER COPIED')
+    window.setTimeout(() => setMergedCopyStatus(null), 2200)
+  }, [setSharedLayerClipboard])
+
+  const handlePasteLayer = useCallback(() => {
+    const current = spriteRef.current
+    if (!current || !sharedLayerClipboard) return
+    const remap = sharedLayerClipboard.palette?.some((value, index) => value !== current.palette[index])
+    const frames = current.frames.map((_, frameIndex) => {
+      const source = sharedLayerClipboard.frames[frameIndex]
+      if (!source) return Array(current.width * current.height).fill(TRANSPARENT_INK)
+      const pixels = Array(current.width * current.height).fill(TRANSPARENT_INK)
+      const copyWidth = Math.min(current.width, sharedLayerClipboard.width)
+      const copyHeight = Math.min(current.height, sharedLayerClipboard.height)
+      for (let y = 0; y < copyHeight; y++) {
+        for (let x = 0; x < copyWidth; x++) {
+          const ink = source[y * sharedLayerClipboard.width + x]
+          pixels[y * current.width + x] = ink === TRANSPARENT_INK || !remap
+            ? ink
+            : nearestPaletteInk(...hexToRgb(CPC_COLORS[sharedLayerClipboard.palette[ink] ?? 0]), current.palette)
+        }
+      }
+      return pixels
+    })
+    pushHistory()
+    setSelection(null)
+    setIsPasting(false)
+    setLayerMergeMenu(false)
+    updateSprite(prev => addEditorLayerWithFrames(prev, createLayerDescriptor(`${sharedLayerClipboard.name} copy`), frames))
+  }, [sharedLayerClipboard, createLayerDescriptor, pushHistory, updateSprite])
 
   const handleRenameLayer = useCallback((layerId) => {
     const current = spriteRef.current?.layers.find(layer => layer.id === layerId)
@@ -1758,6 +1805,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       if (e.key === 'v' || e.key === 'V') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
       if (e.key === 'Escape') {
+        setLayerMergeMenu(false)
         if (textMode) {
           setTextMode(null)
           setTextBuffer('')
@@ -2983,10 +3031,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
                 <button title="Add layer" aria-label="Add layer" onClick={handleAddLayer}>+</button>
                 <button title="Duplicate active layer" aria-label="Duplicate active layer" onClick={handleDuplicateLayer}>⧉</button>
                 <button disabled={!canMergeLayerDown} title={canMergeLayerDown ? `Merge ${activeLayer.name} down into ${mergeTargetLayer.name}` : 'Select an unlocked layer above another unlocked layer'} aria-label="Merge active layer down" onClick={handleMergeLayerDown}>⇩</button>
-                <div className="sprite-layer-merge-menu-wrap">
-                  <button title="More layer merge actions" aria-label="More layer merge actions" onClick={() => setLayerMergeMenu(open => !open)}>⋯</button>
+                <div ref={layerMenuRef} className="sprite-layer-merge-menu-wrap">
+                  <button title="More layer actions" aria-label="More layer actions" onClick={() => setLayerMergeMenu(open => !open)}>⋯</button>
                   {layerMergeMenu && (
                     <div className="sprite-layer-merge-menu">
+                      <button onClick={handleCopyActiveLayer}>Copy Active Layer</button>
+                      <button disabled={!sharedLayerClipboard} onClick={handlePasteLayer}>Paste Layer</button>
+                      <div className="sprite-layer-menu-separator" />
                       <button disabled={!canMergeLayerDown} onClick={() => { handleMergeLayerDown(); setLayerMergeMenu(false) }}>Merge Down</button>
                       <button disabled={!canMergeVisibleLayers} onClick={handleMergeVisibleLayers}>Merge Visible</button>
                       <button disabled={!canFlattenLayers} onClick={handleFlattenLayers}>Flatten All…</button>

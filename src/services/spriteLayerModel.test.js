@@ -13,6 +13,7 @@ import {
   prepareSpriteForEditor,
   prepareSpriteForStorage,
   addEditorLayer,
+  addEditorLayerWithFrames,
   deleteEditorLayer,
   moveEditorLayer,
   mergeEditorLayerDown,
@@ -142,6 +143,14 @@ describe('sprite layer model', () => {
     sprite = selectEditorLayer(sprite, BASE_LAYER_ID)
     expect(sprite.frames.map(frame => frame.pixels)).toEqual([[1, 2], [3, 4]])
     expect(sprite.frames[0].cels.top.pixels).toEqual([5, TRANSPARENT_INK])
+  })
+
+  it('adds a layer from per-frame clipboard pixels and fills missing frames transparently', () => {
+    let sprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 1] }, { pixels: [2, 2] }] })
+    sprite = addEditorLayerWithFrames(sprite, { id: 'pasted', name: 'Pasted' }, [[7, 8]])
+    expect(sprite.activeLayerId).toBe('pasted')
+    expect(sprite.frames[0].pixels).toEqual([7, 8])
+    expect(sprite.frames[1].pixels).toEqual([TRANSPARENT_INK, TRANSPARENT_INK])
   })
 
   it('duplicates, reorders, and deletes layers without losing cels', () => {
