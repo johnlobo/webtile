@@ -55,6 +55,26 @@ describe('sprite layer model', () => {
     expect(compositeFrame(sprite, 0)).toEqual([1, 0, 3])
   })
 
+  it('can flatten visible layers while preserving an empty transparent background', () => {
+    const sprite = {
+      width: 3,
+      height: 1,
+      activeLayerId: 'front',
+      layers: [
+        createLayer({ id: 'hidden', name: 'Hidden', visible: false }),
+        createLayer({ id: 'front', name: 'Front' }),
+      ],
+      frames: [{
+        pixels: [TRANSPARENT_INK, 2, TRANSPARENT_INK],
+        cels: {
+          hidden: createCel(3, 1, [7, 7, 7]),
+          front: createCel(3, 1, [TRANSPARENT_INK, TRANSPARENT_INK, TRANSPARENT_INK]),
+        },
+      }],
+    }
+    expect(compositeEditorFrame(sprite, 0, TRANSPARENT_INK)).toEqual([TRANSPARENT_INK, 2, TRANSPARENT_INK])
+  })
+
   it('returns an isolated clone when normalizing an already layered sprite', () => {
     const sprite = migrateLegacySprite({ width: 1, height: 1, frames: [{ pixels: [2] }] })
     const clone = migrateLegacySprite(sprite)

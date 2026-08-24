@@ -1462,6 +1462,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [fontReady,    setFontReady]    = useState(false)
   const [toolbarMenu,  setToolbarMenu]  = useState(null)
   const [paletteImportStatus, setPaletteImportStatus] = useState(null)
+  const [mergedCopyStatus, setMergedCopyStatus] = useState(null)
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
@@ -2054,6 +2055,55 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     setClipboard(block => transformPixelBlock(block, operation))
     setIsPasting(true)
   }, [])
+
+  const handleCopyVisibleLayers = useCallback(async () => {
+    if (!sprite) return
+    const merged = compositeEditorFrame(sprite, currentFrame, TRANSPARENT_INK)
+    const bounds = selection
+      ? {
+          x: Math.max(0, selection.x),
+          y: Math.max(0, selection.y),
+          w: Math.max(0, Math.min(sprite.width, selection.x + selection.w) - Math.max(0, selection.x)),
+          h: Math.max(0, Math.min(sprite.height, selection.y + selection.h) - Math.max(0, selection.y)),
+        }
+      : { x: 0, y: 0, w: sprite.width, h: sprite.height }
+    if (!bounds.w || !bounds.h) return
+
+    const pixels = []
+    for (let y = 0; y < bounds.h; y++) {
+      for (let x = 0; x < bounds.w; x++) {
+        pixels.push(merged[(bounds.y + y) * sprite.width + bounds.x + x] ?? TRANSPARENT_INK)
+      }
+    }
+    setClipboard({ w: bounds.w, h: bounds.h, pixels })
+    setIsPasting(false)
+
+    let copiedToSystem = false
+    try {
+      if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') throw new Error('Image clipboard is unavailable')
+      const canvas = document.createElement('canvas')
+      canvas.width = bounds.w
+      canvas.height = bounds.h
+      const context = canvas.getContext('2d')
+      context.clearRect(0, 0, bounds.w, bounds.h)
+      for (let y = 0; y < bounds.h; y++) {
+        for (let x = 0; x < bounds.w; x++) {
+          const ink = pixels[y * bounds.w + x]
+          if (ink === TRANSPARENT_INK) continue
+          context.fillStyle = CPC_COLORS[sprite.palette[ink] ?? 0]
+          context.fillRect(x, y, 1, 1)
+        }
+      }
+      const blob = await new Promise((resolve, reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('PNG creation failed')), 'image/png'))
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+      copiedToSystem = true
+    } catch (_) {
+      // The internal clipboard remains available for Ctrl+V when the browser
+      // blocks image clipboard access or the page is not in a secure context.
+    }
+    setMergedCopyStatus(copiedToSystem ? 'VISIBLE LAYERS COPIED' : 'COPIED FOR CTRL+V')
+    window.setTimeout(() => setMergedCopyStatus(null), 2200)
+  }, [sprite, currentFrame, selection])
 
   const scaleClipboard = useCallback((newW, newH) => {
     setClipboard(block => scalePixelBlock(block, newW, newH))
@@ -2834,6 +2884,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
               <div className="sprite-layer-timeline-layer-actions">
                 <button title="Add layer" aria-label="Add layer" onClick={handleAddLayer}>+</button>
                 <button title="Duplicate active layer" aria-label="Duplicate active layer" onClick={handleDuplicateLayer}>⧉</button>
+                <button title="Copy visible layers (selection or full frame)" aria-label="Copy visible layers" onClick={handleCopyVisibleLayers}>▣</button>
               </div>
             </div>
             {renderedFrames.map((frame, frameIndex) => (
@@ -2882,6 +2933,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
               )
             })}
           </div>
+          {mergedCopyStatus && <div className="sprite-layer-copy-status" role="status">{mergedCopyStatus}</div>}
         </div>
       </div>
 
