@@ -13,6 +13,11 @@ describe('fillPixels', () => {
     expect(fillPixels(pixels, 0, 0, 3, 3, 3, { x: 0, y: 0, w: 2, h: 2 }, 'matching'))
       .toEqual([3, 3, 2, 3, 2, 1, 2, 1, 1])
   })
+
+  it('respects irregular selection masks', () => {
+    const selection = { x: 0, y: 0, w: 3, h: 1, mask: [true, false, true] }
+    expect(fillPixels([1, 1, 1], 0, 0, 3, 1, 3, selection, 'matching')).toEqual([3, 1, 3])
+  })
 })
 
 describe('shapeCells', () => {

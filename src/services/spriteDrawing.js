@@ -1,8 +1,7 @@
 function insideSelection(x, y, selection) {
-  return !selection || (
-    x >= selection.x && x < selection.x + selection.w &&
-    y >= selection.y && y < selection.y + selection.h
-  )
+  if (!selection) return true
+  const rx = x - selection.x, ry = y - selection.y
+  return rx >= 0 && rx < selection.w && ry >= 0 && ry < selection.h && (!selection.mask || Boolean(selection.mask[ry * selection.w + rx]))
 }
 
 export function fillPixels(pixels, startX, startY, width, height, fillInk, selection, mode = 'contiguous') {
@@ -15,7 +14,7 @@ export function fillPixels(pixels, startX, startY, width, height, fillInk, selec
     const area = selection ?? { x: 0, y: 0, w: width, h: height }
     for (let y = area.y; y < area.y + area.h; y++) {
       for (let x = area.x; x < area.x + area.w; x++) {
-        if (pixels[y * width + x] === targetInk) result[y * width + x] = fillInk
+        if (insideSelection(x, y, selection) && pixels[y * width + x] === targetInk) result[y * width + x] = fillInk
       }
     }
     return result

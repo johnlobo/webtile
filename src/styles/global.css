@@ -485,6 +485,7 @@ body {
 .sprite-toolbar-dropdown button:hover { color: var(--accent); background: var(--green-glow); }
 .sprite-toolbar-dropdown button:disabled { opacity: .35; cursor: default; color: var(--text-dim); background: transparent; }
 .sprite-toolbar-dropdown > div { height: 1px; margin: 4px 3px; background: var(--border); }
+.sprite-option-number { width: 58px; }
 
 .sprite-layer-timeline { height: 220px; min-height: 140px; max-height: 420px; position: relative; display: flex; flex-direction: column; flex-shrink: 0; background: var(--panel); border-top: 1px solid var(--border); }
 .sprite-timeline-resize-handle { position: absolute; top: -4px; left: 0; right: 0; z-index: 8; height: 7px; cursor: row-resize; touch-action: none; }

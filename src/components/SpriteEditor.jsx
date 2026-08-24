@@ -4,6 +4,7 @@ import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../serv
 import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
+import { invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
 import {
   TRANSPARENT_INK,
   addEditorLayer,
@@ -223,12 +224,11 @@ function normalizeSelection(a, b) {
 }
 
 function cellInSelection(x, y, sel) {
-  if (!sel) return true
-  return x >= sel.x && x < sel.x + sel.w && y >= sel.y && y < sel.y + sel.h
+  return selectionContains(sel, x, y)
 }
 
 function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
-  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled, layerLocked }) {
+  showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, onSelectColor, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled, layerLocked }) {
   const canvasRef   = useRef(null)
   const scrollRef   = useRef(null)
   const painting    = useRef(false)
@@ -400,7 +400,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
-    if (layerLocked && (isPasting || !['picker', 'select'].includes(activeTool))) return
+    if (layerLocked && (isPasting || !['picker', 'select', 'wand'].includes(activeTool))) return
     setAltPressed(e.altKey)
     lastCell.current = null
     const cell = getCellFromEvent(e)
@@ -423,6 +423,11 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       return
     }
 
+    if (activeTool === 'wand' && cell) {
+      onSelectColor?.(cell.x, cell.y)
+      return
+    }
+
     if (activeTool === 'select') {
       if (cell) { selAnchor.current = cell; onSelectionChange(normalizeSelection(cell, cell)) }
       return
@@ -433,12 +438,12 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       const captured = []
       for (let py = 0; py < h; py++)
         for (let px = 0; px < w; px++)
-          captured.push(pixels[(y + py) * width + (x + px)] ?? 0)
+          captured.push(cellInSelection(x + px, y + py, selection) ? (pixels[(y + py) * width + (x + px)] ?? 0) : TRANSPARENT_INK)
       moveAnchor.current = cell
       moveSel.current    = selection
       movePixels.current = captured
       setMovePos({ x: selection.x, y: selection.y })
-      onMoveStart(selection, captured)
+      onMoveStart(selection, captured, e.altKey)
       return
     }
 
@@ -468,7 +473,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         lineAnchor.current = cell
       }
     }
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled, layerLocked])
+  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onSelectColor, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled, layerLocked])
 
   const handleMouseMove = useCallback((e) => {
     setAltPressed(e.altKey)
@@ -572,6 +577,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     : temporaryPicker                         ? 'crosshair'
     : activeTool === 'move'                   ? (selection ? 'grab' : 'default')
     : activeTool === 'select'                 ? 'crosshair'
+    : activeTool === 'wand'                   ? 'crosshair'
     : activeTool === 'picker'                 ? 'crosshair'
     : activeTool === 'fill'                   ? 'crosshair'
     : ['line', 'rectangle', 'ellipse'].includes(activeTool) ? 'crosshair'
@@ -592,15 +598,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
           onContextMenu={e => e.preventDefault()}
         />
         {/* Selection overlay */}
-        {selection && !movePos && (
-          <div style={{
-            position: 'absolute',
-            left: selection.x * cellW, top: selection.y * cellH,
-            width: selection.w * cellW, height: selection.h * cellH,
-            border: '2px dashed rgba(0,232,122,0.9)',
-            boxSizing: 'border-box', pointerEvents: 'none', zIndex: 5,
-          }} />
-        )}
+        {selection && !movePos && <SelectionOverlay selection={selection} cellW={cellW} cellH={cellH} />}
         {/* Move preview */}
         {movePos && movePixels.current && moveSel.current && (
           <>
@@ -628,6 +626,31 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
       </div>
     </div>
   )
+}
+
+function SelectionOverlay({ selection, cellW, cellH }) {
+  const canvasRef = useRef(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const context = canvas.getContext('2d')
+    context.clearRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = 'rgba(0,232,122,.12)'
+    context.strokeStyle = 'rgba(0,232,122,.9)'
+    context.lineWidth = 2
+    context.setLineDash([4, 3])
+    if (!selection.mask) {
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.strokeRect(1, 1, canvas.width - 2, canvas.height - 2)
+      return
+    }
+    for (let y = 0; y < selection.h; y++) for (let x = 0; x < selection.w; x++) {
+      if (!selection.mask[y * selection.w + x]) continue
+      context.fillRect(x * cellW, y * cellH, cellW, cellH)
+      context.strokeRect(x * cellW + 1, y * cellH + 1, Math.max(0, cellW - 2), Math.max(0, cellH - 2))
+    }
+  }, [selection, cellW, cellH])
+  return <canvas ref={canvasRef} width={selection.w * cellW} height={selection.h * cellH} style={{ position: 'absolute', left: selection.x * cellW, top: selection.y * cellH, pointerEvents: 'none', zIndex: 5 }} />
 }
 
 // ── PasteOverlay ──────────────────────────────────────────────────────────────
@@ -1469,6 +1492,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const [guidesX,      setGuidesX]      = useState([])
   const [guidesY,      setGuidesY]      = useState([])
   const [selection,    setSelection]    = useState(null)
+  const [colorSelectionMode, setColorSelectionMode] = useState('contiguous')
+  const [colorSelectionTolerance, setColorSelectionTolerance] = useState(0)
   const clipboard = sharedClipboard
   const setClipboard = setSharedClipboard
   const [isPasting,    setIsPasting]    = useState(false)
@@ -1819,6 +1844,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const handleUndoRef = useRef(null)
   const handleRedoRef = useRef(null)
   const handleEraseSelectionRef = useRef(null)
+  const nudgeSelectionRef = useRef(null)
   useEffect(() => { handleUndoRef.current = handleUndo }, [handleUndo])
   useEffect(() => { handleRedoRef.current = handleRedo }, [handleRedo])
 
@@ -1841,7 +1867,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       if ((e.ctrlKey || e.metaKey) && key === 'c') { e.preventDefault(); handleCopyRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && key === 'x') { e.preventDefault(); handleCutRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
+      if ((e.ctrlKey || e.metaKey) && key === 'a') {
+        e.preventDefault()
+        const current = spriteRef.current
+        if (current) setSelection({ x: 0, y: 0, w: current.width, h: current.height })
+        return
+      }
       if (e.key === 'Delete') { e.preventDefault(); handleEraseSelectionRef.current?.(); return }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); nudgeSelectionRef.current?.(-1, 0, e.altKey); return }
+      if (e.key === 'ArrowRight') { e.preventDefault(); nudgeSelectionRef.current?.(1, 0, e.altKey); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); nudgeSelectionRef.current?.(0, -1, e.altKey); return }
+      if (e.key === 'ArrowDown') { e.preventDefault(); nudgeSelectionRef.current?.(0, 1, e.altKey); return }
 
       if (e.key === 'd' || e.key === 'D') { setDoubleWidth(v => !v); return }
       if (e.key === 'g' || e.key === 'G') { setShowGrid(v => !v); return }
@@ -1858,6 +1894,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       if (e.key === 'r' || e.key === 'R') { setActiveTool('rectangle'); setIsPasting(false); return }
       if (e.key === 'o' || e.key === 'O') { setActiveTool('ellipse'); setIsPasting(false); return }
       if (e.key === 'm' || e.key === 'M') { setActiveTool('select'); setIsPasting(false); return }
+      if (e.key === 'w' || e.key === 'W') { setActiveTool('wand'); setIsPasting(false); return }
       if (e.key === 'v' || e.key === 'V') { setActiveTool('move');   setIsPasting(false); return }
       if (e.key === 't' || e.key === 'T') { setActiveTool('text');   setIsPasting(false); return }
       if (e.key === 'Escape') {
@@ -1989,7 +2026,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     setSelection({ x, y, w: newW, h: newH })
   }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 
-  const nudgeSelection = useCallback((dx, dy) => {
+  const nudgeSelection = useCallback((dx, dy, duplicate = false) => {
     if (!selection || !sprite || activeLayerLocked) return
     const { x, y, w, h } = selection
     const nx = x + dx, ny = y + dy
@@ -2001,14 +2038,33 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         const source = []
         for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
         const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = layerEraseInk
-        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) pixels[(ny + sy) * prev.width + nx + sx] = source[sy * w + sx]
+        if (!duplicate) for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) if (cellInSelection(px, py, selection)) pixels[py * prev.width + px] = layerEraseInk
+        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) if (!selection.mask || selection.mask[sy * w + sx]) pixels[(ny + sy) * prev.width + nx + sx] = source[sy * w + sx]
         return { ...frame, pixels }
       })
       return { ...prev, frames }
     })
-    setSelection({ x: nx, y: ny, w, h })
+    setSelection({ ...selection, x: nx, y: ny })
   }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
+
+  useEffect(() => { nudgeSelectionRef.current = nudgeSelection }, [nudgeSelection])
+
+  const handleSelectColor = useCallback((x, y) => {
+    const current = spriteRef.current
+    if (!current) return
+    const pixels = current.frames[currentFrame]?.pixels ?? []
+    setSelection(selectPixelsByColor(pixels, current.width, current.height, x, y, colorSelectionMode, colorSelectionTolerance, CPC_COLORS, current.palette))
+  }, [currentFrame, colorSelectionMode, colorSelectionTolerance])
+
+  const growSelection = useCallback((amount) => {
+    if (!selection || !sprite) return
+    setSelection(resizeSelectionMask(selection, sprite.width, sprite.height, amount))
+  }, [selection, sprite])
+
+  const handleInvertSelection = useCallback(() => {
+    if (!sprite) return
+    setSelection(invertSelection(selection, sprite.width, sprite.height))
+  }, [selection, sprite])
 
   const scaleSelection = useCallback((newW, newH) => {
     if (!selection || !sprite || activeLayerLocked) return
@@ -2151,7 +2207,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     const copied = []
     for (let py = 0; py < h; py++) {
       for (let px = 0; px < w; px++) {
-        copied.push(srcPixels[(y + py) * sprite.width + (x + px)] ?? 0)
+        copied.push(cellInSelection(x + px, y + py, selection) ? (srcPixels[(y + py) * sprite.width + (x + px)] ?? 0) : TRANSPARENT_INK)
       }
     }
     setClipboard({ w, h, pixels: copied, palette: [...sprite.palette] })
@@ -2172,7 +2228,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         const pixels = [...f.pixels]
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
-            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
+            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height && cellInSelection(px, py, selection))
               pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
@@ -2235,7 +2291,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     const pixels = []
     for (let y = 0; y < bounds.h; y++) {
       for (let x = 0; x < bounds.w; x++) {
-        pixels.push(merged[(bounds.y + y) * sprite.width + bounds.x + x] ?? TRANSPARENT_INK)
+        const sourceX = bounds.x + x
+        const sourceY = bounds.y + y
+        pixels.push(!selection || cellInSelection(sourceX, sourceY, selection)
+          ? (merged[sourceY * sprite.width + sourceX] ?? TRANSPARENT_INK)
+          : TRANSPARENT_INK)
       }
     }
     setClipboard({ w: bounds.w, h: bounds.h, pixels, palette: [...sprite.palette] })
@@ -2302,7 +2362,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         const pixels = [...f.pixels]
         for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
-            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
+            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height && cellInSelection(px, py, selection))
               pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
@@ -2314,7 +2374,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
   // ── Move ─────────────────────────────────────────────────────────────────────
 
-  const handleMoveStart = useCallback((sel, _capturedPixels) => {
+  const handleMoveStart = useCallback((sel, _capturedPixels, duplicate = false) => {
     if (activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
@@ -2322,9 +2382,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
         const pixels = [...f.pixels]
-        for (let py = y; py < y + h; py++)
+        if (!duplicate) for (let py = y; py < y + h; py++)
           for (let px = x; px < x + w; px++)
-            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height)
+            if (px >= 0 && px < prev.width && py >= 0 && py < prev.height && cellInSelection(px, py, sel))
               pixels[py * prev.width + px] = layerEraseInk
         return { ...f, pixels }
       })
@@ -2343,14 +2403,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
           for (let px = 0; px < w; px++) {
             const nx = newPos.x + px
             const ny = newPos.y + py
-            if (nx >= 0 && nx < prev.width && ny >= 0 && ny < prev.height)
+            if (nx >= 0 && nx < prev.width && ny >= 0 && ny < prev.height && (!origSel.mask || origSel.mask[py * w + px]))
               pixels[ny * prev.width + nx] = capturedPixels[py * w + px]
           }
         return { ...f, pixels }
       })
       return { ...prev, frames }
     })
-    setSelection({ x: newPos.x, y: newPos.y, w: origSel.w, h: origSel.h })
+    setSelection({ ...origSel, x: newPos.x, y: newPos.y })
   }, [currentFrame, activeLayerLocked, updateSprite])
 
   // ── Properties apply ───────────────────────────────────────────────────────
@@ -2702,7 +2762,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
         <div className="sprite-tool-group" aria-label="Selection tools">
           <ToolBtn label="⬚" name="SELECT" title="Select [M]" active={activeTool === 'select'} onClick={() => { setActiveTool('select'); setIsPasting(false) }} />
-          <ToolBtn label="✥" name="MOVE" title="Move selection [V]" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
+          <ToolBtn label="✦" name="WAND" title="Select pixels by color [W]" active={activeTool === 'wand'} onClick={() => { setActiveTool('wand'); setIsPasting(false) }} />
+          <ToolBtn label="✥" name="MOVE" title="Move selection [V] — Alt = duplicate" active={activeTool === 'move'} disabled={!selection} onClick={() => { setActiveTool('move'); setIsPasting(false) }} />
         </div>
 
         {clipboard && <ToolBtn label="⎗" name="PASTE" title="Paste [Ctrl+V]" disabled={activeLayerLocked} active={isPasting} onClick={() => { setIsPasting(true); setActiveTool('select') }} />}
@@ -2763,6 +2824,19 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         ) : selection ? (
           <>
             <span className="sprite-option-context">SELECTION {selection.w}×{selection.h}</span>
+            {activeTool === 'wand' && (
+              <>
+                <label>Color scope
+                  <select value={colorSelectionMode} onChange={event => setColorSelectionMode(event.target.value)}>
+                    <option value="contiguous">Contiguous</option>
+                    <option value="matching">All matching</option>
+                  </select>
+                </label>
+                <label>Tolerance
+                  <input className="sprite-option-number" type="number" min="0" max="441" value={colorSelectionTolerance} onChange={event => setColorSelectionTolerance(Math.max(0, Math.min(441, Number(event.target.value) || 0)))} />
+                </label>
+              </>
+            )}
             {activeTool === 'fill' && (
               <label>Fill scope
                 <select value={fillMode} onChange={event => setFillMode(event.target.value)}>
@@ -2781,12 +2855,31 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
             <button disabled={activeLayerLocked} onClick={handleCut}>Cut <kbd>Ctrl+X</kbd></button>
             {clipboard && <button disabled={activeLayerLocked} onClick={() => { setIsPasting(true); setActiveTool('select') }}>Paste <kbd>Ctrl+V</kbd></button>}
             <button disabled={activeLayerLocked} onClick={handleEraseSelection}>Delete <kbd>Del</kbd></button>
+            <button onClick={() => growSelection(1)}>Expand</button>
+            <button onClick={() => growSelection(-1)}>Contract</button>
+            <button onClick={handleInvertSelection}>Invert</button>
+            <button onClick={() => setSelection({ x: 0, y: 0, w: width, h: height })}>Select all <kbd>Ctrl+A</kbd></button>
             <span className="sprite-option-divider" />
-            <button disabled={activeLayerLocked} onClick={flipH}>↔ Flip H</button>
-            <button disabled={activeLayerLocked} onClick={flipV}>↕ Flip V</button>
-            <button disabled={activeLayerLocked || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
-            <button disabled={activeLayerLocked || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
-            <button disabled={activeLayerLocked} onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
+            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={flipH}>↔ Flip H</button>
+            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={flipV}>↕ Flip V</button>
+            <button disabled={activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
+            <button disabled={activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
+            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
+          </>
+        ) : activeTool === 'wand' ? (
+          <>
+            <span className="sprite-option-context">COLOR SELECTION</span>
+            <label>Scope
+              <select value={colorSelectionMode} onChange={event => setColorSelectionMode(event.target.value)}>
+                <option value="contiguous">Contiguous</option>
+                <option value="matching">All matching</option>
+              </select>
+            </label>
+            <label>Tolerance
+              <input className="sprite-option-number" type="number" min="0" max="441" value={colorSelectionTolerance} onChange={event => setColorSelectionTolerance(Math.max(0, Math.min(441, Number(event.target.value) || 0)))} />
+            </label>
+            <button onClick={() => setSelection({ x: 0, y: 0, w: width, h: height })}>Select all <kbd>Ctrl+A</kbd></button>
+            <span className="sprite-option-hint">Click a pixel to select its color</span>
           </>
         ) : activeTool === 'fill' ? (
           <>
@@ -2838,6 +2931,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
           guidesY={guidesY}
           selection={selection}
           onSelectionChange={setSelection}
+          onSelectColor={handleSelectColor}
           clipboard={clipboard}
           isPasting={isPasting}
           onPasteCommit={handlePasteCommit}
