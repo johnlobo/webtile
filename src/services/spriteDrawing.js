@@ -106,11 +106,11 @@ export function transformPixelBlock(block, operation) {
   if (!block) return block
   const { w, h, pixels } = block
   if (operation === 'flipH') {
-    return { w, h, pixels: Array.from({ length: h }, (_, y) =>
+    return { ...block, w, h, pixels: Array.from({ length: h }, (_, y) =>
       Array.from({ length: w }, (_, x) => pixels[y * w + (w - 1 - x)])).flat() }
   }
   if (operation === 'flipV') {
-    return { w, h, pixels: Array.from({ length: h }, (_, y) =>
+    return { ...block, w, h, pixels: Array.from({ length: h }, (_, y) =>
       pixels.slice((h - 1 - y) * w, (h - y) * w)).flat() }
   }
   if (operation === 'rotateLeft' || operation === 'rotateRight') {
@@ -123,7 +123,7 @@ export function transformPixelBlock(block, operation) {
         rotated[newY * newW + newX] = pixels[y * w + x]
       }
     }
-    return { w: newW, h: newH, pixels: rotated }
+    return { ...block, w: newW, h: newH, pixels: rotated }
   }
   return block
 }
@@ -138,5 +138,5 @@ export function scalePixelBlock(block, newW, newH) {
       const sourceY = Math.min(block.h - 1, Math.floor(y * block.h / height))
       return block.pixels[sourceY * block.w + sourceX]
     })).flat()
-  return { w: width, h: height, pixels }
+  return { ...block, w: width, h: height, pixels }
 }

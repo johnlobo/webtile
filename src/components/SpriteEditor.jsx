@@ -509,6 +509,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   }, [movePos, onMoveCommit, onPaintLine])
 
   const handleWheel = useCallback((e) => {
+    if (!e.ctrlKey && !e.metaKey) return
     e.preventDefault()
     if (e.deltaY === 0) return
     const idx = SPRITE_ZOOM_LEVELS.indexOf(zoom)
@@ -572,7 +573,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     : paintCursor                             ?? 'default'
 
   return (
-    <div ref={scrollRef} style={{ overflow: 'auto', flex: 1, padding: '16px', background: 'var(--bg)' }} onWheel={handleWheel}>
+    <div ref={scrollRef} className="sprite-canvas-scroll" onWheel={handleWheel}>
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <canvas
           ref={canvasRef}
@@ -615,7 +616,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         {isPasting && pastePos && clipboard && (
           <PasteOverlay
             x={pastePos.x * cellW} y={pastePos.y * cellH}
-            clipboard={clipboard} palette={palette} cellW={cellW} cellH={cellH}
+            clipboard={clipboard} palette={clipboard.palette ?? palette} cellW={cellW} cellH={cellH}
           />
         )}
       </div>
@@ -638,6 +639,7 @@ function PasteOverlay({ x, y, clipboard, palette, cellW, cellH }) {
     for (let py = 0; py < clipboard.h; py++) {
       for (let px = 0; px < clipboard.w; px++) {
         const ink = clipboard.pixels[py * clipboard.w + px]
+        if (ink === TRANSPARENT_INK) continue
         ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
         ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
       }
@@ -1419,7 +1421,7 @@ function ScaleSelectionModal({ selection, onApply, onCancel }) {
 
 // ── SpriteEditor ──────────────────────────────────────────────────────────────
 
-export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatus, onDeleted, onMetadataChange }) {
+export default function SpriteEditor({ userId, projectId, spriteId, activeEditor = true, sharedClipboard, setSharedClipboard, setSaveStatus, onDeleted, onMetadataChange }) {
   const [sprite,       setSprite]       = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [currentFrame, setCurrentFrame] = useState(0)
@@ -1453,7 +1455,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
   const [guidesX,      setGuidesX]      = useState([])
   const [guidesY,      setGuidesY]      = useState([])
   const [selection,    setSelection]    = useState(null)
-  const [clipboard,    setClipboard]    = useState(null)
+  const clipboard = sharedClipboard
+  const setClipboard = setSharedClipboard
   const [isPasting,    setIsPasting]    = useState(false)
   const [cursorPos,    setCursorPos]    = useState(null)
   const [textMode,     setTextMode]     = useState(null)
@@ -1676,6 +1679,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
 
   // Keyboard shortcuts
   useEffect(() => {
+    if (!activeEditor) return
     const handler = (e) => {
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return
 
@@ -1719,7 +1723,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [activeEditor])
 
   // Paint handler
   const handlePaint = useCallback((cx, cy, ink, isPick, pickBackground = false) => {
@@ -1998,8 +2002,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         copied.push(srcPixels[(y + py) * sprite.width + (x + px)] ?? 0)
       }
     }
-    setClipboard({ w, h, pixels: copied })
-  }, [selection, sprite, currentFrame])
+    setClipboard({ w, h, pixels: copied, palette: [...sprite.palette] })
+  }, [selection, sprite, currentFrame, setClipboard])
 
   useEffect(() => { handleCopyRef.current = handleCopy }, [handleCopy])
 
@@ -2030,6 +2034,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     if (!clipboard || activeLayerLocked) return
     pushHistory()
     updateSprite(prev => {
+      const remapClipboard = Boolean(clipboard.palette?.some((value, index) => value !== prev.palette[index]))
       const frames = prev.frames.map((f, fi) => {
         if (fi !== currentFrame) return f
         const pixels = [...f.pixels]
@@ -2039,7 +2044,13 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
             const ny = py + cy
             if (nx >= 0 && nx < prev.width && ny >= 0 && ny < prev.height) {
               const ink = clipboard.pixels[cy * clipboard.w + cx]
-              pixels[ny * prev.width + nx] = ink
+              if (ink === TRANSPARENT_INK) {
+                pixels[ny * prev.width + nx] = ink
+              } else if (remapClipboard) {
+                pixels[ny * prev.width + nx] = nearestPaletteInk(...hexToRgb(CPC_COLORS[clipboard.palette[ink] ?? 0]), prev.palette)
+              } else {
+                pixels[ny * prev.width + nx] = ink
+              }
             }
           }
         }
@@ -2075,7 +2086,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
         pixels.push(merged[(bounds.y + y) * sprite.width + bounds.x + x] ?? TRANSPARENT_INK)
       }
     }
-    setClipboard({ w: bounds.w, h: bounds.h, pixels })
+    setClipboard({ w: bounds.w, h: bounds.h, pixels, palette: [...sprite.palette] })
     setIsPasting(false)
 
     let copiedToSystem = false
@@ -2103,7 +2114,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
     }
     setMergedCopyStatus(copiedToSystem ? 'VISIBLE LAYERS COPIED' : 'COPIED FOR CTRL+V')
     window.setTimeout(() => setMergedCopyStatus(null), 2200)
-  }, [sprite, currentFrame, selection])
+  }, [sprite, currentFrame, selection, setClipboard])
 
   const scaleClipboard = useCallback((newW, newH) => {
     setClipboard(block => scalePixelBlock(block, newW, newH))

@@ -45,4 +45,10 @@ describe('pixel block transformations', () => {
       w: 4, h: 2, pixels: [1, 1, 2, 2, 1, 1, 2, 2],
     })
   })
+
+  it('keeps clipboard palette metadata through transforms and scaling', () => {
+    const clipboard = { w: 2, h: 1, pixels: [1, 2], palette: [0, 6, 20] }
+    expect(transformPixelBlock(clipboard, 'flipH').palette).toEqual(clipboard.palette)
+    expect(scalePixelBlock(clipboard, 4, 2).palette).toEqual(clipboard.palette)
+  })
 })
