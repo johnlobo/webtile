@@ -25,6 +25,7 @@ import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from 
 import { exportProjectPackage, importProjectPackage } from '../services/packageService'
 import { generateModel01Manifest } from '../services/manifestService'
 import { GENERIC_PROFILE_ID, MODEL01_PROFILE_ID, getProjectProfile } from '../model01Profile'
+import { activeTabAfterClose, reorderSpriteTabs, restoreSpriteTabs } from '../services/spriteTabs'
 
 const ENTITY_DEFAULT_PROPERTIES = {
   enemy:   { speed: 1, behavior: 'patrol', health: 1 },
@@ -523,7 +524,21 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   )
 }
 
-function SpriteTabs({ sprites, openSpriteIds, activeSpriteId, onSelect, onClose }) {
+function SpriteTabs({ sprites, openSpriteIds, activeSpriteId, onSelect, onClose, onReorder, onCloseOthers, onCloseAll }) {
+  const [draggedId, setDraggedId] = useState(null)
+  const [contextMenu, setContextMenu] = useState(null)
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    window.addEventListener('pointerdown', close)
+    window.addEventListener('blur', close)
+    return () => {
+      window.removeEventListener('pointerdown', close)
+      window.removeEventListener('blur', close)
+    }
+  }, [contextMenu])
+
   return (
     <div className="sprite-editor-tabs" role="tablist" aria-label="Open sprites">
       {openSpriteIds.map(spriteId => {
@@ -538,6 +553,13 @@ function SpriteTabs({ sprites, openSpriteIds, activeSpriteId, onSelect, onClose 
             aria-selected={active}
             tabIndex={active ? 0 : -1}
             onClick={() => onSelect(spriteId)}
+            onAuxClick={event => { if (event.button === 1) { event.preventDefault(); onClose(spriteId) } }}
+            onContextMenu={event => { event.preventDefault(); setContextMenu({ spriteId, x: event.clientX, y: event.clientY }) }}
+            draggable
+            onDragStart={event => { setDraggedId(spriteId); event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', spriteId) }}
+            onDragEnd={() => setDraggedId(null)}
+            onDragOver={event => { event.preventDefault(); event.dataTransfer.dropEffect = 'move' }}
+            onDrop={event => { event.preventDefault(); onReorder(event.dataTransfer.getData('text/plain') || draggedId, spriteId); setDraggedId(null) }}
           >
             <span>{sprite.name || 'Untitled sprite'}</span>
             <button
@@ -548,6 +570,13 @@ function SpriteTabs({ sprites, openSpriteIds, activeSpriteId, onSelect, onClose 
           </div>
         )
       })}
+      {contextMenu && (
+        <div className="sprite-tab-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }} onPointerDown={event => event.stopPropagation()}>
+          <button onClick={() => { onClose(contextMenu.spriteId); setContextMenu(null) }}>Close</button>
+          <button onClick={() => { onCloseOthers(contextMenu.spriteId); setContextMenu(null) }}>Close Others</button>
+          <button onClick={() => { onCloseAll(); setContextMenu(null) }}>Close All</button>
+        </div>
+      )}
     </div>
   )
 }
@@ -633,6 +662,7 @@ export default function HomePage() {
   const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
   const [openSpriteIds,      setOpenSpriteIds]      = useState([])
   const [spriteClipboard,    setSpriteClipboard]    = useState(null)
+  const [spriteTabsReady,    setSpriteTabsReady]    = useState(false)
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
   const [importSpriteSheetFile, setImportSpriteSheetFile] = useState(null)
@@ -702,17 +732,36 @@ export default function HomePage() {
   useEffect(() => { spawnsRef_.current = spawns }, [spawns])
   useEffect(() => { entitiesRef_.current = entities }, [entities])
 
-  // Load sprites when project changes
+  // Load sprites and restore this project's tab session.
   useEffect(() => {
-    if (!projectId) { setSprites([]); return }
-    listSprites(user.uid, projectId).then(setSprites).catch(console.error)
-  }, [projectId, user.uid])
-
-  useEffect(() => {
+    let cancelled = false
+    setSpriteTabsReady(false)
     setOpenSpriteIds([])
     setSelectedSpriteId(null)
     setSpriteClipboard(null)
-  }, [projectId])
+    if (!projectId) {
+      setSprites([])
+      setSpriteTabsReady(true)
+      return () => { cancelled = true }
+    }
+    listSprites(user.uid, projectId).then(items => {
+      if (cancelled) return
+      setSprites(items)
+      const restored = restoreSpriteTabs(localStorage.getItem(`webtile.spriteTabs.${projectId}`), items.map(sprite => sprite.id))
+      setOpenSpriteIds(restored.openSpriteIds)
+      setSelectedSpriteId(restored.activeSpriteId)
+      setSpriteTabsReady(true)
+    }).catch(error => {
+      console.error(error)
+      if (!cancelled) setSpriteTabsReady(true)
+    })
+    return () => { cancelled = true }
+  }, [projectId, user.uid])
+
+  useEffect(() => {
+    if (!projectId || !spriteTabsReady) return
+    localStorage.setItem(`webtile.spriteTabs.${projectId}`, JSON.stringify({ openSpriteIds, activeSpriteId: selectedSpriteId }))
+  }, [projectId, spriteTabsReady, openSpriteIds, selectedSpriteId])
 
   const captureMapState = useCallback(() => {
     return {
@@ -805,13 +854,33 @@ export default function HomePage() {
   }
 
   const handleCloseSpriteTab = (spriteId) => {
-    const index = openSpriteIds.indexOf(spriteId)
+    const nextActive = activeTabAfterClose(openSpriteIds, selectedSpriteId, spriteId)
     const remaining = openSpriteIds.filter(id => id !== spriteId)
     setOpenSpriteIds(remaining)
-    if (selectedSpriteId === spriteId) {
-      setSelectedSpriteId(remaining[Math.min(Math.max(0, index), remaining.length - 1)] ?? null)
-    }
+    if (selectedSpriteId === spriteId) setSelectedSpriteId(nextActive)
   }
+
+  const handleReorderSpriteTabs = (sourceId, targetId) => setOpenSpriteIds(ids => reorderSpriteTabs(ids, sourceId, targetId))
+  const handleCloseOtherSpriteTabs = spriteId => { setOpenSpriteIds([spriteId]); setSelectedSpriteId(spriteId) }
+  const handleCloseAllSpriteTabs = () => { setOpenSpriteIds([]); setSelectedSpriteId(null) }
+
+  useEffect(() => {
+    const handler = event => {
+      if (!selectedSpriteId || !(event.ctrlKey || event.metaKey)) return
+      if (event.key === 'Tab') {
+        event.preventDefault()
+        const index = openSpriteIds.indexOf(selectedSpriteId)
+        if (index < 0 || openSpriteIds.length < 2) return
+        const offset = event.shiftKey ? -1 : 1
+        setSelectedSpriteId(openSpriteIds[(index + offset + openSpriteIds.length) % openSpriteIds.length])
+      } else if (event.key.toLowerCase() === 'w') {
+        event.preventDefault()
+        handleCloseSpriteTab(selectedSpriteId)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [selectedSpriteId, openSpriteIds])
 
   const handleDeleteSprite = async (spriteId) => {
     if (!await showConfirm('Delete this sprite? Cannot be undone.', { danger: true, confirmLabel: 'Delete', title: 'DELETE SPRITE' })) return
@@ -1666,6 +1735,9 @@ export default function HomePage() {
               activeSpriteId={selectedSpriteId}
               onSelect={handleSelectSprite}
               onClose={handleCloseSpriteTab}
+              onReorder={handleReorderSpriteTabs}
+              onCloseOthers={handleCloseOtherSpriteTabs}
+              onCloseAll={handleCloseAllSpriteTabs}
             />
           )}
           {hasMap && !selectedSpriteId && (

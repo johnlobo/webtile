@@ -341,9 +341,13 @@ body {
 .sprite-editor-tab { min-width: 100px; max-width: 210px; display: flex; align-items: center; gap: 8px; padding: 0 7px 0 11px; border-right: 1px solid var(--border); border-top: 2px solid transparent; color: var(--text-dim); background: var(--bg2); cursor: pointer; font-size: 11px; }
 .sprite-editor-tab:hover { color: var(--text); background: var(--panel); }
 .sprite-editor-tab.active { border-top-color: var(--accent); color: var(--text); background: var(--panel); }
+.sprite-editor-tab[draggable="true"] { user-select: none; }
 .sprite-editor-tab > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sprite-editor-tab button { width: 20px; height: 20px; flex-shrink: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 14px; }
 .sprite-editor-tab button:hover { color: var(--red); background: rgba(234,6,6,.07); }
+.sprite-tab-context-menu { position: fixed; z-index: 120; width: 130px; padding: 4px; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); box-shadow: var(--shadow-md); }
+.sprite-tab-context-menu button { height: 29px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; text-align: left; font-size: 10px; }
+.sprite-tab-context-menu button:hover { color: var(--accent); background: var(--green-glow); }
 .sprite-editor-stack { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .sprite-editor-instance { position: absolute; inset: 0; display: none; }
 .sprite-editor-instance.active { display: flex; }
