@@ -14,6 +14,7 @@ import {
   addEditorLayer,
   deleteEditorLayer,
   moveEditorLayer,
+  mergeEditorLayerDown,
   selectEditorLayer,
 } from './spriteLayerModel'
 
@@ -136,5 +137,26 @@ describe('sprite layer model', () => {
     sprite = deleteEditorLayer(sprite, 'copy')
     expect(sprite.layers.map(layer => layer.id)).toEqual([BASE_LAYER_ID])
     expect(sprite.frames[0].pixels).toEqual([7])
+  })
+
+  it('merges the active layer down across every frame and preserves transparency', () => {
+    let sprite = prepareSpriteForEditor({ width: 3, height: 1, frames: [{ pixels: [1, 1, 1] }, { pixels: [2, 2, 2] }] })
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    sprite.frames[0].pixels = [TRANSPARENT_INK, 7, TRANSPARENT_INK]
+    sprite.frames[1].pixels = [8, TRANSPARENT_INK, 9]
+    sprite = mergeEditorLayerDown(sprite)
+    expect(sprite.layers.map(layer => layer.id)).toEqual([BASE_LAYER_ID])
+    expect(sprite.activeLayerId).toBe(BASE_LAYER_ID)
+    expect(sprite.frames.map(frame => frame.pixels)).toEqual([[1, 7, 1], [8, 2, 9]])
+    expect(sprite.frames.every(frame => frame.cels.top === undefined)).toBe(true)
+  })
+
+  it('does not merge the bottom, hidden, or locked layer', () => {
+    let sprite = prepareSpriteForEditor({ width: 1, height: 1, frames: [{ pixels: [1] }] })
+    expect(mergeEditorLayerDown(sprite)).toEqual(sprite)
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top', visible: false })
+    expect(mergeEditorLayerDown(sprite).layers).toHaveLength(2)
+    sprite = { ...sprite, layers: sprite.layers.map(layer => layer.id === 'top' ? { ...layer, visible: true, locked: true } : layer) }
+    expect(mergeEditorLayerDown(sprite).layers).toHaveLength(2)
   })
 })

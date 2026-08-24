@@ -201,3 +201,27 @@ export function moveEditorLayer(sprite, layerId, offset) {
   layers.splice(target, 0, layer)
   return { ...committed, layers }
 }
+
+export function mergeEditorLayerDown(sprite, layerId = sprite?.activeLayerId) {
+  if (!sprite || sprite.layers.length <= 1) return sprite
+  const committed = commitWorkingLayer(sprite)
+  const upperIndex = committed.layers.findIndex(layer => layer.id === layerId)
+  if (upperIndex <= 0) return committed
+  const upperLayer = committed.layers[upperIndex]
+  const lowerLayer = committed.layers[upperIndex - 1]
+  if (!upperLayer.visible || !lowerLayer.visible || upperLayer.locked || lowerLayer.locked) return committed
+
+  const layers = committed.layers.filter(layer => layer.id !== upperLayer.id)
+  const frames = committed.frames.map(frame => {
+    const lowerPixels = frame.cels?.[lowerLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height)
+    const upperPixels = frame.cels?.[upperLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height)
+    const pixels = lowerPixels.map((ink, index) => {
+      const upperInk = upperPixels[index]
+      return upperInk === TRANSPARENT_INK || upperInk == null ? ink : upperInk
+    })
+    const cels = { ...(frame.cels ?? {}), [lowerLayer.id]: createCel(sprite.width, sprite.height, pixels) }
+    delete cels[upperLayer.id]
+    return { ...frame, cels, pixels: [...pixels] }
+  })
+  return { ...committed, layers, frames, activeLayerId: lowerLayer.id }
+}

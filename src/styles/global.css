@@ -512,6 +512,7 @@ body {
 .sprite-layer-timeline-layer-actions { display: flex; align-items: center; gap: 3px; }
 .sprite-layer-timeline-layer-actions button { width: 23px; height: 25px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--text-dim); cursor: pointer; font-size: 12px; }
 .sprite-layer-timeline-layer-actions button:hover { color: var(--accent); border-color: var(--green-dim); background: var(--green-glow); }
+.sprite-layer-timeline-layer-actions button:disabled { opacity: .28; cursor: default; }
 .sprite-layer-timeline-frame { position: sticky; top: 0; z-index: 3; min-width: 0; padding: 3px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); color: var(--text-dim); cursor: grab; }
 .sprite-layer-timeline-frame:hover, .sprite-layer-timeline-frame.active { color: var(--accent); background: var(--green-glow); }
 .sprite-layer-timeline-frame.active { box-shadow: inset 0 -2px var(--accent); }
