@@ -14,6 +14,7 @@ import {
   mergeEditorLayerDown,
   mergeVisibleEditorLayers,
   flattenEditorLayers,
+  getEditorLayerFrame,
   selectEditorLayer,
 } from '../services/spriteLayerModel'
 
@@ -794,11 +795,13 @@ function AnimPreview({ frames, width, height, videoMode, palette, fps }) {
 
 // ── ExportModal ───────────────────────────────────────────────────────────────
 
-function ExportModal({ sprite, onClose }) {
+function ExportModal({ sources, onClose }) {
   const [format,      setFormat]      = useState('hex')
   const [interleaved, setInterleaved] = useState(false)
   const [copied,      setCopied]      = useState(false)
+  const [sourceId,    setSourceId]    = useState('visible')
 
+  const sprite = sources.find(source => source.id === sourceId)?.sprite ?? sources[0]?.sprite
   const code = sprite ? generateExport(sprite, { format, interleaved }) : ''
 
   const handleCopy = () => {
@@ -844,6 +847,12 @@ function ExportModal({ sprite, onClose }) {
 
         {/* Options row */}
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', flexShrink: 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '7px', color: 'var(--text-dim)', fontSize: '10px' }}>
+            SOURCE
+            <select className="pixel-input" value={sourceId} onChange={event => setSourceId(event.target.value)} style={{ minWidth: '170px', padding: '6px' }}>
+              {sources.map(source => <option key={source.id} value={source.id}>{source.label}</option>)}
+            </select>
+          </label>
           {/* Format buttons */}
           <div style={{ display: 'flex', gap: '4px' }}>
             {['hex', 'dec', 'basic'].map(f => (
@@ -2273,10 +2282,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
   // ── PNG export ──────────────────────────────────────────────────────────────
 
-  const exportPNG = useCallback(() => {
+  const exportPNG = useCallback((scope = 'visible') => {
     if (!sprite) return
-    const { videoMode, width, height, palette, frames, name } = sprite
-    const pixels = frames[currentFrame]?.pixels ?? []
+    const { width, height, palette, name } = sprite
+    const pixels = scope === 'active'
+      ? getEditorLayerFrame(sprite, currentFrame, sprite.activeLayerId)
+      : compositeEditorFrame(sprite, currentFrame, TRANSPARENT_INK)
     const canvas = document.createElement('canvas')
     canvas.width  = width
     canvas.height = height
@@ -2285,17 +2296,19 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     for (let py = 0; py < height; py++) {
       for (let px = 0; px < width; px++) {
         const ink = pixels[py * width + px]
+        if (ink === TRANSPARENT_INK) continue
         ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
         ctx.fillRect(px, py, 1, 1)
       }
     }
     const link = document.createElement('a')
-    link.download = `${name || 'sprite'}.png`
+    const layerName = sprite.layers.find(layer => layer.id === sprite.activeLayerId)?.name ?? 'layer'
+    link.download = `${name || 'sprite'}${scope === 'active' ? `-${layerName}` : ''}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
   }, [sprite, currentFrame])
 
-  const exportSpriteSheet = useCallback((direction) => {
+  const exportSpriteSheet = useCallback((direction, scope = 'visible') => {
     if (!sprite?.frames?.length) return
     const { width, height, palette, frames, name } = sprite
     const horizontal = direction === 'horizontal'
@@ -2305,12 +2318,16 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    frames.forEach((frame, fi) => {
+    frames.forEach((_frame, fi) => {
+      const pixels = scope === 'active'
+        ? getEditorLayerFrame(sprite, fi, sprite.activeLayerId)
+        : compositeEditorFrame(sprite, fi, TRANSPARENT_INK)
       const offsetX = horizontal ? fi * width : 0
       const offsetY = horizontal ? 0 : fi * height
       for (let py = 0; py < height; py++) {
         for (let px = 0; px < width; px++) {
-          const ink = frame.pixels[py * width + px]
+          const ink = pixels[py * width + px]
+          if (ink === TRANSPARENT_INK) continue
           ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
           ctx.fillRect(offsetX + px, offsetY + py, 1, 1)
         }
@@ -2318,7 +2335,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     })
 
     const link = document.createElement('a')
-    link.download = `${name || 'sprite'}-spritesheet-${horizontal ? 'horizontal' : 'vertical'}.png`
+    const layerName = sprite.layers.find(layer => layer.id === sprite.activeLayerId)?.name ?? 'layer'
+    link.download = `${name || 'sprite'}${scope === 'active' ? `-${layerName}` : ''}-spritesheet-${horizontal ? 'horizontal' : 'vertical'}.png`
     link.href = canvas.toDataURL('image/png')
     link.click()
   }, [sprite])
@@ -2471,6 +2489,26 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     ? sprite.frames.map((frame, index) => ({ ...frame, pixels: compositeEditorFrame(sprite, index) }))
     : [], [sprite])
 
+  const cpcExportSources = useMemo(() => sprite ? [
+    {
+      id: 'visible',
+      label: 'Visible composite',
+      sprite: { ...sprite, frames: renderedFrames, name: `${sprite.name || 'sprite'}-visible` },
+    },
+    ...[...sprite.layers].reverse().map(layer => ({
+      id: layer.id,
+      label: `Layer: ${layer.name}${layer.visible ? '' : ' (hidden)'}`,
+      sprite: {
+        ...sprite,
+        name: `${sprite.name || 'sprite'}-${layer.name}`,
+        frames: sprite.frames.map((frame, frameIndex) => ({
+          ...frame,
+          pixels: getEditorLayerFrame(sprite, frameIndex, layer.id).map(ink => ink === TRANSPARENT_INK ? 0 : ink),
+        })),
+      },
+    })),
+  ] : [], [sprite, renderedFrames])
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
@@ -2535,11 +2573,14 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
           {toolbarMenu === 'io' && (
             <div className="sprite-toolbar-dropdown">
               <button onClick={() => { setToolbarMenu(null); importPngRef.current?.click() }}>Import PNG…</button>
-              <button onClick={() => { setToolbarMenu(null); exportPNG() }}>Export current frame PNG</button>
+              <button onClick={() => { setToolbarMenu(null); exportPNG('visible') }}>Export visible frame PNG</button>
+              <button onClick={() => { setToolbarMenu(null); exportPNG('active') }}>Export active layer PNG</button>
               <div />
               <button onClick={() => { setToolbarMenu(null); importSheetRef.current?.click() }}>Import spritesheet…</button>
-              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal') }}>Export spritesheet →</button>
-              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical') }}>Export spritesheet ↓</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal', 'visible') }}>Export visible spritesheet →</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical', 'visible') }}>Export visible spritesheet ↓</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('horizontal', 'active') }}>Export active layer sheet →</button>
+              <button onClick={() => { setToolbarMenu(null); exportSpriteSheet('vertical', 'active') }}>Export active layer sheet ↓</button>
               <div />
               <button onClick={() => { setToolbarMenu(null); importPaletteRef.current?.click() }}>Import palette…</button>
               <button onClick={() => { setToolbarMenu(null); exportPalette() }}>Export palette</button>
@@ -3031,7 +3072,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       {/* Export Modal */}
       {showExport && (
         <ExportModal
-          sprite={sprite}
+          sources={cpcExportSources}
           onClose={() => setShowExport(false)}
         />
       )}

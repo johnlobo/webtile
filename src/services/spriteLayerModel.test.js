@@ -5,6 +5,7 @@ import {
   TRANSPARENT_INK,
   compositeFrame,
   compositeEditorFrame,
+  getEditorLayerFrame,
   createCel,
   createLayer,
   createLayeredFrame,
@@ -118,6 +119,19 @@ describe('sprite layer model', () => {
     }
     expect(compositeEditorFrame(sprite, 0)).toEqual([3, 7])
     expect(sprite.frames[0].cels.base.pixels).toEqual([1, 1])
+  })
+
+  it('exports the working buffer only for the active layer', () => {
+    const sprite = {
+      width: 2, height: 1, activeLayerId: 'top',
+      layers: [createLayer({ id: 'base', name: 'Base' }), createLayer({ id: 'top', name: 'Top' })],
+      frames: [{ pixels: [7, TRANSPARENT_INK], cels: {
+        base: createCel(2, 1, [1, 2]),
+        top: createCel(2, 1, [3, 4]),
+      } }],
+    }
+    expect(getEditorLayerFrame(sprite, 0, 'top')).toEqual([7, TRANSPARENT_INK])
+    expect(getEditorLayerFrame(sprite, 0, 'base')).toEqual([1, 2])
   })
 
   it('commits and switches the editable layer across every frame', () => {

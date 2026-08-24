@@ -109,6 +109,14 @@ export function compositeEditorFrame(sprite, frameIndex, backgroundInk = 0) {
   return compositeFrame(projected, frameIndex, backgroundInk)
 }
 
+export function getEditorLayerFrame(sprite, frameIndex, layerId) {
+  if (!sprite?.layers?.some(layer => layer.id === layerId)) return createTransparentPixels(sprite?.width ?? 0, sprite?.height ?? 0)
+  const frame = sprite.frames?.[frameIndex]
+  if (!frame) return createTransparentPixels(sprite.width, sprite.height)
+  const pixels = layerId === sprite.activeLayerId ? frame.pixels : frame.cels?.[layerId]?.pixels
+  return [...(pixels ?? createTransparentPixels(sprite.width, sprite.height))]
+}
+
 export function prepareSpriteForStorage(sprite) {
   const layered = migrateLegacySprite(sprite)
   if (!layered) return layered
