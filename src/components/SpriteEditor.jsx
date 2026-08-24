@@ -509,7 +509,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   }, [movePos, onMoveCommit, onPaintLine])
 
   const handleWheel = useCallback((e) => {
-    if (!e.ctrlKey && !e.metaKey) return
+    if (!e.altKey) return
     e.preventDefault()
     if (e.deltaY === 0) return
     const idx = SPRITE_ZOOM_LEVELS.indexOf(zoom)
