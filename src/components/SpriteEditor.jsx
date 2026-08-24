@@ -1419,7 +1419,7 @@ function ScaleSelectionModal({ selection, onApply, onCancel }) {
 
 // ── SpriteEditor ──────────────────────────────────────────────────────────────
 
-export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatus, onDeleted }) {
+export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatus, onDeleted, onMetadataChange }) {
   const [sprite,       setSprite]       = useState(null)
   const [loading,      setLoading]      = useState(true)
   const [currentFrame, setCurrentFrame] = useState(0)
@@ -2217,8 +2217,9 @@ export default function SpriteEditor({ userId, projectId, spriteId, setSaveStatu
       })
       return { ...next, width: newW, height: newH, frames }
     })
+    onMetadataChange?.({ name: name.trim() || sprite?.name, width: newW, height: newH })
     setCurrentFrame(f => 0)
-  }, [updateSprite, pushHistory])
+  }, [sprite?.name, onMetadataChange, updateSprite, pushHistory])
 
   // ── PNG export ──────────────────────────────────────────────────────────────
 

@@ -337,6 +337,16 @@ body {
 .studio-inline-select { max-width: 65px; border: 1px solid var(--border); border-radius: 4px; color: var(--text-dim); background: var(--bg2); font-size: 9px; }
 
 .studio-inspector-title { min-height: 62px; }
+.sprite-editor-tabs { height: 35px; flex-shrink: 0; display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--border); background: var(--panel); }
+.sprite-editor-tab { min-width: 100px; max-width: 210px; display: flex; align-items: center; gap: 8px; padding: 0 7px 0 11px; border-right: 1px solid var(--border); border-top: 2px solid transparent; color: var(--text-dim); background: var(--bg2); cursor: pointer; font-size: 11px; }
+.sprite-editor-tab:hover { color: var(--text); background: var(--panel); }
+.sprite-editor-tab.active { border-top-color: var(--accent); color: var(--text); background: var(--panel); }
+.sprite-editor-tab > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sprite-editor-tab button { width: 20px; height: 20px; flex-shrink: 0; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 14px; }
+.sprite-editor-tab button:hover { color: var(--red); background: rgba(234,6,6,.07); }
+.sprite-editor-stack { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.sprite-editor-instance { position: absolute; inset: 0; display: none; }
+.sprite-editor-instance.active { display: flex; }
 .studio-inspector-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid var(--border); }
 .studio-inspector-tabs button { height: 34px; overflow: hidden; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-dim); cursor: pointer; font-size: 9px; font-weight: 700; letter-spacing: .5px; }
 .studio-inspector-tabs button:hover { color: var(--text); background: var(--bg); }

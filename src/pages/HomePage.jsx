@@ -523,6 +523,35 @@ function NoMaps({ onCreate, onImport, tmxInputRef }) {
   )
 }
 
+function SpriteTabs({ sprites, openSpriteIds, activeSpriteId, onSelect, onClose }) {
+  return (
+    <div className="sprite-editor-tabs" role="tablist" aria-label="Open sprites">
+      {openSpriteIds.map(spriteId => {
+        const sprite = sprites.find(item => item.id === spriteId)
+        if (!sprite) return null
+        const active = spriteId === activeSpriteId
+        return (
+          <div
+            key={spriteId}
+            className={`sprite-editor-tab${active ? ' active' : ''}`}
+            role="tab"
+            aria-selected={active}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onSelect(spriteId)}
+          >
+            <span>{sprite.name || 'Untitled sprite'}</span>
+            <button
+              title={`Close ${sprite.name || 'sprite'}`}
+              aria-label={`Close ${sprite.name || 'sprite'}`}
+              onClick={event => { event.stopPropagation(); onClose(spriteId) }}
+            >×</button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function StudioInspector({ collapsed, onToggle, width, onResizeStart, tab, onTabChange, selectedEntity, capacity, pageLabel, pageMaps, rightSidebarProps, mapDataProps }) {
   if (collapsed) return <aside className="studio-inspector studio-inspector-collapsed"><button className="studio-panel-toggle" title="Open inspector" onClick={onToggle}>‹</button></aside>
   const tabs = [['assets', 'ASSETS'], ['room', 'ROOM'], ['entity', 'ENTITY'], ...(capacity ? [['capacity', 'BUDGET']] : [])]
@@ -602,6 +631,7 @@ export default function HomePage() {
   // Sprites
   const [sprites,            setSprites]            = useState([])
   const [selectedSpriteId,   setSelectedSpriteId]   = useState(null)
+  const [openSpriteIds,      setOpenSpriteIds]      = useState([])
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
   const [importSpriteSheetFile, setImportSpriteSheetFile] = useState(null)
@@ -677,6 +707,11 @@ export default function HomePage() {
     listSprites(user.uid, projectId).then(setSprites).catch(console.error)
   }, [projectId, user.uid])
 
+  useEffect(() => {
+    setOpenSpriteIds([])
+    setSelectedSpriteId(null)
+  }, [projectId])
+
   const captureMapState = useCallback(() => {
     return {
       tiles: mapTilesRef_.current,
@@ -733,6 +768,7 @@ export default function HomePage() {
     try {
       const sid = await createSprite(user.uid, projectId, { name, videoMode, width, height })
       setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
+      setOpenSpriteIds(prev => [...prev, sid])
       setSelectedSpriteId(sid)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
@@ -750,6 +786,7 @@ export default function HomePage() {
     try {
       const sid = await createSpriteFromImport(user.uid, projectId, { name, videoMode, width, height, palette, pixels, frames })
       setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
+      setOpenSpriteIds(prev => [...prev, sid])
       setSelectedSpriteId(sid)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
@@ -761,7 +798,17 @@ export default function HomePage() {
   }
 
   const handleSelectSprite = (spriteId) => {
+    setOpenSpriteIds(prev => prev.includes(spriteId) ? prev : [...prev, spriteId])
     setSelectedSpriteId(spriteId)
+  }
+
+  const handleCloseSpriteTab = (spriteId) => {
+    const index = openSpriteIds.indexOf(spriteId)
+    const remaining = openSpriteIds.filter(id => id !== spriteId)
+    setOpenSpriteIds(remaining)
+    if (selectedSpriteId === spriteId) {
+      setSelectedSpriteId(remaining[Math.min(Math.max(0, index), remaining.length - 1)] ?? null)
+    }
   }
 
   const handleDeleteSprite = async (spriteId) => {
@@ -769,7 +816,7 @@ export default function HomePage() {
     try {
       await deleteSprite(user.uid, projectId, spriteId)
       setSprites(prev => prev.filter(s => s.id !== spriteId))
-      if (selectedSpriteId === spriteId) setSelectedSpriteId(null)
+      handleCloseSpriteTab(spriteId)
     } catch (err) {
       console.error('Delete sprite failed:', err)
     }
@@ -1107,6 +1154,7 @@ export default function HomePage() {
     setTileset(null)
     setSelectedTile(null)
     setSprites([])
+    setOpenSpriteIds([])
     setSelectedSpriteId(null)
     historyRef.current = []
     setCanUndo(false)
@@ -1130,9 +1178,9 @@ export default function HomePage() {
     redoRef.current = []
   }, [])
 
-  const handleCloseSprite = useCallback(() => {
-    setSelectedSpriteId(null)
-  }, [])
+  const handleCloseSprite = () => {
+    if (selectedSpriteId) handleCloseSpriteTab(selectedSpriteId)
+  }
 
   // ── Select map ────────────────────────────────────────────────────────────
 
@@ -1609,6 +1657,15 @@ export default function HomePage() {
         />
 
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {selectedSpriteId && (
+            <SpriteTabs
+              sprites={sprites}
+              openSpriteIds={openSpriteIds}
+              activeSpriteId={selectedSpriteId}
+              onSelect={handleSelectSprite}
+              onClose={handleCloseSpriteTab}
+            />
+          )}
           {hasMap && !selectedSpriteId && (
             <Toolbar
               activeTool={activeTool} onSelectTool={setActiveTool}
@@ -1624,13 +1681,20 @@ export default function HomePage() {
           {!hasProject
             ? <EmptyWorkspace />
             : selectedSpriteId
-              ? <SpriteEditor
-                  userId={user.uid}
-                  projectId={projectId}
-                  spriteId={selectedSpriteId}
-                  setSaveStatus={setSaveStatus}
-                  onDeleted={() => setSelectedSpriteId(null)}
-                />
+              ? <div className="sprite-editor-stack">
+                  {openSpriteIds.map(spriteId => (
+                    <div key={spriteId} className={`sprite-editor-instance${spriteId === selectedSpriteId ? ' active' : ''}`}>
+                      <SpriteEditor
+                        userId={user.uid}
+                        projectId={projectId}
+                        spriteId={spriteId}
+                        setSaveStatus={setSaveStatus}
+                        onDeleted={() => handleCloseSpriteTab(spriteId)}
+                        onMetadataChange={changes => setSprites(prev => prev.map(sprite => sprite.id === spriteId ? { ...sprite, ...changes } : sprite))}
+                      />
+                    </div>
+                  ))}
+                </div>
               : !hasMap
                 ? <NoMaps onCreate={() => setShowNewMapModal(true)} onImport={() => tmxInputRef.current?.click()} tmxInputRef={tmxInputRef} />
                 : <TilemapGrid
