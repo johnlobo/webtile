@@ -15,6 +15,8 @@ import {
   deleteEditorLayer,
   moveEditorLayer,
   mergeEditorLayerDown,
+  mergeVisibleEditorLayers,
+  flattenEditorLayers,
   selectEditorLayer,
 } from './spriteLayerModel'
 
@@ -151,12 +153,50 @@ describe('sprite layer model', () => {
     expect(sprite.frames.every(frame => frame.cels.top === undefined)).toBe(true)
   })
 
-  it('does not merge the bottom, hidden, or locked layer', () => {
+  it('does not merge the bottom or locked layer', () => {
     let sprite = prepareSpriteForEditor({ width: 1, height: 1, frames: [{ pixels: [1] }] })
     expect(mergeEditorLayerDown(sprite)).toEqual(sprite)
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top', locked: true })
+    expect(mergeEditorLayerDown(sprite).layers).toHaveLength(2)
+  })
+
+  it('merges hidden layers down without changing the visible result', () => {
+    let sprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 2] }] })
     sprite = addEditorLayer(sprite, { id: 'top', name: 'Top', visible: false })
-    expect(mergeEditorLayerDown(sprite).layers).toHaveLength(2)
-    sprite = { ...sprite, layers: sprite.layers.map(layer => layer.id === 'top' ? { ...layer, visible: true, locked: true } : layer) }
-    expect(mergeEditorLayerDown(sprite).layers).toHaveLength(2)
+    sprite.frames[0].pixels = [7, 8]
+    sprite = mergeEditorLayerDown(sprite)
+    expect(sprite.frames[0].pixels).toEqual([1, 2])
+    expect(sprite.layers[0].visible).toBe(true)
+  })
+
+  it('merges every visible layer while retaining hidden layers', () => {
+    const layers = [
+      createLayer({ id: 'bottom', name: 'Bottom' }),
+      createLayer({ id: 'hidden', name: 'Hidden', visible: false }),
+      createLayer({ id: 'top', name: 'Top' }),
+    ]
+    const sprite = prepareSpriteForEditor({
+      width: 2, height: 1, schemaVersion: SPRITE_SCHEMA_VERSION, layers,
+      frames: [{ cels: {
+        bottom: createCel(2, 1, [1, 1]),
+        hidden: createCel(2, 1, [9, 9]),
+        top: createCel(2, 1, [TRANSPARENT_INK, 3]),
+      } }],
+    })
+    const merged = mergeVisibleEditorLayers(sprite)
+    expect(merged.layers.map(layer => layer.id)).toEqual(['hidden', 'top'])
+    expect(merged.frames[0].pixels).toEqual([1, 3])
+    expect(merged.frames[0].cels.hidden.pixels).toEqual([9, 9])
+  })
+
+  it('flattens the visible composition into exactly one layer', () => {
+    let sprite = prepareSpriteForEditor({ width: 2, height: 1, frames: [{ pixels: [1, 2] }] })
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    sprite.frames[0].pixels = [TRANSPARENT_INK, 7]
+    const flattened = flattenEditorLayers(sprite)
+    expect(flattened.layers).toHaveLength(1)
+    expect(flattened.layers[0].name).toBe('Flattened')
+    expect(flattened.frames[0].pixels).toEqual([1, 7])
+    expect(Object.keys(flattened.frames[0].cels)).toEqual([flattened.activeLayerId])
   })
 })

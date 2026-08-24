@@ -12,6 +12,8 @@ import {
   deleteEditorLayer,
   moveEditorLayer,
   mergeEditorLayerDown,
+  mergeVisibleEditorLayers,
+  flattenEditorLayers,
   selectEditorLayer,
 } from '../services/spriteLayerModel'
 
@@ -1467,6 +1469,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const [toolbarMenu,  setToolbarMenu]  = useState(null)
   const [paletteImportStatus, setPaletteImportStatus] = useState(null)
   const [mergedCopyStatus, setMergedCopyStatus] = useState(null)
+  const [layerMergeMenu, setLayerMergeMenu] = useState(false)
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
@@ -1642,11 +1645,33 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     const activeIndex = current.layers.findIndex(layer => layer.id === current.activeLayerId)
     const upper = current.layers[activeIndex]
     const lower = current.layers[activeIndex - 1]
-    if (!upper || !lower || upper.locked || lower.locked || !upper.visible || !lower.visible) return
+    if (!upper || !lower || upper.locked || lower.locked) return
     pushHistory()
     setSelection(null)
     setIsPasting(false)
     updateSprite(prev => mergeEditorLayerDown(prev))
+  }, [pushHistory, updateSprite])
+
+  const handleMergeVisibleLayers = useCallback(() => {
+    const current = spriteRef.current
+    const visible = current?.layers.filter(layer => layer.visible) ?? []
+    if (visible.length < 2 || visible.some(layer => layer.locked)) return
+    pushHistory()
+    setSelection(null)
+    setIsPasting(false)
+    setLayerMergeMenu(false)
+    updateSprite(prev => mergeVisibleEditorLayers(prev))
+  }, [pushHistory, updateSprite])
+
+  const handleFlattenLayers = useCallback(() => {
+    const current = spriteRef.current
+    if (!current || current.layers.length < 2 || current.layers.some(layer => layer.locked)) return
+    if (!window.confirm('Flatten all layers? Hidden layers will be discarded.')) return
+    pushHistory()
+    setSelection(null)
+    setIsPasting(false)
+    setLayerMergeMenu(false)
+    updateSprite(prev => flattenEditorLayers(prev))
   }, [pushHistory, updateSprite])
 
   const handleDeleteLayer = useCallback((layerId) => {
@@ -2471,7 +2496,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const { videoMode, width, height, palette, frames } = sprite
   const activeLayerIndex = sprite.layers.findIndex(layer => layer.id === sprite.activeLayerId)
   const mergeTargetLayer = sprite.layers[activeLayerIndex - 1]
-  const canMergeLayerDown = activeLayerIndex > 0 && !activeLayer?.locked && !mergeTargetLayer?.locked && activeLayer?.visible && mergeTargetLayer?.visible
+  const canMergeLayerDown = activeLayerIndex > 0 && !activeLayer?.locked && !mergeTargetLayer?.locked
+  const visibleLayers = sprite.layers.filter(layer => layer.visible)
+  const canMergeVisibleLayers = visibleLayers.length > 1 && !visibleLayers.some(layer => layer.locked)
+  const canFlattenLayers = sprite.layers.length > 1 && !sprite.layers.some(layer => layer.locked)
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = renderedFrames[currentFrame]?.pixels ?? []
   const currentInkUsage = Array(inkCount).fill(0)
@@ -2913,7 +2941,17 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
               <div className="sprite-layer-timeline-layer-actions">
                 <button title="Add layer" aria-label="Add layer" onClick={handleAddLayer}>+</button>
                 <button title="Duplicate active layer" aria-label="Duplicate active layer" onClick={handleDuplicateLayer}>⧉</button>
-                <button disabled={!canMergeLayerDown} title={canMergeLayerDown ? `Merge ${activeLayer.name} down into ${mergeTargetLayer.name}` : 'Select two adjacent visible, unlocked layers to merge'} aria-label="Merge active layer down" onClick={handleMergeLayerDown}>⇩</button>
+                <button disabled={!canMergeLayerDown} title={canMergeLayerDown ? `Merge ${activeLayer.name} down into ${mergeTargetLayer.name}` : 'Select an unlocked layer above another unlocked layer'} aria-label="Merge active layer down" onClick={handleMergeLayerDown}>⇩</button>
+                <div className="sprite-layer-merge-menu-wrap">
+                  <button title="More layer merge actions" aria-label="More layer merge actions" onClick={() => setLayerMergeMenu(open => !open)}>⋯</button>
+                  {layerMergeMenu && (
+                    <div className="sprite-layer-merge-menu">
+                      <button disabled={!canMergeLayerDown} onClick={() => { handleMergeLayerDown(); setLayerMergeMenu(false) }}>Merge Down</button>
+                      <button disabled={!canMergeVisibleLayers} onClick={handleMergeVisibleLayers}>Merge Visible</button>
+                      <button disabled={!canFlattenLayers} onClick={handleFlattenLayers}>Flatten All…</button>
+                    </div>
+                  )}
+                </div>
                 <button title="Copy visible layers (selection or full frame)" aria-label="Copy visible layers" onClick={handleCopyVisibleLayers}>▣</button>
               </div>
             </div>

@@ -209,19 +209,57 @@ export function mergeEditorLayerDown(sprite, layerId = sprite?.activeLayerId) {
   if (upperIndex <= 0) return committed
   const upperLayer = committed.layers[upperIndex]
   const lowerLayer = committed.layers[upperIndex - 1]
-  if (!upperLayer.visible || !lowerLayer.visible || upperLayer.locked || lowerLayer.locked) return committed
+  if (upperLayer.locked || lowerLayer.locked) return committed
 
   const layers = committed.layers.filter(layer => layer.id !== upperLayer.id)
   const frames = committed.frames.map(frame => {
     const lowerPixels = frame.cels?.[lowerLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height)
     const upperPixels = frame.cels?.[upperLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height)
     const pixels = lowerPixels.map((ink, index) => {
-      const upperInk = upperPixels[index]
-      return upperInk === TRANSPARENT_INK || upperInk == null ? ink : upperInk
+      const lowerInk = lowerLayer.visible ? ink : TRANSPARENT_INK
+      const upperInk = upperLayer.visible ? upperPixels[index] : TRANSPARENT_INK
+      return upperInk === TRANSPARENT_INK || upperInk == null ? lowerInk : upperInk
     })
     const cels = { ...(frame.cels ?? {}), [lowerLayer.id]: createCel(sprite.width, sprite.height, pixels) }
     delete cels[upperLayer.id]
     return { ...frame, cels, pixels: [...pixels] }
   })
-  return { ...committed, layers, frames, activeLayerId: lowerLayer.id }
+  const mergedLayers = layers.map(layer => layer.id === lowerLayer.id
+    ? { ...layer, visible: lowerLayer.visible || upperLayer.visible }
+    : layer)
+  return { ...committed, layers: mergedLayers, frames, activeLayerId: lowerLayer.id }
+}
+
+export function mergeVisibleEditorLayers(sprite) {
+  if (!sprite) return sprite
+  const committed = commitWorkingLayer(sprite)
+  const visibleLayers = committed.layers.filter(layer => layer.visible)
+  if (visibleLayers.length < 2 || visibleLayers.some(layer => layer.locked)) return committed
+  const destination = visibleLayers[visibleLayers.length - 1]
+  const visibleIds = new Set(visibleLayers.map(layer => layer.id))
+  const layers = [
+    ...committed.layers.filter(layer => !visibleIds.has(layer.id)),
+    { ...destination, name: 'Merged Visible', visible: true, locked: false },
+  ]
+  const frames = committed.frames.map((frame, frameIndex) => {
+    const pixels = compositeFrame(committed, frameIndex, TRANSPARENT_INK)
+    const cels = Object.fromEntries(Object.entries(frame.cels ?? {}).filter(([layerId]) => !visibleIds.has(layerId)))
+    cels[destination.id] = createCel(sprite.width, sprite.height, pixels)
+    return { ...frame, cels, pixels: [...pixels] }
+  })
+  return { ...committed, layers, frames, activeLayerId: destination.id }
+}
+
+export function flattenEditorLayers(sprite) {
+  if (!sprite) return sprite
+  const committed = commitWorkingLayer(sprite)
+  if (committed.layers.some(layer => layer.locked)) return committed
+  const destination = [...committed.layers].reverse().find(layer => layer.visible) ?? committed.layers[0]
+  if (!destination) return committed
+  const layer = { ...destination, name: 'Flattened', visible: true, locked: false }
+  const frames = committed.frames.map((frame, frameIndex) => {
+    const pixels = compositeFrame(committed, frameIndex, TRANSPARENT_INK)
+    return { ...frame, cels: { [layer.id]: createCel(sprite.width, sprite.height, pixels) }, pixels: [...pixels] }
+  })
+  return { ...committed, layers: [layer], frames, activeLayerId: layer.id }
 }
