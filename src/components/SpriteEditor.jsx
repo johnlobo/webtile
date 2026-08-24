@@ -11,6 +11,7 @@ import {
   commitWorkingLayer,
   compositeEditorFrame,
   deleteEditorLayer,
+  deleteEditorLayers,
   moveEditorLayer,
   mergeEditorLayerDown,
   mergeVisibleEditorLayers,
@@ -1480,6 +1481,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const [paletteImportStatus, setPaletteImportStatus] = useState(null)
   const [mergedCopyStatus, setMergedCopyStatus] = useState(null)
   const [layerMergeMenu, setLayerMergeMenu] = useState(false)
+  const [selectedLayerIds, setSelectedLayerIds] = useState([])
   const textInputRef   = useRef(null)
   const toolbarRef     = useRef(null)
   const layerMenuRef   = useRef(null)
@@ -1609,11 +1611,39 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     name,
   }), [])
 
-  const handleSelectLayer = useCallback((layerId) => {
+  useEffect(() => {
+    if (!sprite?.activeLayerId) return
+    setSelectedLayerIds(selected => {
+      const valid = selected.filter(id => sprite.layers.some(layer => layer.id === id))
+      return valid.includes(sprite.activeLayerId) ? valid : [...valid, sprite.activeLayerId]
+    })
+  }, [sprite?.layers, sprite?.activeLayerId])
+
+  const handleSelectLayer = useCallback((layerId, event = null) => {
     setSelection(null)
     setIsPasting(false)
+    if (event?.shiftKey) {
+      const current = spriteRef.current
+      const anchorIndex = current?.layers.findIndex(layer => layer.id === current.activeLayerId) ?? -1
+      const targetIndex = current?.layers.findIndex(layer => layer.id === layerId) ?? -1
+      if (anchorIndex >= 0 && targetIndex >= 0) {
+        const start = Math.min(anchorIndex, targetIndex)
+        const end = Math.max(anchorIndex, targetIndex)
+        setSelectedLayerIds(current.layers.slice(start, end + 1).map(layer => layer.id))
+      }
+    } else if (event?.ctrlKey || event?.metaKey) {
+      if (selectedLayerIds.includes(layerId) && selectedLayerIds.length > 1) {
+        const remaining = selectedLayerIds.filter(id => id !== layerId)
+        setSelectedLayerIds(remaining)
+        setSprite(prev => selectEditorLayer(prev, remaining[remaining.length - 1]))
+        return
+      }
+      setSelectedLayerIds(selected => selected.includes(layerId) ? selected : [...selected, layerId])
+    } else {
+      setSelectedLayerIds([layerId])
+    }
     setSprite(prev => selectEditorLayer(prev, layerId))
-  }, [])
+  }, [selectedLayerIds])
 
   const handleAddLayer = useCallback(() => {
     pushHistory()
@@ -1737,6 +1767,32 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     pushHistory()
     updateSprite(prev => deleteEditorLayer(prev, layerId))
   }, [pushHistory, updateSprite])
+
+  const updateSelectedLayerFlag = useCallback((key) => {
+    const current = spriteRef.current
+    const selected = current?.layers.filter(layer => selectedLayerIds.includes(layer.id)) ?? []
+    if (selected.length < 2) return
+    const value = !selected.every(layer => layer[key])
+    pushHistory()
+    setLayerMergeMenu(false)
+    updateSprite(prev => {
+      const committed = commitWorkingLayer(prev)
+      const ids = new Set(selectedLayerIds)
+      return { ...committed, layers: committed.layers.map(layer => ids.has(layer.id) ? { ...layer, [key]: value } : layer) }
+    })
+  }, [pushHistory, selectedLayerIds, updateSprite])
+
+  const handleDeleteSelectedLayers = useCallback(() => {
+    const current = spriteRef.current
+    const selected = current?.layers.filter(layer => selectedLayerIds.includes(layer.id)) ?? []
+    if (selected.length < 2 || selected.length >= current.layers.length) return
+    if (!window.confirm(`Delete ${selected.length} selected layers from every frame?`)) return
+    pushHistory()
+    setSelection(null)
+    setIsPasting(false)
+    setLayerMergeMenu(false)
+    updateSprite(prev => deleteEditorLayers(prev, selectedLayerIds))
+  }, [pushHistory, selectedLayerIds, updateSprite])
 
   const handleUndo = useCallback(() => {
     const prev = historyRef.current.pop()
@@ -2586,6 +2642,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const visibleLayers = sprite.layers.filter(layer => layer.visible)
   const canMergeVisibleLayers = visibleLayers.length > 1 && !visibleLayers.some(layer => layer.locked)
   const canFlattenLayers = sprite.layers.length > 1 && !sprite.layers.some(layer => layer.locked)
+  const selectedLayers = sprite.layers.filter(layer => selectedLayerIds.includes(layer.id))
+  const allSelectedVisible = selectedLayers.length > 0 && selectedLayers.every(layer => layer.visible)
+  const allSelectedLocked = selectedLayers.length > 0 && selectedLayers.every(layer => layer.locked)
+  const canDeleteSelectedLayers = selectedLayers.length > 1 && selectedLayers.length < sprite.layers.length
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = renderedFrames[currentFrame]?.pixels ?? []
   const currentInkUsage = Array(inkCount).fill(0)
@@ -3026,7 +3086,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         <div className="sprite-layer-timeline-scroll">
           <div className="sprite-layer-timeline-grid" style={{ gridTemplateColumns: `190px repeat(${frames.length}, 76px)` }}>
             <div className="sprite-layer-timeline-corner">
-              <span>LAYERS</span>
+              <span>{selectedLayers.length > 1 ? `${selectedLayers.length} SELECTED` : 'LAYERS'}</span>
               <div className="sprite-layer-timeline-layer-actions">
                 <button title="Add layer" aria-label="Add layer" onClick={handleAddLayer}>+</button>
                 <button title="Duplicate active layer" aria-label="Duplicate active layer" onClick={handleDuplicateLayer}>⧉</button>
@@ -3035,6 +3095,11 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
                   <button title="More layer actions" aria-label="More layer actions" onClick={() => setLayerMergeMenu(open => !open)}>⋯</button>
                   {layerMergeMenu && (
                     <div className="sprite-layer-merge-menu">
+                      <button onClick={() => { setSelectedLayerIds(sprite.layers.map(layer => layer.id)); setLayerMergeMenu(false) }}>Select All Layers</button>
+                      <button disabled={selectedLayers.length < 2} onClick={() => updateSelectedLayerFlag('visible')}>{allSelectedVisible ? 'Hide Selected' : 'Show Selected'}</button>
+                      <button disabled={selectedLayers.length < 2} onClick={() => updateSelectedLayerFlag('locked')}>{allSelectedLocked ? 'Unlock Selected' : 'Lock Selected'}</button>
+                      <button className="danger" disabled={!canDeleteSelectedLayers} onClick={handleDeleteSelectedLayers}>Delete Selected…</button>
+                      <div className="sprite-layer-menu-separator" />
                       <button onClick={handleCopyActiveLayer}>Copy Active Layer</button>
                       <button disabled={!sharedLayerClipboard} onClick={handlePasteLayer}>Paste Layer</button>
                       <div className="sprite-layer-menu-separator" />
@@ -3067,7 +3132,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
               const sourceIndex = sprite.layers.findIndex(item => item.id === layer.id)
               return (
                 <div key={layer.id} className="sprite-layer-timeline-row">
-                  <div className={`sprite-layer-timeline-layer${layer.id === sprite.activeLayerId ? ' active' : ''}`} onClick={() => handleSelectLayer(layer.id)}>
+                  <div className={`sprite-layer-timeline-layer${selectedLayerIds.includes(layer.id) ? ' selected' : ''}${layer.id === sprite.activeLayerId ? ' active' : ''}`} onClick={event => handleSelectLayer(layer.id, event)}>
                     <button title={layer.visible ? 'Hide layer' : 'Show layer'} onClick={event => { event.stopPropagation(); updateLayerFlag(layer.id, 'visible') }}>{layer.visible ? '◉' : '○'}</button>
                     <button title={layer.locked ? 'Unlock layer' : 'Lock layer'} onClick={event => { event.stopPropagation(); updateLayerFlag(layer.id, 'locked') }}>{layer.locked ? '▣' : '□'}</button>
                     <span title={`${layer.name} — double-click to rename`} onDoubleClick={event => { event.stopPropagation(); handleRenameLayer(layer.id) }}>{layer.name}</span>

@@ -15,6 +15,7 @@ import {
   addEditorLayer,
   addEditorLayerWithFrames,
   deleteEditorLayer,
+  deleteEditorLayers,
   moveEditorLayer,
   mergeEditorLayerDown,
   mergeVisibleEditorLayers,
@@ -162,6 +163,27 @@ describe('sprite layer model', () => {
     sprite = deleteEditorLayer(sprite, 'copy')
     expect(sprite.layers.map(layer => layer.id)).toEqual([BASE_LAYER_ID])
     expect(sprite.frames[0].pixels).toEqual([7])
+  })
+
+  it('deletes multiple selected layers while keeping a neighboring editable layer', () => {
+    let sprite = prepareSpriteForEditor({ width: 1, height: 1, frames: [{ pixels: [1] }] })
+    sprite = addEditorLayer(sprite, { id: 'middle', name: 'Middle' })
+    sprite.frames[0].pixels = [2]
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    sprite.frames[0].pixels = [3]
+    sprite = deleteEditorLayers(sprite, ['middle', 'top'])
+    expect(sprite.layers.map(layer => layer.id)).toEqual([BASE_LAYER_ID])
+    expect(sprite.activeLayerId).toBe(BASE_LAYER_ID)
+    expect(sprite.frames[0].pixels).toEqual([1])
+    expect(Object.keys(sprite.frames[0].cels)).toEqual([BASE_LAYER_ID])
+  })
+
+  it('refuses to delete every layer in a multi-selection', () => {
+    let sprite = prepareSpriteForEditor({ width: 1, height: 1, frames: [{ pixels: [1] }] })
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    const result = deleteEditorLayers(sprite, [BASE_LAYER_ID, 'top'])
+    expect(result.layers).toHaveLength(2)
+    expect(result.frames[0].cels[BASE_LAYER_ID].pixels).toEqual([1])
   })
 
   it('merges the active layer down across every frame and preserves transparency', () => {

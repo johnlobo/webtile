@@ -218,6 +218,26 @@ export function deleteEditorLayer(sprite, layerId) {
   return { ...committed, layers, frames, activeLayerId: nextLayer.id }
 }
 
+export function deleteEditorLayers(sprite, layerIds) {
+  if (!sprite || !Array.isArray(layerIds) || layerIds.length === 0) return sprite
+  const committed = commitWorkingLayer(sprite)
+  const removeIds = new Set(layerIds.filter(layerId => committed.layers.some(layer => layer.id === layerId)))
+  if (removeIds.size === 0 || removeIds.size >= committed.layers.length) return committed
+  const activeIndex = Math.max(0, committed.layers.findIndex(layer => layer.id === committed.activeLayerId))
+  const layers = committed.layers.filter(layer => !removeIds.has(layer.id))
+  const nextLayer = layers.reduce((nearest, layer) => {
+    const index = committed.layers.findIndex(item => item.id === layer.id)
+    const distance = Math.abs(index - activeIndex)
+    return !nearest || distance < nearest.distance ? { layer, distance } : nearest
+  }, null).layer
+  const frames = committed.frames.map(frame => {
+    const cels = Object.fromEntries(Object.entries(frame.cels ?? {}).filter(([layerId]) => !removeIds.has(layerId)))
+    const pixels = [...(cels[nextLayer.id]?.pixels ?? createTransparentPixels(sprite.width, sprite.height))]
+    return { ...frame, cels, pixels }
+  })
+  return { ...committed, layers, frames, activeLayerId: nextLayer.id }
+}
+
 export function moveEditorLayer(sprite, layerId, offset) {
   const committed = commitWorkingLayer(sprite)
   const index = committed.layers.findIndex(layer => layer.id === layerId)

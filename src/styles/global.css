@@ -518,10 +518,11 @@ body {
 .sprite-layer-timeline-layer-actions button:hover { color: var(--accent); border-color: var(--green-dim); background: var(--green-glow); }
 .sprite-layer-timeline-layer-actions button:disabled { opacity: .28; cursor: default; }
 .sprite-layer-merge-menu-wrap { position: relative; }
-.sprite-layer-merge-menu { position: absolute; top: 29px; right: 0; z-index: 20; width: 122px; padding: 4px; display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); box-shadow: var(--shadow-md); }
+.sprite-layer-merge-menu { position: absolute; top: 29px; left: 0; z-index: 20; width: 250px; padding: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; border: 1px solid var(--border); border-radius: 5px; background: var(--panel); box-shadow: var(--shadow-md); }
 .sprite-layer-merge-menu button { width: 100%; height: 27px; padding: 0 7px; border: 0; text-align: left; white-space: nowrap; font-size: 9px; }
 .sprite-layer-merge-menu button:hover:not(:disabled) { color: var(--accent); background: var(--green-glow); }
-.sprite-layer-menu-separator { height: 1px; margin: 2px 3px; background: var(--border); }
+.sprite-layer-merge-menu button.danger:hover:not(:disabled) { color: var(--red); background: rgba(234,6,6,.07); }
+.sprite-layer-menu-separator { grid-column: 1 / -1; height: 1px; margin: 2px 3px; background: var(--border); }
 .sprite-layer-timeline-frame { position: sticky; top: 0; z-index: 3; min-width: 0; padding: 3px; display: flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); color: var(--text-dim); cursor: grab; }
 .sprite-layer-timeline-frame:hover, .sprite-layer-timeline-frame.active { color: var(--accent); background: var(--green-glow); }
 .sprite-layer-timeline-frame.active { box-shadow: inset 0 -2px var(--accent); }
@@ -529,6 +530,7 @@ body {
 .sprite-layer-timeline-frame span { font: 600 9px 'Roboto Mono', monospace; }
 .sprite-layer-timeline-layer { position: sticky; left: 0; z-index: 2; min-width: 0; display: grid; grid-template-columns: 22px 22px minmax(0, 1fr) 20px 20px 20px; align-items: center; gap: 1px; padding: 3px 5px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--panel); color: var(--text-dim); cursor: pointer; }
 .sprite-layer-timeline-layer:hover, .sprite-layer-timeline-layer.active { color: var(--text); background: var(--bg2); }
+.sprite-layer-timeline-layer.selected { color: var(--text); background: var(--green-glow); }
 .sprite-layer-timeline-layer.active { box-shadow: inset 2px 0 var(--accent); }
 .sprite-layer-timeline-layer > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 3px; font-size: 11px; }
 .sprite-layer-timeline-layer button { width: 20px; height: 22px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: inherit; cursor: pointer; }
