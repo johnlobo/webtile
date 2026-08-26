@@ -5,6 +5,7 @@ import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
 import { combineSelections, invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
+import { clipboardImageFile, decodeImageBlob, positionClipboardOverCanvas, quantizeClipboardImage } from '../services/clipboardImage'
 import {
   TRANSPARENT_INK,
   addEditorLayer,
@@ -382,6 +383,11 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     return { x, y }
   }, [cellW, cellH, width, height])
 
+  const getPastePosition = useCallback((cell) => {
+    if (!cell || !clipboard) return cell
+    return positionClipboardOverCanvas(cell, clipboard.w, clipboard.h, width, height)
+  }, [clipboard, width, height])
+
   const paintCell = useCallback((e, cell) => {
     if (!cell) return
     const key = `${cell.x},${cell.y}`
@@ -408,7 +414,11 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     lastCell.current = null
     const cell = getCellFromEvent(e)
 
-    if (isPasting && cell) { onPasteCommit(cell.x, cell.y); return }
+    if (isPasting && cell) {
+      const position = getPastePosition(cell)
+      onPasteCommit(position.x, position.y)
+      return
+    }
 
     const canAltPick = activeTool === 'pencil' || activeTool === 'fill' || activeTool === 'eraser'
     if ((activeTool === 'picker' || (e.altKey && canAltPick)) && cell) {
@@ -481,13 +491,13 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         lineAnchor.current = cell
       }
     }
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onSelectColor, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled, layerLocked])
+  }, [getCellFromEvent, getPastePosition, paintCell, eraseCell, activeTool, activeInk, bgInk, isPasting, onPasteCommit, onSelectionChange, onSelectColor, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, selection, pixels, width, shapeFilled, layerLocked])
 
   const handleMouseMove = useCallback((e) => {
     setAltPressed(e.altKey)
     const cell = getCellFromEvent(e)
     onCursorPos?.(cell)
-    if (isPasting) { setPastePos(cell); return }
+    if (isPasting) { setPastePos(getPastePosition(cell)); return }
     if (moveAnchor.current && cell) {
       const dx = cell.x - moveAnchor.current.x
       const dy = cell.y - moveAnchor.current.y
@@ -509,7 +519,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
     if (erasing.current) { eraseCell(cell); return }
     if (!painting.current || activeTool === 'picker') return
     if (cell) paintCell(e, cell)
-  }, [getCellFromEvent, paintCell, eraseCell, activeTool, isPasting, onSelectionChange, onCursorPos])
+  }, [getCellFromEvent, getPastePosition, paintCell, eraseCell, activeTool, isPasting, onSelectionChange, onCursorPos])
 
   const handleMouseUp = useCallback(() => {
     selAnchor.current = null
@@ -598,7 +608,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   return (
     <div ref={scrollRef} className="sprite-canvas-scroll" onWheel={handleWheel}>
-      <div style={{ position: 'relative', display: 'inline-block' }}>
+      <div style={{ position: 'relative', display: 'inline-block', overflow: 'hidden' }}>
         <canvas
           ref={canvasRef}
           style={{ display: 'block', imageRendering: 'pixelated', cursor }}
@@ -632,7 +642,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
         {isPasting && pastePos && clipboard && (
           <PasteOverlay
             x={pastePos.x * cellW} y={pastePos.y * cellH}
-            clipboard={clipboard} palette={clipboard.palette ?? palette} cellW={cellW} cellH={cellH}
+            clipboard={clipboard} palette={clipboard.palette ?? palette} cellW={cellW} cellH={cellH} viewportWidth={width} viewportHeight={height}
           />
         )}
       </div>
@@ -667,29 +677,35 @@ function SelectionOverlay({ selection, cellW, cellH }) {
 
 // ── PasteOverlay ──────────────────────────────────────────────────────────────
 
-function PasteOverlay({ x, y, clipboard, palette, cellW, cellH }) {
+function PasteOverlay({ x, y, clipboard, palette, cellW, cellH, viewportWidth = null, viewportHeight = null }) {
   const canvasRef = useRef(null)
+  const sourceX = viewportWidth === null ? 0 : Math.max(0, Math.floor(-x / cellW))
+  const sourceY = viewportHeight === null ? 0 : Math.max(0, Math.floor(-y / cellH))
+  const sourceEndX = viewportWidth === null ? clipboard.w : Math.min(clipboard.w, Math.ceil((viewportWidth * cellW - x) / cellW))
+  const sourceEndY = viewportHeight === null ? clipboard.h : Math.min(clipboard.h, Math.ceil((viewportHeight * cellH - y) / cellH))
+  const visibleWidth = Math.max(0, sourceEndX - sourceX)
+  const visibleHeight = Math.max(0, sourceEndY - sourceY)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    canvas.width  = clipboard.w * cellW
-    canvas.height = clipboard.h * cellH
+    canvas.width  = visibleWidth * cellW
+    canvas.height = visibleHeight * cellH
     const ctx = canvas.getContext('2d')
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    for (let py = 0; py < clipboard.h; py++) {
-      for (let px = 0; px < clipboard.w; px++) {
+    for (let py = sourceY; py < sourceEndY; py++) {
+      for (let px = sourceX; px < sourceEndX; px++) {
         const ink = clipboard.pixels[py * clipboard.w + px]
         if (ink === TRANSPARENT_INK) continue
         ctx.fillStyle = CPC_COLORS[palette[ink] ?? 0]
-        ctx.fillRect(px * cellW, py * cellH, cellW, cellH)
+        ctx.fillRect((px - sourceX) * cellW, (py - sourceY) * cellH, cellW, cellH)
       }
     }
-  }, [clipboard, palette, cellW, cellH])
+  }, [clipboard, palette, cellW, cellH, sourceX, sourceY, sourceEndX, sourceEndY, visibleWidth, visibleHeight])
 
   return (
     <div style={{
-      position: 'absolute', left: x, top: y,
+      position: 'absolute', left: x + sourceX * cellW, top: y + sourceY * cellH,
       pointerEvents: 'none', zIndex: 10, opacity: 0.78,
       outline: '1px dashed var(--amber)',
     }}>
@@ -1528,6 +1544,30 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const layerEraseInk = (sprite?.layers?.length ?? 0) > 1 ? TRANSPARENT_INK : bgInk
 
   useEffect(() => { colorsRef.current = { activeInk, bgInk } }, [activeInk, bgInk])
+
+  useEffect(() => {
+    if (!activeEditor || !sprite) return
+    const handleSystemPaste = async event => {
+      const image = clipboardImageFile(event.clipboardData)
+      if (!image) return
+      event.preventDefault()
+      try {
+        const imageData = await decodeImageBlob(image)
+        setClipboard(quantizeClipboardImage(imageData, sprite.palette, CPC_COLORS))
+        setSelection(null)
+        setActiveTool('select')
+        setIsPasting(!activeLayerLocked)
+        setMergedCopyStatus(activeLayerLocked ? 'IMAGE READY · UNLOCK LAYER TO PASTE' : `IMAGE READY ${imageData.width}×${imageData.height}`)
+        window.setTimeout(() => setMergedCopyStatus(null), 2600)
+      } catch (error) {
+        console.error('Failed to read clipboard image:', error)
+        setMergedCopyStatus('CLIPBOARD IMAGE COULD NOT BE READ')
+        window.setTimeout(() => setMergedCopyStatus(null), 2600)
+      }
+    }
+    window.addEventListener('paste', handleSystemPaste)
+    return () => window.removeEventListener('paste', handleSystemPaste)
+  }, [activeEditor, sprite, activeLayerLocked, setClipboard])
 
   useEffect(() => {
     const closeMenu = (e) => {
@@ -2832,7 +2872,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
             <button onClick={() => transformClipboard('rotateRight')}>↷ Rotate R</button>
             <button onClick={() => setShowScaleClipboard(true)}>⤢ Scale…</button>
             <button onClick={() => setIsPasting(false)}>Cancel <kbd>Esc</kbd></button>
-            <span className="sprite-option-hint">Transform, then click the canvas to place</span>
+            <span className="sprite-option-hint">{clipboard.w > width || clipboard.h > height ? 'Move across the canvas to choose the crop, then click' : 'Transform, then click the canvas to place'}</span>
           </>
         ) : selection ? (
           <>

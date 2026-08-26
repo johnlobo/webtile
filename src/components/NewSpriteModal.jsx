@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { clipboardImageFile, imageBlobDimensions, readClipboardImage } from '../services/clipboardImage'
 
 const MODE_INFO = [
   { mode: 0, label: 'Mode 0', desc: '160×200 · 16 colors · 2:1 pixels', multiple: 2 },
@@ -18,8 +19,34 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
   const [height,    setHeight]    = useState(16)
   const [widthDraft, setWidthDraft] = useState(null)
   const [heightDraft, setHeightDraft] = useState(null)
+  const dimensionsEdited = useRef(false)
+  const videoModeRef = useRef(videoMode)
 
   const currentMultiple = MODE_INFO[videoMode].multiple
+
+  useEffect(() => {
+    let cancelled = false
+    const applyImageDimensions = async (blob) => {
+      if (!blob || dimensionsEdited.current) return
+      const image = await imageBlobDimensions(blob)
+      if (cancelled || dimensionsEdited.current) return
+      const multiple = MODE_INFO[videoModeRef.current].multiple
+      setWidth(Math.max(multiple, Math.ceil(image.width / multiple) * multiple))
+      setHeight(image.height)
+      setWidthDraft(null)
+      setHeightDraft(null)
+    }
+    readClipboardImage().then(applyImageDimensions).catch(() => {})
+    const handlePaste = event => {
+      const image = clipboardImageFile(event.clipboardData)
+      if (image) applyImageDimensions(image).catch(() => {})
+    }
+    window.addEventListener('paste', handlePaste)
+    return () => {
+      cancelled = true
+      window.removeEventListener('paste', handlePaste)
+    }
+  }, [])
 
   const commitWidth = (raw) => {
     setWidthDraft(null)
@@ -33,6 +60,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
   }
 
   const handleModeChange = (m) => {
+    videoModeRef.current = m
     setVideoMode(m)
     const mult = MODE_INFO[m].multiple
     setWidth(w => snapToMultiple(w, mult))
@@ -149,7 +177,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
                 min={currentMultiple}
                 step={currentMultiple}
                 value={widthDraft !== null ? widthDraft : String(width)}
-                onChange={e => setWidthDraft(e.target.value)}
+                onChange={e => { dimensionsEdited.current = true; setWidthDraft(e.target.value) }}
                 onBlur={e => commitWidth(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') commitWidth(e.target.value) }}
                 style={{ width: '100%' }}
@@ -162,7 +190,7 @@ export default function NewSpriteModal({ onConfirm, onCancel }) {
                 type="number"
                 min={1}
                 value={heightDraft !== null ? heightDraft : String(height)}
-                onChange={e => setHeightDraft(e.target.value)}
+                onChange={e => { dimensionsEdited.current = true; setHeightDraft(e.target.value) }}
                 onBlur={e => commitHeight(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') commitHeight(e.target.value) }}
                 style={{ width: '100%' }}
