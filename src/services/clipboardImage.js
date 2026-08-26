@@ -1,6 +1,7 @@
 export function clipboardImageFile(clipboardData) {
   const item = [...(clipboardData?.items ?? [])].find(entry => entry.kind === 'file' && entry.type.startsWith('image/'))
-  return item?.getAsFile?.() ?? null
+  if (item?.getAsFile) return item.getAsFile()
+  return [...(clipboardData?.files ?? [])].find(file => file.type.startsWith('image/')) ?? null
 }
 
 export async function decodeImageBlob(blob) {

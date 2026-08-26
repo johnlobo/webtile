@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { positionClipboardOverCanvas, quantizeClipboardImage } from './clipboardImage'
+import { clipboardImageFile, positionClipboardOverCanvas, quantizeClipboardImage } from './clipboardImage'
 
 describe('clipboard images', () => {
+  it('finds images in clipboard items or the files fallback', () => {
+    const image = { type: 'image/png' }
+    expect(clipboardImageFile({ items: [{ kind: 'file', type: 'image/png', getAsFile: () => image }] })).toBe(image)
+    expect(clipboardImageFile({ items: [], files: [image] })).toBe(image)
+  })
+
   it('maps opaque RGB pixels to the closest active palette ink and preserves transparency', () => {
     const imageData = {
       width: 3,

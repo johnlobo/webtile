@@ -5,7 +5,7 @@ import { encodeFrame } from '../services/cpcEncoding'
 import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
 import { combineSelections, invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
-import { clipboardImageFile, decodeImageBlob, positionClipboardOverCanvas, quantizeClipboardImage } from '../services/clipboardImage'
+import { clipboardImageFile, decodeImageBlob, positionClipboardOverCanvas, quantizeClipboardImage, readClipboardImage } from '../services/clipboardImage'
 import {
   TRANSPARENT_INK,
   addEditorLayer,
@@ -35,7 +35,7 @@ const CPC_COLORS = [
 const MODE_INK_COUNT      = [16, 4, 2]
 const CELL_W_BASE         = [16, 8, 4]   // screen pixels per CPC pixel per mode
 const CELL_H_BASE         = 8             // same for all modes
-const SPRITE_ZOOM_LEVELS  = [0.25, 0.5, 1, 2, 4, 8]
+const SPRITE_ZOOM_LEVELS  = [0.03125, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8]
 
 // ── CPC encoding ──────────────────────────────────────────────────────────────
 
@@ -228,7 +228,7 @@ function cellInSelection(x, y, sel) {
   return selectionContains(sel, x, y)
 }
 
-function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange,
+function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleWidth, activeTool, activeInk, bgInk, onPaint, onZoomChange, autoFit,
   showGrid, gridCellW, gridCellH, gridColor, gridOpacity, guidesX, guidesY, selection, onSelectionChange, onSelectColor, clipboard, isPasting, onPasteCommit, onFill, onStrokeStart, onPaintLine, onEraseSelection, onMoveStart, onMoveCommit, onCursorPos, textOverlay, onTextClick, onionLayers, shapeFilled, layerLocked }) {
   const canvasRef   = useRef(null)
   const scrollRef   = useRef(null)
@@ -251,6 +251,7 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
   const [shapePreview, setShapePreview] = useState(null)
   const [blink,     setBlink]     = useState(true)
   const [altPressed, setAltPressed] = useState(false)
+  const fittedSprite = useRef(null)
 
   useEffect(() => {
     const onKeyDown = (e) => { if (e.key === 'Alt') setAltPressed(true) }
@@ -287,6 +288,24 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const cellW = CELL_W_BASE[videoMode] * zoom * (doubleWidth ? 2 : 1)
   const cellH = CELL_H_BASE * zoom
+
+  useEffect(() => {
+    if (!autoFit) return
+    const fitKey = `${width}:${height}:${videoMode}:${doubleWidth}`
+    if (fittedSprite.current === fitKey) return
+    const frame = requestAnimationFrame(() => {
+      const scroller = scrollRef.current
+      if (!scroller?.clientWidth || !scroller?.clientHeight) return
+      const fit = Math.min(
+        (scroller.clientWidth - 32) / (width * CELL_W_BASE[videoMode] * (doubleWidth ? 2 : 1)),
+        (scroller.clientHeight - 32) / (height * CELL_H_BASE),
+      )
+      const nextZoom = [...SPRITE_ZOOM_LEVELS].reverse().find(level => level <= fit) ?? SPRITE_ZOOM_LEVELS[0]
+      fittedSprite.current = fitKey
+      onZoomChange(nextZoom)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [autoFit, width, height, videoMode, doubleWidth, onZoomChange])
 
   // Global mouse listeners so selection drag keeps working outside the canvas
   useEffect(() => {
@@ -1539,35 +1558,53 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const toolbarRef     = useRef(null)
   const layerMenuRef   = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
+  const systemPasteRef = useRef(null)
   const activeLayer = sprite?.layers?.find(layer => layer.id === sprite.activeLayerId) ?? sprite?.layers?.[0]
   const activeLayerLocked = Boolean(activeLayer?.locked)
   const layerEraseInk = (sprite?.layers?.length ?? 0) > 1 ? TRANSPARENT_INK : bgInk
 
   useEffect(() => { colorsRef.current = { activeInk, bgInk } }, [activeInk, bgInk])
 
+  const prepareSystemClipboardImage = useCallback(async image => {
+    if (!image || !sprite) return false
+    try {
+      const imageData = await decodeImageBlob(image)
+      setClipboard(quantizeClipboardImage(imageData, sprite.palette, CPC_COLORS))
+      setSelection(null)
+      setActiveTool('select')
+      setIsPasting(!activeLayerLocked)
+      setMergedCopyStatus(activeLayerLocked ? 'IMAGE READY · UNLOCK LAYER TO PASTE' : `IMAGE READY ${imageData.width}×${imageData.height}`)
+      window.setTimeout(() => setMergedCopyStatus(null), 2600)
+      return true
+    } catch (error) {
+      console.error('Failed to read clipboard image:', error)
+      setMergedCopyStatus('CLIPBOARD IMAGE COULD NOT BE READ')
+      window.setTimeout(() => setMergedCopyStatus(null), 2600)
+      return false
+    }
+  }, [sprite, activeLayerLocked, setClipboard])
+
+  useEffect(() => {
+    systemPasteRef.current = async () => {
+      try {
+        return prepareSystemClipboardImage(await readClipboardImage())
+      } catch (_) {
+        return false
+      }
+    }
+  }, [prepareSystemClipboardImage])
+
   useEffect(() => {
     if (!activeEditor || !sprite) return
-    const handleSystemPaste = async event => {
+    const handleSystemPaste = event => {
       const image = clipboardImageFile(event.clipboardData)
       if (!image) return
       event.preventDefault()
-      try {
-        const imageData = await decodeImageBlob(image)
-        setClipboard(quantizeClipboardImage(imageData, sprite.palette, CPC_COLORS))
-        setSelection(null)
-        setActiveTool('select')
-        setIsPasting(!activeLayerLocked)
-        setMergedCopyStatus(activeLayerLocked ? 'IMAGE READY · UNLOCK LAYER TO PASTE' : `IMAGE READY ${imageData.width}×${imageData.height}`)
-        window.setTimeout(() => setMergedCopyStatus(null), 2600)
-      } catch (error) {
-        console.error('Failed to read clipboard image:', error)
-        setMergedCopyStatus('CLIPBOARD IMAGE COULD NOT BE READ')
-        window.setTimeout(() => setMergedCopyStatus(null), 2600)
-      }
+      prepareSystemClipboardImage(image)
     }
     window.addEventListener('paste', handleSystemPaste)
     return () => window.removeEventListener('paste', handleSystemPaste)
-  }, [activeEditor, sprite, activeLayerLocked, setClipboard])
+  }, [activeEditor, sprite, prepareSystemClipboardImage])
 
   useEffect(() => {
     const closeMenu = (e) => {
@@ -1918,7 +1955,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       const key = e.key.toLowerCase()
       if ((e.ctrlKey || e.metaKey) && key === 'c') { e.preventDefault(); handleCopyRef.current?.(); return }
       if ((e.ctrlKey || e.metaKey) && key === 'x') { e.preventDefault(); handleCutRef.current?.(); return }
-      if ((e.ctrlKey || e.metaKey) && key === 'v') { e.preventDefault(); setIsPasting(true); setActiveTool('select'); return }
+      if ((e.ctrlKey || e.metaKey) && key === 'v') {
+        setIsPasting(true)
+        setActiveTool('select')
+        systemPasteRef.current?.()
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && key === 'a') {
         e.preventDefault()
         const current = spriteRef.current
@@ -2831,7 +2873,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         <div className="sprite-zoom-control">
           <button title="Zoom out" disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === 0} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i > 0) setZoom(SPRITE_ZOOM_LEVELS[i - 1]) }}>−</button>
           <select title="Zoom level" value={zoom} onChange={e => setZoom(Number(e.target.value))}>
-            {SPRITE_ZOOM_LEVELS.map(level => <option key={level} value={level}>{level * 100}%</option>)}
+            {SPRITE_ZOOM_LEVELS.map(level => <option key={level} value={level}>{Number((level * 100).toFixed(3))}%</option>)}
           </select>
           <button title="Zoom in" disabled={SPRITE_ZOOM_LEVELS.indexOf(zoom) === SPRITE_ZOOM_LEVELS.length - 1} onClick={() => { const i = SPRITE_ZOOM_LEVELS.indexOf(zoom); if (i < SPRITE_ZOOM_LEVELS.length - 1) setZoom(SPRITE_ZOOM_LEVELS[i + 1]) }}>+</button>
         </div>
@@ -2976,6 +3018,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
           bgInk={layerEraseInk}
           onPaint={handlePaint}
           onZoomChange={setZoom}
+          autoFit={activeEditor}
           gridCellW={gridCellW}
           gridCellH={gridCellH}
           showGrid={showGrid}
