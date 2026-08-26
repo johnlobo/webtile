@@ -2966,6 +2966,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
             <button disabled={activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
             <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
           </>
+        ) : activeTool === 'select' ? (
+          <>
+            <span className="sprite-option-context">RECTANGULAR SELECTION</span>
+            <button onClick={() => setSelection({ x: 0, y: 0, w: width, h: height })}>Select all <kbd>Ctrl+A</kbd></button>
+            <span className="sprite-option-hint">Drag to select · Shift adds to current</span>
+          </>
         ) : activeTool === 'wand' ? (
           <>
             <span className="sprite-option-context">COLOR SELECTION</span>
