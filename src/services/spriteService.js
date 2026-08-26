@@ -1,9 +1,14 @@
 import {
   collection, doc, setDoc, getDoc, getDocs,
   deleteDoc, serverTimestamp, query, orderBy,
+  Bytes,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { prepareSpriteForEditor, prepareSpriteForStorage } from './spriteLayerModel'
+import { decodeSpritePixelData, encodeSpritePixelData } from './spritePixelStorage'
+
+const encodeForFirestore = sprite => encodeSpritePixelData(sprite, bytes => Bytes.fromUint8Array(bytes))
+const decodeFromFirestore = sprite => decodeSpritePixelData(sprite, bytes => bytes.toUint8Array())
 
 // ── Default palettes per video mode ──────────────────────────────────────────
 
@@ -29,14 +34,14 @@ export async function createSprite(userId, projectId, { name, videoMode, width, 
   const palette  = DEFAULT_PALETTES[videoMode] ?? DEFAULT_PALETTES[0]
 
   const ref = doc(spritesCol(userId, projectId))
-  const stored = prepareSpriteForStorage({
+  const stored = encodeForFirestore(prepareSpriteForStorage({
     name,
     videoMode,
     width,
     height,
     palette: palette.slice(0, inkCount),
     frames: [{ pixels: Array(width * height).fill(0) }],
-  })
+  }))
   await setDoc(ref, {
     ...stored,
     createdAt: serverTimestamp(),
@@ -51,14 +56,14 @@ export async function createSprite(userId, projectId, { name, videoMode, width, 
 export async function loadSprite(userId, projectId, spriteId) {
   const snap = await getDoc(spriteDoc(userId, projectId, spriteId))
   if (!snap.exists()) return null
-  return prepareSpriteForEditor({ id: snap.id, ...snap.data() })
+  return prepareSpriteForEditor(decodeFromFirestore({ id: snap.id, ...snap.data() }))
 }
 
 /**
  * Save (overwrite) sprite data. Does NOT include id or timestamps.
  */
 export async function saveSprite(userId, projectId, spriteId, data) {
-  const stored = prepareSpriteForStorage(data)
+  const stored = encodeForFirestore(prepareSpriteForStorage(data))
   const { name, videoMode, width, height, palette, schemaVersion, layers, frames } = stored
   await setDoc(spriteDoc(userId, projectId, spriteId), {
     name,
@@ -95,14 +100,14 @@ export async function listSprites(userId, projectId) {
  */
 export async function createSpriteFromImport(userId, projectId, { name, videoMode, width, height, palette, pixels, frames }) {
   const ref = doc(spritesCol(userId, projectId))
-  const stored = prepareSpriteForStorage({
+  const stored = encodeForFirestore(prepareSpriteForStorage({
     name,
     videoMode,
     width,
     height,
     palette,
     frames: frames?.length ? frames : [{ pixels }],
-  })
+  }))
   await setDoc(ref, {
     ...stored,
     createdAt: serverTimestamp(),

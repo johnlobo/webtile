@@ -816,10 +816,10 @@ export default function HomePage() {
   // ── Sprite handlers ────────────────────────────────────────────────────────
 
   const handleNewSprite = async ({ name, videoMode, width, height }) => {
-    setShowNewSpriteModal(false)
     setSaveStatus('saving')
     try {
       const sid = await createSprite(user.uid, projectId, { name, videoMode, width, height })
+      setShowNewSpriteModal(false)
       setSprites(prev => [...prev, { id: sid, name, videoMode, width, height }])
       setOpenSpriteIds(prev => [...prev, sid])
       setSelectedSpriteId(sid)
@@ -828,6 +828,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Failed to create sprite:', err)
       setSaveStatus('error')
+      await showAlert(`The sprite could not be created. ${err.message ?? ''}`, 'Sprite creation failed')
       setTimeout(() => setSaveStatus(null), 4000)
     }
   }
