@@ -20,10 +20,24 @@ import {
   mergeEditorLayerDown,
   mergeVisibleEditorLayers,
   flattenEditorLayers,
+  cropEditorSprite,
+  getEditorCropBounds,
   selectEditorLayer,
 } from './spriteLayerModel'
 
 describe('sprite layer model', () => {
+  it('crops every frame and layer while retaining CPC width alignment', () => {
+    let sprite = prepareSpriteForEditor({ videoMode: 1, width: 8, height: 3, frames: [{ pixels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8] }] })
+    sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })
+    sprite.frames[0].pixels = Array.from({ length: 24 }, (_, index) => index + 20)
+    expect(getEditorCropBounds(sprite, { x: 2, y: 1, w: 3, h: 2 })).toEqual({ x: 2, y: 1, w: 4, h: 2 })
+    sprite = cropEditorSprite(sprite, { x: 2, y: 1, w: 3, h: 2 })
+    expect({ width: sprite.width, height: sprite.height }).toEqual({ width: 4, height: 2 })
+    expect(sprite.frames[0].cels[BASE_LAYER_ID].pixels).toEqual([10, 11, 12, 13, 3, 4, 5, 6])
+    expect(sprite.frames[0].cels.top.pixels).toEqual([30, 31, 32, 33, 38, 39, 40, 41])
+    expect(sprite.frames[0].pixels).toEqual(sprite.frames[0].cels.top.pixels)
+  })
+
   it('migrates legacy frames without mutating them or treating INK 0 as transparent', () => {
     const legacy = { width: 2, height: 1, frames: [{ pixels: [0, 3] }] }
     const migrated = migrateLegacySprite(legacy)

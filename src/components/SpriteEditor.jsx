@@ -18,6 +18,8 @@ import {
   mergeEditorLayerDown,
   mergeVisibleEditorLayers,
   flattenEditorLayers,
+  cropEditorSprite,
+  getEditorCropBounds,
   getEditorLayerFrame,
   selectEditorLayer,
 } from '../services/spriteLayerModel'
@@ -1426,6 +1428,24 @@ function ToolBtn({ label, name, title, active, onClick, disabled }) {
   )
 }
 
+function SelectionActionMenu({ label, actions }) {
+  return (
+    <select
+      className="sprite-selection-action-menu"
+      aria-label={`${label} selection actions`}
+      value=""
+      onChange={event => {
+        const action = actions.find(item => item.id === event.target.value)
+        action?.run?.()
+        event.target.value = ''
+      }}
+    >
+      <option value="">{label} ▾</option>
+      {actions.map(action => <option key={action.id} value={action.id} disabled={action.disabled}>{action.label}</option>)}
+    </select>
+  )
+}
+
 function FillBucketIcon() {
   return (
     <svg className="sprite-fill-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -1917,9 +1937,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     if (redoRef.current.length > 50) redoRef.current.shift()
     setSprite(prev)
     scheduleAutoSave(prev)
+    onMetadataChange?.({ name: prev.name, width: prev.width, height: prev.height })
     setCanUndo(historyRef.current.length > 0)
     setCanRedo(true)
-  }, [scheduleAutoSave])
+  }, [scheduleAutoSave, onMetadataChange])
 
   const handleRedo = useCallback(() => {
     const next = redoRef.current.pop()
@@ -1928,9 +1949,10 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     if (historyRef.current.length > 50) historyRef.current.shift()
     setSprite(next)
     scheduleAutoSave(next)
+    onMetadataChange?.({ name: next.name, width: next.width, height: next.height })
     setCanUndo(true)
     setCanRedo(redoRef.current.length > 0)
-  }, [scheduleAutoSave])
+  }, [scheduleAutoSave, onMetadataChange])
 
   const handleUndoRef = useRef(null)
   const handleRedoRef = useRef(null)
@@ -2164,6 +2186,18 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     if (!sprite) return
     setSelection(invertSelection(selection, sprite.width, sprite.height))
   }, [selection, sprite])
+
+  const handleCropSelection = useCallback(() => {
+    const current = spriteRef.current
+    const bounds = getEditorCropBounds(current, selection)
+    if (!current || !bounds || (bounds.w === current.width && bounds.h === current.height && bounds.x === 0 && bounds.y === 0)) return
+    if (!window.confirm(`Crop every layer and frame to ${bounds.w}×${bounds.h}? Pixels outside the selection bounds will be discarded.`)) return
+    pushHistory()
+    setSelection(null)
+    setIsPasting(false)
+    updateSprite(prev => cropEditorSprite(prev, selection))
+    onMetadataChange?.({ width: bounds.w, height: bounds.h })
+  }, [selection, onMetadataChange, pushHistory, updateSprite])
 
   const scaleSelection = useCallback((newW, newH) => {
     if (!selection || !sprite || activeLayerLocked) return
@@ -2805,6 +2839,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const allSelectedVisible = selectedLayers.length > 0 && selectedLayers.every(layer => layer.visible)
   const allSelectedLocked = selectedLayers.length > 0 && selectedLayers.every(layer => layer.locked)
   const canDeleteSelectedLayers = selectedLayers.length > 1 && selectedLayers.length < sprite.layers.length
+  const cropBounds = getEditorCropBounds(sprite, selection)
+  const canCropSelection = Boolean(cropBounds && (cropBounds.x !== 0 || cropBounds.y !== 0 || cropBounds.w !== sprite.width || cropBounds.h !== sprite.height))
   const inkCount    = MODE_INK_COUNT[videoMode]
   const currentPixels = renderedFrames[currentFrame]?.pixels ?? []
   const currentInkUsage = Array(inkCount).fill(0)
@@ -2951,20 +2987,28 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
                 Fill shape
               </label>
             )}
-            <button onClick={handleCopy}>Copy <kbd>Ctrl+C</kbd></button>
-            <button disabled={activeLayerLocked} onClick={handleCut}>Cut <kbd>Ctrl+X</kbd></button>
-            {clipboard && <button disabled={activeLayerLocked} onClick={() => { setIsPasting(true); setActiveTool('select') }}>Paste <kbd>Ctrl+V</kbd></button>}
-            <button disabled={activeLayerLocked} onClick={handleEraseSelection}>Delete <kbd>Del</kbd></button>
-            <button onClick={() => growSelection(1)}>Expand</button>
-            <button onClick={() => growSelection(-1)}>Contract</button>
-            <button onClick={handleInvertSelection}>Invert</button>
-            <button onClick={() => setSelection({ x: 0, y: 0, w: width, h: height })}>Select all <kbd>Ctrl+A</kbd></button>
-            <span className="sprite-option-divider" />
-            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={flipH}>↔ Flip H</button>
-            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={flipV}>↕ Flip V</button>
-            <button disabled={activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(false)}>↶ Rotate L</button>
-            <button disabled={activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height} onClick={() => rotateSelection(true)}>↷ Rotate R</button>
-            <button disabled={activeLayerLocked || Boolean(selection.mask)} onClick={() => setShowScaleSelection(true)}>⤢ Scale…</button>
+            <SelectionActionMenu label="Edit" actions={[
+              { id: 'copy', label: 'Copy · Ctrl+C', run: handleCopy },
+              { id: 'cut', label: 'Cut · Ctrl+X', run: handleCut, disabled: activeLayerLocked },
+              { id: 'paste', label: 'Paste · Ctrl+V', run: () => { setIsPasting(true); setActiveTool('select') }, disabled: activeLayerLocked || !clipboard },
+              { id: 'delete', label: 'Delete · Del', run: handleEraseSelection, disabled: activeLayerLocked },
+            ]} />
+            <SelectionActionMenu label="Select" actions={[
+              { id: 'all', label: 'Select all · Ctrl+A', run: () => setSelection({ x: 0, y: 0, w: width, h: height }) },
+              { id: 'expand', label: 'Expand', run: () => growSelection(1) },
+              { id: 'contract', label: 'Contract', run: () => growSelection(-1) },
+              { id: 'invert', label: 'Invert', run: handleInvertSelection },
+            ]} />
+            <SelectionActionMenu label="Flip" actions={[
+              { id: 'horizontal', label: 'Flip horizontal', run: flipH, disabled: activeLayerLocked || Boolean(selection.mask) },
+              { id: 'vertical', label: 'Flip vertical', run: flipV, disabled: activeLayerLocked || Boolean(selection.mask) },
+            ]} />
+            <SelectionActionMenu label="Transform" actions={[
+              { id: 'rotate-left', label: 'Rotate left', run: () => rotateSelection(false), disabled: activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height },
+              { id: 'rotate-right', label: 'Rotate right', run: () => rotateSelection(true), disabled: activeLayerLocked || Boolean(selection.mask) || selection.x + selection.h > width || selection.y + selection.w > height },
+              { id: 'scale', label: 'Scale…', run: () => setShowScaleSelection(true), disabled: activeLayerLocked || Boolean(selection.mask) },
+              { id: 'crop', label: `Crop to ${cropBounds?.w ?? selection.w}×${cropBounds?.h ?? selection.h}…`, run: handleCropSelection, disabled: !canCropSelection },
+            ]} />
           </>
         ) : activeTool === 'select' ? (
           <>

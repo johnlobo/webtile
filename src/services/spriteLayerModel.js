@@ -310,3 +310,37 @@ export function flattenEditorLayers(sprite) {
   })
   return { ...committed, layers: [layer], frames, activeLayerId: layer.id }
 }
+
+export function getEditorCropBounds(sprite, selection) {
+  if (!sprite || !selection) return null
+  const multiple = sprite.videoMode === 0 ? 2 : sprite.videoMode === 1 ? 4 : 8
+  const left = Math.max(0, Math.min(sprite.width - 1, Math.floor(selection.x)))
+  const top = Math.max(0, Math.min(sprite.height - 1, Math.floor(selection.y)))
+  const right = Math.max(left + 1, Math.min(sprite.width, Math.ceil(selection.x + selection.w)))
+  const bottom = Math.max(top + 1, Math.min(sprite.height, Math.ceil(selection.y + selection.h)))
+  const width = Math.min(sprite.width, Math.ceil((right - left) / multiple) * multiple)
+  const x = Math.max(0, Math.min(left, sprite.width - width))
+  return { x, y: top, w: width, h: bottom - top }
+}
+
+export function cropEditorSprite(sprite, selection) {
+  const bounds = getEditorCropBounds(sprite, selection)
+  if (!bounds) return sprite
+  const committed = commitWorkingLayer(sprite)
+  const cropPixels = pixels => {
+    const cropped = []
+    for (let y = 0; y < bounds.h; y++) {
+      const start = (bounds.y + y) * sprite.width + bounds.x
+      cropped.push(...pixels.slice(start, start + bounds.w))
+    }
+    return cropped
+  }
+  const frames = committed.frames.map(frame => {
+    const cels = Object.fromEntries(Object.entries(frame.cels ?? {}).map(([layerId, cel]) => [layerId, {
+      ...cel,
+      pixels: cropPixels(cel.pixels ?? createTransparentPixels(sprite.width, sprite.height)),
+    }]))
+    return { ...frame, cels, pixels: [...cels[committed.activeLayerId].pixels] }
+  })
+  return { ...committed, width: bounds.w, height: bounds.h, frames }
+}
