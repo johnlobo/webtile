@@ -1581,6 +1581,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   const layerMenuRef   = useRef(null)
   const colorsRef      = useRef({ activeInk, bgInk })
   const systemPasteRef = useRef(null)
+  const preferInternalPasteRef = useRef(false)
   const activeLayer = sprite?.layers?.find(layer => layer.id === sprite.activeLayerId) ?? sprite?.layers?.[0]
   const activeLayerLocked = Boolean(activeLayer?.locked)
   const layerEraseInk = (sprite?.layers?.length ?? 0) > 1 ? TRANSPARENT_INK : bgInk
@@ -1591,7 +1592,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
     if (!image || !sprite) return false
     try {
       const imageData = await decodeImageBlob(image)
-      setClipboard(quantizeClipboardImage(imageData, sprite.palette, CPC_COLORS))
+      setClipboard({ ...quantizeClipboardImage(imageData, sprite.palette, CPC_COLORS), source: 'system' })
       setSelection(null)
       setActiveTool('select')
       setIsPasting(!activeLayerLocked)
@@ -1608,13 +1609,24 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
   useEffect(() => {
     systemPasteRef.current = async () => {
+      if (clipboard?.source === 'internal' && preferInternalPasteRef.current) return false
       try {
         return prepareSystemClipboardImage(await readClipboardImage())
       } catch (_) {
         return false
       }
     }
-  }, [prepareSystemClipboardImage])
+  }, [clipboard?.source, prepareSystemClipboardImage])
+
+  useEffect(() => {
+    if (clipboard?.source === 'internal') preferInternalPasteRef.current = true
+  }, [clipboard])
+
+  useEffect(() => {
+    const releaseInternalPreference = () => { preferInternalPasteRef.current = false }
+    window.addEventListener('blur', releaseInternalPreference)
+    return () => window.removeEventListener('blur', releaseInternalPreference)
+  }, [])
 
   useEffect(() => {
     if (!activeEditor || !sprite) return
@@ -1622,11 +1634,12 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       const image = clipboardImageFile(event.clipboardData)
       if (!image) return
       event.preventDefault()
+      if (clipboard?.source === 'internal' && preferInternalPasteRef.current) return
       prepareSystemClipboardImage(image)
     }
     window.addEventListener('paste', handleSystemPaste)
     return () => window.removeEventListener('paste', handleSystemPaste)
-  }, [activeEditor, sprite, prepareSystemClipboardImage])
+  }, [activeEditor, sprite, clipboard?.source, prepareSystemClipboardImage])
 
   useEffect(() => {
     const closeMenu = (e) => {
@@ -2343,7 +2356,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         copied.push(cellInSelection(x + px, y + py, selection) ? (srcPixels[(y + py) * sprite.width + (x + px)] ?? 0) : TRANSPARENT_INK)
       }
     }
-    setClipboard({ w, h, pixels: copied, palette: [...sprite.palette] })
+    setClipboard({ w, h, pixels: copied, palette: [...sprite.palette], source: 'internal' })
   }, [selection, sprite, currentFrame, setClipboard])
 
   useEffect(() => { handleCopyRef.current = handleCopy }, [handleCopy])
@@ -2431,7 +2444,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
           : TRANSPARENT_INK)
       }
     }
-    setClipboard({ w: bounds.w, h: bounds.h, pixels, palette: [...sprite.palette] })
+    setClipboard({ w: bounds.w, h: bounds.h, pixels, palette: [...sprite.palette], source: 'internal' })
     setIsPasting(false)
 
     let copiedToSystem = false
