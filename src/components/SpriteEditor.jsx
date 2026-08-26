@@ -428,6 +428,8 @@ function SpriteCanvas({ pixels, width, height, videoMode, palette, zoom, doubleW
 
   const handleMouseDown = useCallback((e) => {
     e.preventDefault()
+    const focused = document.activeElement
+    if (focused instanceof HTMLElement && (focused.matches('input, textarea, select') || focused.isContentEditable)) focused.blur()
     if (layerLocked && (isPasting || !['picker', 'select', 'wand'].includes(activeTool))) return
     setAltPressed(e.altKey)
     lastCell.current = null
@@ -1940,6 +1942,8 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
   useEffect(() => {
     if (textMode && textInputRef.current) {
       textInputRef.current.focus()
+    } else if (document.activeElement === textInputRef.current) {
+      textInputRef.current.blur()
     }
   }, [textMode])
 
