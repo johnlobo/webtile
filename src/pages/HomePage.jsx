@@ -646,6 +646,7 @@ export default function HomePage() {
   const [selectedTile, setSelectedTile] = useState(null)
   const [activeTool,   setActiveTool]   = useState('stamp')
   const [zoom,         setZoom]         = useState(1)
+  const [showTileIds, setShowTileIds] = useState(() => localStorage.getItem('webtile.showTileIds') === 'true')
   const [saveStatus,   setSaveStatus]   = useState(null)
   const [canUndo,      setCanUndo]      = useState(false)
   const [connections,  setConnections]  = useState({})
@@ -698,6 +699,7 @@ export default function HomePage() {
 
   useEffect(() => { localStorage.setItem('webtile.explorerWidth', String(explorerWidth)) }, [explorerWidth])
   useEffect(() => { localStorage.setItem('webtile.inspectorWidth', String(inspectorWidth)) }, [inspectorWidth])
+  useEffect(() => { localStorage.setItem('webtile.showTileIds', String(showTileIds)) }, [showTileIds])
 
   const startPanelResize = useCallback((event, side) => {
     event.preventDefault()
@@ -969,6 +971,7 @@ export default function HomePage() {
       if (e.key === 'v' || e.key === 'V') setActiveTool('select')
       if (e.key === 'x' || e.key === 'X') setActiveTool('entity')
       if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
+      if (e.key === 'n' || e.key === 'N') setShowTileIds(value => !value)
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleUndo() }
@@ -1814,6 +1817,8 @@ export default function HomePage() {
               canRedo={canRedo} onRedo={handleRedo}
               doubleWidth={mapConfig.doubleWidth}
               onToggleDoubleWidth={() => setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)}
+              showTileIds={showTileIds}
+              onToggleTileIds={() => setShowTileIds(value => !value)}
               selectedEntityType={selectedEntityType}
               onSelectEntityType={setSelectedEntityType}
             />
@@ -1846,6 +1851,7 @@ export default function HomePage() {
                     {...mapConfig}
                     activeTool={activeTool}
                     zoom={zoom} onZoomChange={setZoom}
+                    showTileIds={showTileIds}
                     tileset={tileset} selectedTile={selectedTile}
                     mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
                     connections={connections}

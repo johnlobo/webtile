@@ -44,6 +44,7 @@ import { ENTITY_TYPES } from '../services/entityTypes'
 export default function TilemapGrid({
   tileW, tileH, mapW, mapH, doubleWidth,
   activeTool, zoom, onZoomChange,
+  showTileIds = false,
   tileset, selectedTile,
   mapTiles, onPaintCell, onFillCells,
   connections, entryPositions,
@@ -450,11 +451,13 @@ export default function TilemapGrid({
             {Array.from({ length: mapW * mapH }).map((_, i) => {
               const col = i % mapW
               const row = Math.floor(i / mapW)
+              const paintedTile = mapTiles?.[row]?.[col]
+              const labelFontSize = Math.max(7, Math.min(12, Math.floor(Math.min(displayW, displayH) * 0.38)))
 
               return (
                 <div
                   key={i}
-                  title={`${col},${row}`}
+                  title={paintedTile ? `${col},${row} · tile ${paintedTile.idx}` : `${col},${row} · empty`}
                   style={{
                     width: displayW, height: displayH,
                     ...getCellStyle(col, row),
@@ -462,6 +465,8 @@ export default function TilemapGrid({
                     borderRight:  '1px solid var(--border)',
                     borderBottom: '1px solid var(--border)',
                     transition: 'none',
+                    position: 'relative',
+                    overflow: 'hidden',
                   }}
                   onMouseEnter={() => {
                     setHoveredCell({ col, row })
@@ -479,7 +484,20 @@ export default function TilemapGrid({
                       onEntryClick(col, row)
                     }
                   }}
-                />
+                >
+                  {showTileIds && paintedTile && (
+                    <span style={{
+                      position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
+                      minWidth: `${Math.min(displayW, displayH, 22)}px`, maxWidth: '92%',
+                      padding: displayW >= 18 && displayH >= 18 ? '1px 3px' : 0,
+                      borderRadius: '3px', background: 'rgba(0,0,0,0.62)',
+                      color: '#fff', textAlign: 'center', lineHeight: 1.15,
+                      fontFamily: "'Roboto Mono', monospace", fontSize: `${labelFontSize}px`, fontWeight: 800,
+                      textShadow: '0 1px 1px #000', whiteSpace: 'nowrap', overflow: 'hidden',
+                      pointerEvents: 'none', zIndex: 4,
+                    }}>{paintedTile.idx}</span>
+                  )}
+                </div>
               )
             })}
           </div>

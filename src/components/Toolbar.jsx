@@ -117,6 +117,16 @@ const IconRedo = () => (
   </svg>
 )
 
+const IconTileIds = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <rect x="1" y="1" width="8" height="8" opacity="0.28"/>
+    <rect x="11" y="1" width="8" height="8" opacity="0.28"/>
+    <rect x="1" y="11" width="8" height="8" opacity="0.28"/>
+    <rect x="11" y="11" width="8" height="8" opacity="0.28"/>
+    <path d="M4 3h3v1H6v3H5V4H4zm9 0h3v4h-3V6h2V4h-2zM3 13h4v1H5v1h2v2H3v-1h3v-1H4v-1H3zm10 0h3v4h-3v-1h2v-1h-2z"/>
+  </svg>
+)
+
 const IconConnection = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
     {/* Map A */}
@@ -232,7 +242,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showTileIds, onToggleTileIds, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -400,6 +410,14 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         </svg>
         <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>2×W</span>
       </button>
+
+      <Divider />
+
+      <ToolBtn
+        id="tile-ids" label="IDS" shortcut="N" Icon={IconTileIds}
+        active={showTileIds}
+        onClick={onToggleTileIds}
+      />
 
       <Divider />
 
