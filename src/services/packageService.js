@@ -40,6 +40,7 @@ async function hydrateTileset(data, tileW, tileH) {
     tileW: data.tileW ?? tileW,
     tileH: data.tileH ?? tileH,
     palette: data.palette ?? null,
+    tileCount: data.tileCount ?? Math.floor(data.naturalW / (data.tileW ?? tileW)) * Math.floor(data.naturalH / (data.tileH ?? tileH)),
   }
 }
 
@@ -111,6 +112,7 @@ export async function exportProjectPackage(userId, projectId) {
         palette: map.tileset.palette ?? null,
         tileW: map.tileset.tileW ?? map.config.tileW,
         tileH: map.tileset.tileH ?? map.config.tileH,
+        tileCount: map.tileset.tileCount ?? map.tileset.cols * map.tileset.rows,
       } : null,
     }
   }))

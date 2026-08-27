@@ -104,7 +104,7 @@ export default function ImportMapImageModal({ file, pageLabel, existingTileset, 
     setBusy(true)
     try {
       const canvas = buildCombinedTilesetCanvas({ existingCanvas: existingTileset?.canvas, analysis, tileW, tileH })
-      await onConfirm({ name: name.trim() || 'Imported map', tileW, tileH, mapW, mapH, palette, mapTiles: analysis.mapTiles, tileset: { url: canvas.toDataURL('image/png'), canvas, cols: analysis.cols, rows: analysis.rows, naturalW: canvas.width, naturalH: canvas.height, palette } })
+      await onConfirm({ name: name.trim() || 'Imported map', tileW, tileH, mapW, mapH, palette, mapTiles: analysis.mapTiles, tileset: { url: canvas.toDataURL('image/png'), canvas, cols: analysis.cols, rows: analysis.rows, tileCount: analysis.totalCount, naturalW: canvas.width, naturalH: canvas.height, palette } })
     } catch (cause) { setError(cause.message || 'Import failed.'); setBusy(false) }
   }
 

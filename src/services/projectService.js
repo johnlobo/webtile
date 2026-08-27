@@ -212,7 +212,7 @@ export async function loadMap(userId, projectId, mapId) {
       canvas.height = ts.naturalH
       canvas.getContext('2d').drawImage(img, 0, 0)
       const palette = Array.isArray(ts.palette) ? ts.palette : inferCpcPalette(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), 16)
-      tileset = { url: ts.data, img, canvas, cols, rows, naturalW: ts.naturalW, naturalH: ts.naturalH, tileW: ts.tileW ?? d.tileW, tileH: ts.tileH ?? d.tileH, palette }
+      tileset = { url: ts.data, img, canvas, cols, rows, tileCount: ts.tileCount ?? cols * rows, naturalW: ts.naturalW, naturalH: ts.naturalH, tileW: ts.tileW ?? d.tileW, tileH: ts.tileH ?? d.tileH, palette }
     }
   }
   if (!tileset) {
@@ -227,7 +227,7 @@ export async function loadMap(userId, projectId, mapId) {
       canvas.height = ts.naturalH
       canvas.getContext('2d').drawImage(img, 0, 0)
       const palette = Array.isArray(ts.palette) ? ts.palette : inferCpcPalette(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), 16)
-      tileset = { url: ts.data, img, canvas, cols, rows, naturalW: ts.naturalW, naturalH: ts.naturalH, tileW: ts.tileW ?? d.tileW, tileH: ts.tileH ?? d.tileH, palette }
+      tileset = { url: ts.data, img, canvas, cols, rows, tileCount: ts.tileCount ?? cols * rows, naturalW: ts.naturalW, naturalH: ts.naturalH, tileW: ts.tileW ?? d.tileW, tileH: ts.tileH ?? d.tileH, palette }
     }
   }
 

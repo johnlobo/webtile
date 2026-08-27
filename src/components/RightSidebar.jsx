@@ -99,7 +99,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
       canvas.width  = img.naturalWidth
       canvas.height = img.naturalHeight
       canvas.getContext('2d').drawImage(img, 0, 0)
-      onLoadTileset({ url, img, canvas, cols, rows, naturalW: img.naturalWidth, naturalH: img.naturalHeight })
+      onLoadTileset({ url, img, canvas, cols, rows, tileCount: cols * rows, naturalW: img.naturalWidth, naturalH: img.naturalHeight })
     }
     img.src = url
     // Reset input so same file can be reloaded
@@ -208,7 +208,8 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, onLoadTileset, on
             fontFamily: "'Roboto', sans-serif", fontSize: '13px',
             color: 'var(--text-dim)', letterSpacing: '1px', marginBottom: '8px',
           }}>
-            {tileset.cols}×{tileset.rows} tiles · {tileset.naturalW}×{tileset.naturalH}px
+            <span style={{ color: 'var(--green)', fontWeight: 700 }}>{tileset.tileCount ?? tileset.cols * tileset.rows} tiles</span>
+            {' · '}{tileset.cols}×{tileset.rows} grid · {tileset.naturalW}×{tileset.naturalH}px
             {selectedTile && (
               <span style={{ color: 'var(--green)', marginLeft: '8px' }}>
                 [{selectedTile.col},{selectedTile.row}]

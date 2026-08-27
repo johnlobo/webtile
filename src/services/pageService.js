@@ -88,6 +88,7 @@ export async function savePageTileset(userId, projectId, pageId, tileset) {
     palette: Array.isArray(tileset.palette) ? tileset.palette : null,
     tileW: tileset.tileW ?? null,
     tileH: tileset.tileH ?? null,
+    tileCount: tileset.tileCount ?? (((tileset.cols ?? 0) * (tileset.rows ?? 0)) || null),
   })
 }
 
@@ -112,6 +113,7 @@ export async function loadPageTileset(userId, projectId, pageId, tileW, tileH) {
       rows: storedTileH ? Math.floor(ts.naturalH / storedTileH) : undefined,
       naturalW: ts.naturalW, naturalH: ts.naturalH,
       tileW: storedTileW, tileH: storedTileH, palette,
+      tileCount: ts.tileCount ?? ((storedTileW && storedTileH) ? Math.floor(ts.naturalW / storedTileW) * Math.floor(ts.naturalH / storedTileH) : null),
     }
   } catch (_) {
     return null
