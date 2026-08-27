@@ -492,6 +492,16 @@ body {
 .map-import-actions button.primary { background: var(--accent); color: white; border-color: var(--accent); }
 .map-import-actions button:disabled { opacity: .45; cursor: default; }
 @media (max-width: 720px) { .map-import-layout { grid-template-columns: 1fr; } .map-import-preview { min-height: 180px; } }
+.tileset-rescan-modal { position: relative; width: min(560px, 100%); padding: 28px; }
+.tileset-rescan-modal > p { color: var(--text-dim); font-size: 13px; line-height: 1.6; margin: 0 0 18px; }
+.tileset-rescan-modal > p strong { color: var(--text); }
+.tileset-rescan-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tileset-rescan-stats div { border: 1px solid var(--border); border-radius: 6px; padding: 10px; display: flex; flex-direction: column; gap: 5px; }
+.tileset-rescan-stats span { color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+.tileset-rescan-stats b { color: var(--text); font-size: 20px; }
+.tileset-rescan-stats .result { border-color: var(--green-dim); background: var(--green-glow); }
+.tileset-rescan-stats .result b { color: var(--green); }
+.tileset-rescan-note { margin-top: 14px; padding: 10px; background: var(--bg2); color: var(--text-dim); font-size: 11px; line-height: 1.5; }
 .sprite-layers-panel { min-width: 0; }
 .sprite-layers-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; color: var(--text-dim); font: 6px 'Press Start 2P', monospace; letter-spacing: 1px; }
 .sprite-layers-header > div { display: flex; gap: 3px; }

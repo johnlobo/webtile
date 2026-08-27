@@ -1,8 +1,9 @@
 import {
-  collection, doc, setDoc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove, deleteDoc,
+  collection, doc, setDoc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove, deleteDoc, writeBatch, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { inferCpcPalette } from './mapImageImport'
+import { encodeTiles } from './tileCodec'
 
 const projectsCol = (uid) => collection(db, 'users', uid, 'projects')
 const projectDoc  = (uid, pid) => doc(projectsCol(uid), pid)
@@ -122,6 +123,30 @@ export async function loadPageTileset(userId, projectId, pageId, tileW, tileH) {
 
 export async function deletePageTileset(userId, projectId, pageId) {
   try { await deleteDoc(pageTilesetDoc(userId, projectId, pageId)) } catch (_) {}
+}
+
+export async function savePageCompaction(userId, projectId, pageId, tileset, maps) {
+  if (!tileset || !Array.isArray(maps)) return
+  if (maps.length > 498) throw new Error('This page has too many maps to compact in one atomic operation.')
+  const base64 = tileset.url?.startsWith('data:') ? tileset.url : tileset.canvas.toDataURL('image/png')
+  const batch = writeBatch(db)
+  batch.set(pageTilesetDoc(userId, projectId, pageId), {
+    data: base64,
+    naturalW: tileset.naturalW,
+    naturalH: tileset.naturalH,
+    palette: tileset.palette ?? null,
+    tileW: tileset.tileW,
+    tileH: tileset.tileH,
+    tileCount: tileset.tileCount,
+  })
+  for (const map of maps) {
+    batch.set(doc(db, 'users', userId, 'projects', projectId, 'maps', map.id), {
+      mapTiles: encodeTiles(map.mapTiles),
+      updatedAt: serverTimestamp(),
+    }, { merge: true })
+  }
+  batch.set(projectDoc(userId, projectId), { updatedAt: serverTimestamp() }, { merge: true })
+  await batch.commit()
 }
 
 function loadImage(src) {

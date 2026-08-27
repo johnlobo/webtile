@@ -13,6 +13,7 @@ import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
 import ImportSpriteSheetModal from '../components/ImportSpriteSheetModal'
 import ImportMapImageModal from '../components/ImportMapImageModal'
+import RescanTilesetModal from '../components/RescanTilesetModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
 import StudioExplorer from '../components/StudioExplorer'
@@ -21,12 +22,14 @@ import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
-import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage, savePageTileset, loadPageTileset, deletePageTileset } from '../services/pageService'
+import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage, savePageTileset, loadPageTileset, deletePageTileset, savePageCompaction } from '../services/pageService'
 import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from '../services/spriteService'
 import { exportProjectPackage, importProjectPackage } from '../services/packageService'
 import { generateModel01Manifest } from '../services/manifestService'
 import { GENERIC_PROFILE_ID, MODEL01_PROFILE_ID, getProjectProfile } from '../model01Profile'
 import { activeTabAfterClose, reorderSpriteTabs, restoreSpriteTabs } from '../services/spriteTabs'
+import { analyzeTilesetCompaction, buildCompactedTilesetCanvas } from '../services/tilesetCompaction'
+import { inferCpcPalette, quantizeToPalette } from '../services/mapImageImport'
 
 const ENTITY_DEFAULT_PROPERTIES = {
   enemy:   { speed: 1, behavior: 'patrol', health: 1 },
@@ -343,6 +346,7 @@ function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMa
         <NavItem label="+ NEW MAP"       icon="✦" onClick={() => { onAction('maps', 'new'); close() }} />
         <NavItem label="↑ IMPORT MAP PNG" icon="" onClick={() => { close(); setTimeout(() => mapPngInputRef.current?.click(), 0) }} />
         <NavItem label="↑ IMPORT .TMX"  icon="" onClick={() => { close(); setTimeout(() => tmxInputRef.current?.click(), 0) }} />
+        <NavItem label="↻ RESCAN TILESET" icon="" disabled={!hasTileset} onClick={() => { onAction('maps', 'rescan-tileset'); close() }} />
         <NavSep />
         <NavItem label="⬇ EXPORT .TMX"     icon="" disabled={!hasActiveMap} onClick={() => { onAction('export', 'tmx'); close() }} />
         <NavItem label="⬇ EXPORT TILESET"  icon="" disabled={!hasActiveMap || !hasTileset} onClick={() => { onAction('export', 'tileset-png'); close() }} />
@@ -672,6 +676,9 @@ export default function HomePage() {
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
   const [importSpriteSheetFile, setImportSpriteSheetFile] = useState(null)
   const [importMapFile, setImportMapFile] = useState(null)
+  const [tilesetRescan, setTilesetRescan] = useState(null)
+  const [tilesetRescanBusy, setTilesetRescanBusy] = useState(false)
+  const [tilesetRescanError, setTilesetRescanError] = useState('')
   const spritePngInputRef = useRef(null)
   const spriteSheetInputRef = useRef(null)
 
@@ -1056,6 +1063,50 @@ export default function HomePage() {
       return
     }
 
+    if (group === 'maps' && item === 'rescan-tileset') {
+      const pageId = activePageIdRef_.current
+      const currentTileset = tilesetRef_.current
+      if (!projectId || !pageId || !currentTileset?.canvas) return
+      setSaveStatus('saving')
+      try {
+        clearTimeout(autoSaveTimer.current)
+        const currentMapId = activeMapIdRef_.current
+        if (currentMapId && mapConfigRef_.current && mapTilesRef_.current) {
+          await saveMap(user.uid, projectId, currentMapId, {
+            name: mapConfigRef_.current.name,
+            config: mapConfigRef_.current,
+            mapTiles: mapTilesRef_.current,
+            connections: connectionsRef_.current,
+            entryPositions: entryPositionsRef_.current,
+            spawns: spawnsRef_.current,
+            entities: entitiesRef_.current,
+          })
+        }
+        const pageMaps = maps.filter(map => map.pageId === pageId)
+        const loadedMaps = await Promise.all(pageMaps.map(map => loadMap(user.uid, projectId, map.id)))
+        const context = currentTileset.canvas.getContext('2d')
+        const sourceImageData = context.getImageData(0, 0, currentTileset.canvas.width, currentTileset.canvas.height)
+        const palette = currentTileset.palette ?? inferCpcPalette(sourceImageData, 16)
+        const imageData = quantizeToPalette(sourceImageData, palette)
+        const analysis = analyzeTilesetCompaction({
+          imageData,
+          tileW: currentTileset.tileW ?? pageMaps[0]?.tileW,
+          tileH: currentTileset.tileH ?? pageMaps[0]?.tileH,
+          cols: currentTileset.cols,
+          tileCount: currentTileset.tileCount,
+          maps: loadedMaps.filter(Boolean),
+        })
+        setTilesetRescan({ analysis, sourceTileset: currentTileset, pageId, palette })
+        setTilesetRescanError('')
+        setSaveStatus(null)
+      } catch (error) {
+        console.error('Tileset rescan failed:', error)
+        await showAlert(error.message || 'The tileset could not be rescanned.', 'RESCAN FAILED')
+        setSaveStatus('error')
+      }
+      return
+    }
+
     if (group === 'maps' && item === 'import-tmx') {
       if (!projectId || !payload) return
       const text   = await payload.text()
@@ -1109,7 +1160,7 @@ export default function HomePage() {
       a.click()
       return
     }
-  }, [projectId, mapConfig, user.uid])
+  }, [projectId, mapConfig, maps, user.uid, showAlert])
 
   // ── New project ────────────────────────────────────────────────────────────
 
@@ -1267,6 +1318,39 @@ export default function HomePage() {
       }
       setSaveStatus('error')
       throw error
+    }
+  }
+
+  const handleConfirmTilesetRescan = async () => {
+    if (!tilesetRescan || !projectId) return
+    setTilesetRescanBusy(true)
+    setTilesetRescanError('')
+    setSaveStatus('saving')
+    try {
+      const { analysis, sourceTileset, pageId, palette } = tilesetRescan
+      const tileW = sourceTileset.tileW ?? mapConfigRef_.current?.tileW
+      const tileH = sourceTileset.tileH ?? mapConfigRef_.current?.tileH
+      const canvas = buildCompactedTilesetCanvas({ analysis, tileW, tileH })
+      const compactedTileset = {
+        ...sourceTileset,
+        url: canvas.toDataURL('image/png'), canvas,
+        cols: analysis.cols, rows: analysis.rows, tileCount: analysis.finalCount,
+        naturalW: canvas.width, naturalH: canvas.height, tileW, tileH, palette,
+      }
+      await savePageCompaction(user.uid, projectId, pageId, compactedTileset, analysis.remappedMaps)
+      const activeResult = analysis.remappedMaps.find(map => map.id === activeMapIdRef_.current)
+      if (activeResult) setMapTiles(activeResult.mapTiles)
+      setTileset(compactedTileset)
+      setSelectedTile(null)
+      historyRef.current = []; redoRef.current = []; setCanUndo(false); setCanRedo(false)
+      setTilesetRescan(null)
+      setSaveStatus('saved'); setTimeout(() => setSaveStatus(null), 2000)
+    } catch (error) {
+      console.error('Tileset compaction failed:', error)
+      setTilesetRescanError(error.message || 'The compacted tileset could not be saved.')
+      setSaveStatus('error')
+    } finally {
+      setTilesetRescanBusy(false)
     }
   }
 
@@ -1939,6 +2023,16 @@ export default function HomePage() {
           }}
           onConfirm={handleImportMapImage}
           onCancel={() => setImportMapFile(null)}
+        />
+      )}
+      {tilesetRescan && (
+        <RescanTilesetModal
+          pageLabel={pages.find(page => page.id === tilesetRescan.pageId)?.label ?? 'Base'}
+          analysis={tilesetRescan.analysis}
+          busy={tilesetRescanBusy}
+          error={tilesetRescanError}
+          onConfirm={handleConfirmTilesetRescan}
+          onCancel={() => { if (!tilesetRescanBusy) { setTilesetRescan(null); setTilesetRescanError('') } }}
         />
       )}
       {showNewSpriteModal && (
