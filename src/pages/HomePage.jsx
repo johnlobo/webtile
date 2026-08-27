@@ -1903,6 +1903,8 @@ export default function HomePage() {
               onToggleDoubleWidth={() => setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)}
               showTileIds={showTileIds}
               onToggleTileIds={() => setShowTileIds(value => !value)}
+              canRescanTileset={Boolean(tileset)}
+              onRescanTileset={() => handleAction('maps', 'rescan-tileset')}
               selectedEntityType={selectedEntityType}
               onSelectEntityType={setSelectedEntityType}
             />

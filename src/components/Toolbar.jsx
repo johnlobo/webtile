@@ -127,6 +127,13 @@ const IconTileIds = () => (
   </svg>
 )
 
+const IconRescan = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <path d="M4 4h9V2l4 3-4 3V6H5v4H3V6a2 2 0 0 1 1-2zm12 12H7v2l-4-3 4-3v2h8v-4h2v4a2 2 0 0 1-1 2z"/>
+    <rect x="7" y="8" width="2" height="2"/><rect x="10" y="8" width="2" height="2"/><rect x="7" y="11" width="2" height="2"/><rect x="10" y="11" width="2" height="2"/>
+  </svg>
+)
+
 const IconConnection = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
     {/* Map A */}
@@ -242,7 +249,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showTileIds, onToggleTileIds, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -418,6 +425,22 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         active={showTileIds}
         onClick={onToggleTileIds}
       />
+
+      <button
+        title="Rescan and compact the page tileset"
+        disabled={!canRescanTileset}
+        onClick={onRescanTileset}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: '3px', width: '42px', height: '42px', flexShrink: 0,
+          background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px',
+          color: canRescanTileset ? 'var(--text-dim)' : 'var(--border)',
+          cursor: canRescanTileset ? 'pointer' : 'default', opacity: canRescanTileset ? 1 : 0.35,
+        }}
+      >
+        <IconRescan />
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>SCAN</span>
+      </button>
 
       <Divider />
 
