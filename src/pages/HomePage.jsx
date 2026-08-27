@@ -12,6 +12,7 @@ import SpriteEditor from '../components/SpriteEditor'
 import NewSpriteModal from '../components/NewSpriteModal'
 import ImportSpriteModal from '../components/ImportSpriteModal'
 import ImportSpriteSheetModal from '../components/ImportSpriteSheetModal'
+import ImportMapImageModal from '../components/ImportMapImageModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
 import StudioExplorer from '../components/StudioExplorer'
@@ -20,7 +21,7 @@ import {
   createProject, loadProject, listMaps,
   createMap, saveMap, loadMap, deleteMap,
 } from '../services/projectService'
-import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage, savePageTileset, loadPageTileset } from '../services/pageService'
+import { loadPages, addPage, assignRoomToPage, removeRoomFromPage, renamePage, deletePage, savePageTileset, loadPageTileset, deletePageTileset } from '../services/pageService'
 import { createSprite, createSpriteFromImport, listSprites, deleteSprite } from '../services/spriteService'
 import { exportProjectPackage, importProjectPackage } from '../services/packageService'
 import { generateModel01Manifest } from '../services/manifestService'
@@ -225,7 +226,7 @@ const iconBtnStyle = {
   transition: 'border-color 0.12s, color 0.12s',
 }
 
-function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, spritePngInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite, pages, activePageId, onSelectPage, onAddPage, onRenamePage, onDeletePage, onMoveMapToPage, onExportManifest }) {
+function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMapId, hasTileset, onAction, onSelectMap, onDeleteMap, tmxInputRef, mapPngInputRef, spritePngInputRef, sprites, selectedSpriteId, onSelectSprite, onDeleteSprite, onCloseProject, onCloseMap, onCloseSprite, pages, activePageId, onSelectPage, onAddPage, onRenamePage, onDeletePage, onMoveMapToPage, onExportManifest }) {
   const [activeMenu, setActiveMenu] = useState(null)
   const hasProject = !!projectName
   const hasActiveMap = !!activeMapId
@@ -340,6 +341,7 @@ function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMa
         )}
         <NavSep />
         <NavItem label="+ NEW MAP"       icon="✦" onClick={() => { onAction('maps', 'new'); close() }} />
+        <NavItem label="↑ IMPORT MAP PNG" icon="" onClick={() => { close(); setTimeout(() => mapPngInputRef.current?.click(), 0) }} />
         <NavItem label="↑ IMPORT .TMX"  icon="" onClick={() => { close(); setTimeout(() => tmxInputRef.current?.click(), 0) }} />
         <NavSep />
         <NavItem label="⬇ EXPORT .TMX"     icon="" disabled={!hasActiveMap} onClick={() => { onAction('export', 'tmx'); close() }} />
@@ -383,6 +385,7 @@ function TopNav({ projectName, packageInputRef, manifestInputRef, maps, activeMa
 
       <input ref={tmxInputRef} type="file" accept=".tmx" style={{ display: 'none' }}
         onChange={e => { onAction('maps', 'import-tmx', e.target.files[0]); e.target.value = '' }} />
+      <input ref={mapPngInputRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={e => { const file = e.target.files?.[0]; if (file) onAction('maps', 'import-png', file); e.target.value = '' }} />
 
       <input ref={packageInputRef} type="file" accept=".json,.webtile.json" style={{ display: 'none' }} onChange={e => { const file = e.target.files?.[0]; if (file) onAction('project', 'import-package', file); e.target.value = '' }} />
 
@@ -667,6 +670,7 @@ export default function HomePage() {
   const [showNewSpriteModal, setShowNewSpriteModal] = useState(false)
   const [importSpriteFile,   setImportSpriteFile]   = useState(null)
   const [importSpriteSheetFile, setImportSpriteSheetFile] = useState(null)
+  const [importMapFile, setImportMapFile] = useState(null)
   const spritePngInputRef = useRef(null)
   const spriteSheetInputRef = useRef(null)
 
@@ -720,6 +724,7 @@ export default function HomePage() {
     window.addEventListener('pointercancel', onEnd)
   }, [explorerWidth, inspectorWidth])
   const tmxInputRef     = useRef(null)
+  const mapPngInputRef  = useRef(null)
   const packageInputRef = useRef(null)
 
   useEffect(() => { projectIdRef_.current   = projectId   }, [projectId])
@@ -1043,6 +1048,11 @@ export default function HomePage() {
       return
     }
 
+    if (group === 'maps' && item === 'import-png') {
+      if (projectId && payload) setImportMapFile(payload)
+      return
+    }
+
     if (group === 'maps' && item === 'import-tmx') {
       if (!projectId || !payload) return
       const text   = await payload.text()
@@ -1214,6 +1224,49 @@ export default function HomePage() {
     }
   }
 
+  const handleImportMapImage = async ({ name, tileW, tileH, mapW, mapH, palette, mapTiles: importedTiles, tileset: importedTileset }) => {
+    if (!projectId) return
+    setSaveStatus('saving')
+    let mid = null
+    let tilesetChanged = false
+    try {
+      const pageId = activePageId ?? 'base'
+      const maxRoomId = maps.reduce((max, map) => Math.max(max, map.roomId ?? -1), -1)
+      const roomId = maxRoomId + 1
+      const config = { name, tileW, tileH, mapW, mapH, doubleWidth: false }
+      const persistedTileset = { ...importedTileset, tileW, tileH, palette }
+      mid = await createMap(user.uid, projectId, { ...config, roomId, pageId })
+      await savePageTileset(user.uid, projectId, pageId, persistedTileset)
+      tilesetChanged = true
+      await saveMap(user.uid, projectId, mid, { name, config, mapTiles: importedTiles, roomId, pageId })
+      await assignRoomToPage(user.uid, projectId, pageId, roomId)
+      setMaps(previous => [...previous, { id: mid, name, tileW, tileH, mapW, mapH, roomId, pageId }])
+      setPages(await loadPages(user.uid, projectId))
+      setActiveMapId(mid)
+      setMapConfig(config)
+      setMapTiles(importedTiles)
+      setTileset(persistedTileset)
+      setSelectedTile(null)
+      setConnections({}); setEntryPositions([]); setSpawns([]); setEntities([])
+      historyRef.current = []; redoRef.current = []; setCanUndo(false); setCanRedo(false)
+      setImportMapFile(null)
+      setSaveStatus('saved'); setTimeout(() => setSaveStatus(null), 2000)
+    } catch (error) {
+      console.error('Map PNG import failed:', error)
+      if (mid) {
+        try { await deleteMap(user.uid, projectId, mid) } catch (_) {}
+      }
+      if (tilesetChanged) {
+        try {
+          if (tilesetRef_.current) await savePageTileset(user.uid, projectId, activePageId ?? 'base', tilesetRef_.current)
+          else await deletePageTileset(user.uid, projectId, activePageId ?? 'base')
+        } catch (_) {}
+      }
+      setSaveStatus('error')
+      throw error
+    }
+  }
+
   // ── Close handlers ────────────────────────────────────────────────────────
 
   const handleCloseProject = useCallback(() => {
@@ -1297,6 +1350,15 @@ export default function HomePage() {
     const page = await addPage(user.uid, projectId, { label: label.trim() })
     setPages(prev => [...prev, page])
     setActivePageId(page.id)
+    setActiveMapId(null)
+    setMapConfig(null)
+    setMapTiles(null)
+    setTileset(null)
+    setSelectedTile(null)
+    setConnections({})
+    setEntryPositions([])
+    setSpawns([])
+    setEntities([])
   }
 
   const handleRenamePage = async (pageId) => {
@@ -1645,6 +1707,7 @@ export default function HomePage() {
           onSelectMap={handleSelectMap}
           onDeleteMap={handleDeleteMap}
           tmxInputRef={tmxInputRef}
+          mapPngInputRef={mapPngInputRef}
           spritePngInputRef={spritePngInputRef}
           sprites={sprites}
           selectedSpriteId={selectedSpriteId}
@@ -1856,6 +1919,20 @@ export default function HomePage() {
           profileId={projectProfileId}
           onConfirm={handleNewMap}
           onCancel={() => setShowNewMapModal(false)}
+        />
+      )}
+      {importMapFile && (
+        <ImportMapImageModal
+          file={importMapFile}
+          pageLabel={pages.find(page => page.id === activePageId)?.label ?? 'Base'}
+          existingTileset={tileset}
+          profile={{
+            ...getProjectProfile(projectProfileId),
+            tileWidth: tileset?.tileW ?? getProjectProfile(projectProfileId).tileWidth,
+            tileHeight: tileset?.tileH ?? getProjectProfile(projectProfileId).tileHeight,
+          }}
+          onConfirm={handleImportMapImage}
+          onCancel={() => setImportMapFile(null)}
         />
       )}
       {showNewSpriteModal && (

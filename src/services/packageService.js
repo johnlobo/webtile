@@ -35,8 +35,11 @@ async function hydrateTileset(data, tileW, tileH) {
   return {
     url: data.data, img, canvas,
     naturalW: data.naturalW, naturalH: data.naturalH,
-    cols: Math.floor(data.naturalW / tileW),
-    rows: Math.floor(data.naturalH / tileH),
+    cols: Math.floor(data.naturalW / (data.tileW ?? tileW)),
+    rows: Math.floor(data.naturalH / (data.tileH ?? tileH)),
+    tileW: data.tileW ?? tileW,
+    tileH: data.tileH ?? tileH,
+    palette: data.palette ?? null,
   }
 }
 
@@ -105,6 +108,9 @@ export async function exportProjectPackage(userId, projectId) {
         data: map.tileset.canvas?.toDataURL('image/png') ?? map.tileset.url,
         naturalW: map.tileset.naturalW,
         naturalH: map.tileset.naturalH,
+        palette: map.tileset.palette ?? null,
+        tileW: map.tileset.tileW ?? map.config.tileW,
+        tileH: map.tileset.tileH ?? map.config.tileH,
       } : null,
     }
   }))

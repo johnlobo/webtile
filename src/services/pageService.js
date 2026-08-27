@@ -2,6 +2,7 @@ import {
   collection, doc, setDoc, getDoc, getDocs, updateDoc, arrayUnion, arrayRemove, deleteDoc,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { inferCpcPalette } from './mapImageImport'
 
 const projectsCol = (uid) => collection(db, 'users', uid, 'projects')
 const projectDoc  = (uid, pid) => doc(projectsCol(uid), pid)
@@ -84,6 +85,9 @@ export async function savePageTileset(userId, projectId, pageId, tileset) {
     data:     base64,
     naturalW: tileset.naturalW,
     naturalH: tileset.naturalH,
+    palette: Array.isArray(tileset.palette) ? tileset.palette : null,
+    tileW: tileset.tileW ?? null,
+    tileH: tileset.tileH ?? null,
   })
 }
 
@@ -97,11 +101,17 @@ export async function loadPageTileset(userId, projectId, pageId, tileW, tileH) {
     canvas.width  = ts.naturalW
     canvas.height = ts.naturalH
     canvas.getContext('2d').drawImage(img, 0, 0)
+    const storedTileW = ts.tileW ?? tileW
+    const storedTileH = ts.tileH ?? tileH
+    const palette = Array.isArray(ts.palette)
+      ? ts.palette
+      : inferCpcPalette(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height), 16)
     return {
       url: ts.data, img, canvas,
-      cols: tileW ? Math.floor(ts.naturalW / tileW) : undefined,
-      rows: tileH ? Math.floor(ts.naturalH / tileH) : undefined,
+      cols: storedTileW ? Math.floor(ts.naturalW / storedTileW) : undefined,
+      rows: storedTileH ? Math.floor(ts.naturalH / storedTileH) : undefined,
       naturalW: ts.naturalW, naturalH: ts.naturalH,
+      tileW: storedTileW, tileH: storedTileH, palette,
     }
   } catch (_) {
     return null
