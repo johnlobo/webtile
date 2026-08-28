@@ -41,3 +41,26 @@ export function pasteMapClipboard(mapTiles, clipboard, x, y) {
   }
   return next
 }
+
+export function moveMapSelection(mapTiles, selection, clipboard, x, y) {
+  return pasteMapClipboard(clearMapSelection(mapTiles, selection), clipboard, x, y)
+}
+
+export function transformMapSelection(mapTiles, selection, operation) {
+  const clipboard = copyMapSelection(mapTiles, selection)
+  if (!clipboard) return null
+  let cells
+  if (operation === 'flipH') cells = clipboard.cells.map(row => [...row].reverse())
+  else if (operation === 'flipV') cells = [...clipboard.cells].reverse().map(row => [...row])
+  else if (operation === 'rotateRight') cells = Array.from({ length: clipboard.w }, (_, row) => Array.from({ length: clipboard.h }, (_, col) => clipboard.cells[clipboard.h - 1 - col][row]))
+  else if (operation === 'rotateLeft') cells = Array.from({ length: clipboard.w }, (_, row) => Array.from({ length: clipboard.h }, (_, col) => clipboard.cells[col][clipboard.w - 1 - row]))
+  else return null
+  const transformed = { w: cells[0]?.length ?? 0, h: cells.length, cells }
+  const mapH = mapTiles.length
+  const mapW = mapTiles[0]?.length ?? 0
+  if (selection.x + transformed.w > mapW || selection.y + transformed.h > mapH) return null
+  return {
+    mapTiles: pasteMapClipboard(clearMapSelection(mapTiles, selection), transformed, selection.x, selection.y),
+    selection: { x: selection.x, y: selection.y, w: transformed.w, h: transformed.h },
+  }
+}

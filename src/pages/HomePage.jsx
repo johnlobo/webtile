@@ -31,7 +31,7 @@ import { GENERIC_PROFILE_ID, MODEL01_PROFILE_ID, getProjectProfile } from '../mo
 import { activeTabAfterClose, reorderSpriteTabs, restoreSpriteTabs } from '../services/spriteTabs'
 import { analyzeTilesetCompaction, buildCompactedTilesetCanvas } from '../services/tilesetCompaction'
 import { inferCpcPalette, quantizeToPalette } from '../services/mapImageImport'
-import { clearMapSelection, copyMapSelection, pasteMapClipboard } from '../services/mapSelection'
+import { clearMapSelection, copyMapSelection, moveMapSelection, pasteMapClipboard, transformMapSelection } from '../services/mapSelection'
 
 const ENTITY_DEFAULT_PROPERTIES = {
   enemy:   { speed: 1, behavior: 'patrol', health: 1 },
@@ -670,6 +670,8 @@ export default function HomePage() {
   const [mapSelection, setMapSelection] = useState(null)
   const [mapClipboard, setMapClipboard] = useState(null)
   const [isMapPasting, setIsMapPasting] = useState(false)
+  const [mapPasteMode, setMapPasteMode] = useState('paste')
+  const [mapMoveSource, setMapMoveSource] = useState(null)
   const [activeTool,   setActiveTool]   = useState('stamp')
   const [zoom,         setZoom]         = useState(1)
   const [showTileIds, setShowTileIds] = useState(() => localStorage.getItem('webtile.showTileIds') === 'true')
@@ -772,8 +774,8 @@ export default function HomePage() {
   useEffect(() => { spawnsRef_.current = spawns }, [spawns])
   useEffect(() => { entitiesRef_.current = entities }, [entities])
   useEffect(() => { setBackgroundTile(null) }, [projectId, activePageId])
-  useEffect(() => { setMapSelection(null); setIsMapPasting(false) }, [activeMapId])
-  useEffect(() => { setMapClipboard(null); setMapSelection(null); setIsMapPasting(false) }, [projectId])
+  useEffect(() => { setMapSelection(null); setIsMapPasting(false); setMapMoveSource(null) }, [activeMapId])
+  useEffect(() => { setMapClipboard(null); setMapSelection(null); setIsMapPasting(false); setMapMoveSource(null) }, [projectId])
 
   // Load sprites and restore this project's tab session.
   useEffect(() => {
@@ -1021,18 +1023,47 @@ export default function HomePage() {
       return
     }
     setActiveTool('select')
+    setMapPasteMode('paste')
+    setMapMoveSource(null)
     setIsMapPasting(true)
   }, [mapClipboard, showAlert])
+
+  const handleBeginMapMove = useCallback(() => {
+    const copied = copyMapSelection(mapTilesRef_.current, mapSelection)
+    if (!copied || !mapSelection) return
+    setMapClipboard({ ...copied, pageId: activePageIdRef_.current })
+    setMapMoveSource({ ...mapSelection })
+    setMapPasteMode('move')
+    setActiveTool('select')
+    setIsMapPasting(true)
+  }, [mapSelection])
 
   const handleMapPasteCommit = useCallback((x, y) => {
     if (!mapClipboard || !mapTilesRef_.current) return
     pushHistory()
-    const next = pasteMapClipboard(mapTilesRef_.current, mapClipboard, x, y)
+    const next = mapPasteMode === 'move' && mapMoveSource
+      ? moveMapSelection(mapTilesRef_.current, mapMoveSource, mapClipboard, x, y)
+      : pasteMapClipboard(mapTilesRef_.current, mapClipboard, x, y)
     setMapTiles(next)
     setMapSelection({ x, y, w: Math.min(mapClipboard.w, next[0].length - x), h: Math.min(mapClipboard.h, next.length - y) })
     setIsMapPasting(false)
+    setMapPasteMode('paste')
+    setMapMoveSource(null)
     scheduleAutoSave(next)
-  }, [mapClipboard, pushHistory, scheduleAutoSave])
+  }, [mapClipboard, mapPasteMode, mapMoveSource, pushHistory, scheduleAutoSave])
+
+  const handleTransformMapSelection = useCallback(operation => {
+    if (!mapSelection || !mapTilesRef_.current) return
+    const transformed = transformMapSelection(mapTilesRef_.current, mapSelection, operation)
+    if (!transformed) {
+      showAlert('The transformed selection does not fit inside the map at its current position.', 'TRANSFORM DOES NOT FIT')
+      return
+    }
+    pushHistory()
+    setMapTiles(transformed.mapTiles)
+    setMapSelection(transformed.selection)
+    scheduleAutoSave(transformed.mapTiles)
+  }, [mapSelection, pushHistory, scheduleAutoSave, showAlert])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1045,7 +1076,7 @@ export default function HomePage() {
       if (ctrl && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); handleMapCut(); return }
       if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handleBeginMapPaste(); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { if (mapSelection) { e.preventDefault(); handleMapDeleteSelection() }; return }
-      if (e.key === 'Escape' && isMapPasting) { e.preventDefault(); setIsMapPasting(false); return }
+      if (e.key === 'Escape' && isMapPasting) { e.preventDefault(); setIsMapPasting(false); setMapPasteMode('paste'); setMapMoveSource(null); return }
       if (e.key === 's' || e.key === 'S') setActiveTool('stamp')
       if (e.key === 'f' || e.key === 'F') setActiveTool('fill')
       if (e.key === 'e' || e.key === 'E') setActiveTool('eraser')
@@ -2004,6 +2035,8 @@ export default function HomePage() {
               onCutSelection={handleMapCut}
               onPasteSelection={handleBeginMapPaste}
               onDeleteSelection={handleMapDeleteSelection}
+              onMoveSelection={handleBeginMapMove}
+              onTransformSelection={handleTransformMapSelection}
               selectedEntityType={selectedEntityType}
               onSelectEntityType={setSelectedEntityType}
             />
@@ -2046,7 +2079,7 @@ export default function HomePage() {
                       setActiveTool('stamp')
                     }}
                     selection={mapSelection}
-                    onSelectionChange={selection => { setMapSelection(selection); setIsMapPasting(false) }}
+                    onSelectionChange={selection => { setMapSelection(selection); setIsMapPasting(false); setMapPasteMode('paste'); setMapMoveSource(null) }}
                     clipboard={mapClipboard}
                     isPasting={isMapPasting}
                     onPasteCommit={handleMapPasteCommit}

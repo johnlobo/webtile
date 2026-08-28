@@ -280,7 +280,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, hasMapSelection, hasMapClipboard, onSelectAll, onCopySelection, onCutSelection, onPasteSelection, onDeleteSelection, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, hasMapSelection, hasMapClipboard, onSelectAll, onCopySelection, onCutSelection, onPasteSelection, onDeleteSelection, onMoveSelection, onTransformSelection, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -341,6 +341,11 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
             ['CUT', 'Ctrl+X', onCutSelection, !hasMapSelection],
             ['PASTE', 'Ctrl+V', onPasteSelection, !hasMapClipboard],
             ['DEL', 'Delete', onDeleteSelection, !hasMapSelection],
+            ['MOVE', 'Place', onMoveSelection, !hasMapSelection],
+            ['↔', 'Flip horizontal', () => onTransformSelection?.('flipH'), !hasMapSelection],
+            ['↕', 'Flip vertical', () => onTransformSelection?.('flipV'), !hasMapSelection],
+            ['↶', 'Rotate left', () => onTransformSelection?.('rotateLeft'), !hasMapSelection],
+            ['↷', 'Rotate right', () => onTransformSelection?.('rotateRight'), !hasMapSelection],
           ].map(([label, shortcut, action, disabled]) => <button key={label} title={`${label} [${shortcut}]`} disabled={disabled} onClick={action} style={{
             padding: '6px 7px', border: '1px solid var(--border)', borderRadius: '4px', background: 'transparent',
             color: disabled ? 'var(--border)' : 'var(--text-dim)', cursor: disabled ? 'default' : 'pointer', fontSize: '9px', fontWeight: 700,
