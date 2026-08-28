@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { ZOOM_LEVELS } from '../services/constants'
 import { floodFillCells } from '../services/gridAlgorithms'
+import { normalizeMapSelection } from '../services/mapSelection'
 
 function getBorderDirection(col, row, mapW, mapH) {
   if (row === 0) return 'north'
@@ -48,6 +49,7 @@ export default function TilemapGrid({
   gridSettings = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 },
   tileset, selectedTile, backgroundTile,
   mapTiles, onPaintCell, onFillCells, onPickTile,
+  selection, onSelectionChange, clipboard, isPasting, onPasteCommit,
   connections, entryPositions,
   onConnectionClick, onEntryClick, roomId,
   spawns, onSpawnClick,
@@ -61,6 +63,7 @@ export default function TilemapGrid({
   const isPainting = useRef(false)
   const isErasing  = useRef(false)
   const paintTileRef = useRef(null)
+  const selectionAnchor = useRef(null)
   const [hoveredCell, setHoveredCell] = useState(null)
   const gridRef = useRef(null)
 
@@ -76,7 +79,7 @@ export default function TilemapGrid({
 
   // Release both drag modes on mouse up anywhere
   useEffect(() => {
-    const up = () => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null }
+    const up = () => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null; selectionAnchor.current = null }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
@@ -97,17 +100,7 @@ export default function TilemapGrid({
   }, [handleWheel])
 
   const tryPaint = useCallback((col, row, paintTile = selectedTile) => {
-    if (activeTool === 'select') {
-      if (onSelectEntity) {
-        const existing = entities.find(e => e.col === col && e.row === row)
-        if (existing) {
-          onSelectEntity(existing.id)
-        } else {
-          onSelectEntity(null)
-        }
-      }
-      return
-    }
+    if (activeTool === 'select') return
     if (activeTool === 'entity') {
       if (onEntityClick) {
         const existing = entities.find(e => e.col === col && e.row === row)
@@ -201,6 +194,23 @@ export default function TilemapGrid({
       imageRendering:     'pixelated',
     }
   }
+
+  const getTileStyle = tile => {
+    if (!tile || !tileset) return {}
+    const scaleX = displayW / tileW
+    const scaleY = displayH / tileH
+    return {
+      backgroundImage: `url(${tileset.url})`, backgroundRepeat: 'no-repeat',
+      backgroundSize: `${tileset.naturalW * scaleX}px ${tileset.naturalH * scaleY}px`,
+      backgroundPosition: `-${tile.col * tileW * scaleX}px -${tile.row * tileH * scaleY}px`,
+      imageRendering: 'pixelated',
+    }
+  }
+
+  const pasteOrigin = hoveredCell && clipboard ? {
+    col: Math.max(0, Math.min(hoveredCell.col, mapW - clipboard.w)),
+    row: Math.max(0, Math.min(hoveredCell.row, mapH - clipboard.h)),
+  } : null
 
   const renderHoverOverlay = () => {
     if (!hoveredCell) return null
@@ -379,6 +389,7 @@ export default function TilemapGrid({
   }
 
   const getCursorForTool = () => {
+    if (isPasting) return 'copy'
     if (activeTool === 'eraser') return 'none'
     if (activeTool === 'conn') return 'crosshair'
     if (activeTool === 'spawn') return 'crosshair'
@@ -480,10 +491,15 @@ export default function TilemapGrid({
                   }}
                   onMouseEnter={() => {
                     setHoveredCell({ col, row })
+                    if (selectionAnchor.current && activeTool === 'select') onSelectionChange?.(normalizeMapSelection(selectionAnchor.current, { col, row }))
                     if (isPainting.current) tryPaint(col, row, paintTileRef.current)
                     if (isErasing.current)  tryErase(col, row)
                   }}
                   onMouseDown={(e) => {
+                    if (isPasting && e.button === 0 && pasteOrigin) {
+                      onPasteCommit?.(pasteOrigin.col, pasteOrigin.row)
+                      return
+                    }
                     const canAltPick = activeTool === 'stamp' || activeTool === 'fill' || activeTool === 'eraser'
                     if (e.altKey && canAltPick) {
                       if (paintedTile && onPickTile) onPickTile({ ...paintedTile }, e.button === 2 ? 'background' : 'foreground')
@@ -501,6 +517,11 @@ export default function TilemapGrid({
                       return
                     }
                     if (e.button !== 0) return
+                    if (activeTool === 'select') {
+                      selectionAnchor.current = { col, row }
+                      onSelectionChange?.({ x: col, y: row, w: 1, h: 1 })
+                      return
+                    }
                     paintTileRef.current = selectedTile
                     isPainting.current = true
                     tryPaint(col, row, selectedTile)
@@ -547,8 +568,29 @@ export default function TilemapGrid({
           {/* Entities */}
           {renderEntities()}
 
+          {selection && !isPasting && (
+            <div style={{
+              position: 'absolute', left: selection.x * displayW, top: selection.y * displayH,
+              width: selection.w * displayW, height: selection.h * displayH,
+              border: '2px dashed #fff', outline: '1px dashed var(--accent)', outlineOffset: '-3px',
+              background: 'rgba(33,82,255,0.08)', boxSizing: 'border-box', pointerEvents: 'none', zIndex: 9,
+            }} />
+          )}
+
+          {isPasting && pasteOrigin && clipboard && (
+            <div style={{
+              position: 'absolute', left: pasteOrigin.col * displayW, top: pasteOrigin.row * displayH,
+              display: 'grid', gridTemplateColumns: `repeat(${clipboard.w}, ${displayW}px)`,
+              gridTemplateRows: `repeat(${clipboard.h}, ${displayH}px)`,
+              border: '2px dashed var(--amber)', boxSizing: 'border-box', pointerEvents: 'none', zIndex: 11,
+              opacity: 0.82,
+            }}>
+              {clipboard.cells.flat().map((tile, index) => <div key={index} style={{ width: displayW, height: displayH, ...getTileStyle(tile), backgroundColor: tile ? undefined : 'rgba(0,0,0,0.15)' }} />)}
+            </div>
+          )}
+
           {/* Hover overlay */}
-          {renderHoverOverlay()}
+          {!isPasting && renderHoverOverlay()}
         </div>
       </div>
     </div>

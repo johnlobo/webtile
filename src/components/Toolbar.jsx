@@ -280,7 +280,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, hasMapSelection, hasMapClipboard, onSelectAll, onCopySelection, onCutSelection, onPasteSelection, onDeleteSelection, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -330,6 +330,21 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
               {def.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {activeTool === 'select' && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0 4px' }}>
+          {[
+            ['ALL', 'Ctrl+A', onSelectAll, false],
+            ['COPY', 'Ctrl+C', onCopySelection, !hasMapSelection],
+            ['CUT', 'Ctrl+X', onCutSelection, !hasMapSelection],
+            ['PASTE', 'Ctrl+V', onPasteSelection, !hasMapClipboard],
+            ['DEL', 'Delete', onDeleteSelection, !hasMapSelection],
+          ].map(([label, shortcut, action, disabled]) => <button key={label} title={`${label} [${shortcut}]`} disabled={disabled} onClick={action} style={{
+            padding: '6px 7px', border: '1px solid var(--border)', borderRadius: '4px', background: 'transparent',
+            color: disabled ? 'var(--border)' : 'var(--text-dim)', cursor: disabled ? 'default' : 'pointer', fontSize: '9px', fontWeight: 700,
+          }}>{label}</button>)}
         </div>
       )}
 
