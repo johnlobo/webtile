@@ -47,7 +47,7 @@ export default function TilemapGrid({
   showTileIds = false,
   gridSettings = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 },
   tileset, selectedTile,
-  mapTiles, onPaintCell, onFillCells,
+  mapTiles, onPaintCell, onFillCells, onPickTile,
   connections, entryPositions,
   onConnectionClick, onEntryClick, roomId,
   spawns, onSpawnClick,
@@ -439,6 +439,7 @@ export default function TilemapGrid({
               ENTITIES: {entities.length}
             </span>
           )}
+          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Shift+click: pick tile</span>
         </div>
 
         {/* Grid wrapper */}
@@ -484,6 +485,10 @@ export default function TilemapGrid({
                   onMouseDown={(e) => {
                     if (e.button === 2) { isErasing.current = true; tryErase(col, row); return }
                     if (e.button !== 0) return
+                    if (e.shiftKey) {
+                      if (paintedTile && onPickTile) onPickTile({ ...paintedTile })
+                      return
+                    }
                     isPainting.current = true
                     tryPaint(col, row)
                   }}

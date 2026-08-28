@@ -1965,6 +1965,7 @@ export default function HomePage() {
                     gridSettings={mapGridSettings}
                     tileset={tileset} selectedTile={selectedTile}
                     mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
+                    onPickTile={tile => { setSelectedTile(tile); setActiveTool('stamp') }}
                     connections={connections}
                     entryPositions={entryPositions}
                     roomId={maps.find(m => m.id === activeMapId)?.roomId}
