@@ -206,8 +206,26 @@ const TOOLS = [
   { id: 'conn',   label: 'LINK',   shortcut: 'L', Icon: IconConnection },
   { id: 'spawn',  label: 'SPAWN',  shortcut: 'P', Icon: IconSpawn },
   { id: 'select', label: 'SELECT', shortcut: 'V', Icon: IconSelect },
-  { id: 'entity', label: 'ENTITY', shortcut: 'X', Icon: IconEntity },
+  { id: 'entity', label: 'ENTITY', shortcut: 'A', Icon: IconEntity },
 ]
+
+function TilePaintSlot({ label, tile, tileset, tileW = 8, tileH = 8 }) {
+  tileW = tileset?.tileW ?? tileW
+  tileH = tileset?.tileH ?? tileH
+  const scale = Math.min(28 / tileW, 28 / tileH)
+  return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title={`${label} tile${tile ? ` #${tile.idx}` : ': none'}`}>
+    <div style={{
+      width: '28px', height: '28px', boxSizing: 'border-box', border: `2px solid ${label === 'FG' ? 'var(--accent)' : 'var(--amber)'}`,
+      backgroundColor: 'var(--bg2)',
+      ...(tile && tileset ? {
+        backgroundImage: `url(${tileset.url})`, backgroundRepeat: 'no-repeat', imageRendering: 'pixelated',
+        backgroundSize: `${tileset.naturalW * scale}px ${tileset.naturalH * scale}px`,
+        backgroundPosition: `-${tile.col * tileW * scale}px -${tile.row * tileH * scale}px`,
+      } : {}),
+    }} />
+    <span style={{ fontSize: '8px', fontWeight: 800, color: label === 'FG' ? 'var(--accent)' : 'var(--amber)' }}>{label}{tile ? ` ${tile.idx}` : ''}</span>
+  </div>
+}
 
 function ToolBtn({ id, label, shortcut, badge, Icon, active, onClick }) {
   return (
@@ -262,7 +280,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -474,6 +492,14 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
         <IconRescan />
         <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>SCAN</span>
       </button>
+
+      <Divider />
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+        <TilePaintSlot label="FG" tile={foregroundTile} tileset={tileset} tileW={tileW} tileH={tileH} />
+        <button title="Swap foreground / background tiles [X]" onClick={onSwapPaintTiles} style={{ border: 0, background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>⇄</button>
+        <TilePaintSlot label="BG" tile={backgroundTile} tileset={tileset} tileW={tileW} tileH={tileH} />
+      </div>
 
       <Divider />
 

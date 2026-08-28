@@ -665,6 +665,7 @@ export default function HomePage() {
 
   // Editor state
   const [selectedTile, setSelectedTile] = useState(null)
+  const [backgroundTile, setBackgroundTile] = useState(null)
   const [activeTool,   setActiveTool]   = useState('stamp')
   const [zoom,         setZoom]         = useState(1)
   const [showTileIds, setShowTileIds] = useState(() => localStorage.getItem('webtile.showTileIds') === 'true')
@@ -766,6 +767,7 @@ export default function HomePage() {
   useEffect(() => { entryPositionsRef_.current = entryPositions }, [entryPositions])
   useEffect(() => { spawnsRef_.current = spawns }, [spawns])
   useEffect(() => { entitiesRef_.current = entities }, [entities])
+  useEffect(() => { setBackgroundTile(null) }, [projectId, activePageId])
 
   // Load sprites and restore this project's tab session.
   useEffect(() => {
@@ -996,10 +998,14 @@ export default function HomePage() {
       if (e.key === 'l' || e.key === 'L') setActiveTool('conn')
       if (e.key === 'p' || e.key === 'P') setActiveTool('spawn')
       if (e.key === 'v' || e.key === 'V') setActiveTool('select')
-      if (e.key === 'x' || e.key === 'X') setActiveTool('entity')
+      if (e.key === 'a' || e.key === 'A') setActiveTool('entity')
       if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
       if (e.key === 'n' || e.key === 'N') setShowTileIds(value => !value)
       if (e.key === 'g' || e.key === 'G') setMapGridSettings(settings => ({ ...settings, visible: !settings.visible }))
+      if (e.key === 'x' || e.key === 'X') {
+        setSelectedTile(backgroundTile)
+        setBackgroundTile(selectedTile)
+      }
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleUndo() }
@@ -1008,7 +1014,7 @@ export default function HomePage() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [handleUndo, handleRedo])
+  }, [handleUndo, handleRedo, selectedTile, backgroundTile])
 
   // ── Activate a map (load its data) ────────────────────────────────────────
 
@@ -1707,6 +1713,8 @@ export default function HomePage() {
 
   const handleLoadTileset = useCallback(async (ts) => {
     setTileset(ts)
+    setSelectedTile(null)
+    setBackgroundTile(null)
     const pid = projectIdRef_.current
     const pageId = activePageIdRef_.current
     if (!pid || !pageId) return
@@ -1929,6 +1937,12 @@ export default function HomePage() {
               onToggleTileIds={() => setShowTileIds(value => !value)}
               canRescanTileset={Boolean(tileset)}
               onRescanTileset={() => handleAction('maps', 'rescan-tileset')}
+              tileset={tileset}
+              tileW={mapConfig.tileW}
+              tileH={mapConfig.tileH}
+              foregroundTile={selectedTile}
+              backgroundTile={backgroundTile}
+              onSwapPaintTiles={() => { setSelectedTile(backgroundTile); setBackgroundTile(selectedTile) }}
               selectedEntityType={selectedEntityType}
               onSelectEntityType={setSelectedEntityType}
             />
@@ -1963,9 +1977,13 @@ export default function HomePage() {
                     zoom={zoom} onZoomChange={setZoom}
                     showTileIds={showTileIds}
                     gridSettings={mapGridSettings}
-                    tileset={tileset} selectedTile={selectedTile}
+                    tileset={tileset} selectedTile={selectedTile} backgroundTile={backgroundTile}
                     mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
-                    onPickTile={tile => { setSelectedTile(tile); setActiveTool('stamp') }}
+                    onPickTile={(tile, slot) => {
+                      if (slot === 'background') setBackgroundTile(tile)
+                      else { setSelectedTile(tile); setBackgroundTile(current => current ?? tile) }
+                      setActiveTool('stamp')
+                    }}
                     connections={connections}
                     entryPositions={entryPositions}
                     roomId={maps.find(m => m.id === activeMapId)?.roomId}
@@ -1999,8 +2017,10 @@ export default function HomePage() {
             pageLabel={pages.find(p => p.id === activePageId)?.label ?? 'Base'}
             pageMaps={maps.filter(m => m.pageId === activePageId)}
             rightSidebarProps={{
-              project: mapConfig, mapTiles, tileset, selectedTile,
-              onLoadTileset: handleLoadTileset, onSelectTile: setSelectedTile, onEditTile: handleEditTile,
+              project: mapConfig, mapTiles, tileset, selectedTile, backgroundTile,
+              onLoadTileset: handleLoadTileset,
+              onSelectTile: tile => { setSelectedTile(tile); setBackgroundTile(current => current ?? tile) },
+              onSelectBackgroundTile: setBackgroundTile, onEditTile: handleEditTile,
               connections, entryPositions, spawns, entities,
               roomId: maps.find(m => m.id === activeMapId)?.roomId,
               maps: maps.filter(m => m.roomId != null), selectedEntityId,

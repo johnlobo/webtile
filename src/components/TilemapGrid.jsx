@@ -46,7 +46,7 @@ export default function TilemapGrid({
   activeTool, zoom, onZoomChange,
   showTileIds = false,
   gridSettings = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 },
-  tileset, selectedTile,
+  tileset, selectedTile, backgroundTile,
   mapTiles, onPaintCell, onFillCells, onPickTile,
   connections, entryPositions,
   onConnectionClick, onEntryClick, roomId,
@@ -60,6 +60,7 @@ export default function TilemapGrid({
   const displayH   = tileH * zoom
   const isPainting = useRef(false)
   const isErasing  = useRef(false)
+  const paintTileRef = useRef(null)
   const [hoveredCell, setHoveredCell] = useState(null)
   const gridRef = useRef(null)
 
@@ -75,7 +76,7 @@ export default function TilemapGrid({
 
   // Release both drag modes on mouse up anywhere
   useEffect(() => {
-    const up = () => { isPainting.current = false; isErasing.current = false }
+    const up = () => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
@@ -95,7 +96,7 @@ export default function TilemapGrid({
     return () => el.removeEventListener('wheel', handler)
   }, [handleWheel])
 
-  const tryPaint = useCallback((col, row) => {
+  const tryPaint = useCallback((col, row, paintTile = selectedTile) => {
     if (activeTool === 'select') {
       if (onSelectEntity) {
         const existing = entities.find(e => e.col === col && e.row === row)
@@ -153,12 +154,12 @@ export default function TilemapGrid({
         return
       }
       onPaintCell(col, row, null)
-    } else if (activeTool === 'fill' && selectedTile && tileset) {
+    } else if (activeTool === 'fill' && paintTile && tileset) {
       const cells = floodFillCells(mapTiles, col, row, mapW, mapH)
-      if (cells.length === 1 && mapTiles[row][col]?.idx === selectedTile.idx) return
-      onFillCells(cells, selectedTile)
-    } else if (activeTool === 'stamp' && selectedTile && tileset) {
-      onPaintCell(col, row, selectedTile)
+      if (cells.length === 1 && mapTiles[row][col]?.idx === paintTile.idx) return
+      onFillCells(cells, paintTile)
+    } else if (activeTool === 'stamp' && paintTile && tileset) {
+      onPaintCell(col, row, paintTile)
     }
   }, [activeTool, selectedTile, tileset, mapTiles, mapW, mapH, onPaintCell, onFillCells, onEntryClick, onSpawnClick, onEntityClick, onSelectEntity, entities])
 
@@ -439,7 +440,7 @@ export default function TilemapGrid({
               ENTITIES: {entities.length}
             </span>
           )}
-          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Shift+click: pick tile</span>
+          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Shift+LMB/RMB: pick FG/BG</span>
         </div>
 
         {/* Grid wrapper */}
@@ -479,18 +480,29 @@ export default function TilemapGrid({
                   }}
                   onMouseEnter={() => {
                     setHoveredCell({ col, row })
-                    if (isPainting.current) tryPaint(col, row)
+                    if (isPainting.current) tryPaint(col, row, paintTileRef.current)
                     if (isErasing.current)  tryErase(col, row)
                   }}
                   onMouseDown={(e) => {
-                    if (e.button === 2) { isErasing.current = true; tryErase(col, row); return }
-                    if (e.button !== 0) return
                     if (e.shiftKey) {
-                      if (paintedTile && onPickTile) onPickTile({ ...paintedTile })
+                      if (paintedTile && onPickTile) onPickTile({ ...paintedTile }, e.button === 2 ? 'background' : 'foreground')
                       return
                     }
+                    if (e.button === 2) {
+                      if ((activeTool === 'stamp' || activeTool === 'fill') && backgroundTile) {
+                        paintTileRef.current = backgroundTile
+                        isPainting.current = true
+                        tryPaint(col, row, backgroundTile)
+                      } else {
+                        isErasing.current = true
+                        tryErase(col, row)
+                      }
+                      return
+                    }
+                    if (e.button !== 0) return
+                    paintTileRef.current = selectedTile
                     isPainting.current = true
-                    tryPaint(col, row)
+                    tryPaint(col, row, selectedTile)
                   }}
                   onDoubleClick={() => {
                     if (activeTool === 'conn' && onEntryClick) {
