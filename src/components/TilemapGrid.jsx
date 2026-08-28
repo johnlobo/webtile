@@ -45,6 +45,7 @@ export default function TilemapGrid({
   tileW, tileH, mapW, mapH, doubleWidth,
   activeTool, zoom, onZoomChange,
   showTileIds = false,
+  gridSettings = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 },
   tileset, selectedTile,
   mapTiles, onPaintCell, onFillCells,
   connections, entryPositions,
@@ -64,6 +65,13 @@ export default function TilemapGrid({
 
   const connectionDirections = ['north', 'south', 'east', 'west'].filter(d => connections?.[d] != null)
   const hasActiveConnection = activeTool === 'conn' && connectionDirections.length > 0
+  const gridColor = (() => {
+    const hex = gridSettings.color?.replace('#', '') ?? 'ffaa00'
+    const value = hex.length === 3 ? hex.split('').map(char => char + char).join('') : hex
+    const number = Number.parseInt(value, 16)
+    if (!Number.isFinite(number)) return `rgba(255,170,0,${gridSettings.opacity})`
+    return `rgba(${(number >> 16) & 255},${(number >> 8) & 255},${number & 255},${gridSettings.opacity})`
+  })()
 
   // Release both drag modes on mouse up anywhere
   useEffect(() => {
@@ -462,8 +470,8 @@ export default function TilemapGrid({
                     width: displayW, height: displayH,
                     ...getCellStyle(col, row),
                     boxSizing: 'border-box',
-                    borderRight:  '1px solid var(--border)',
-                    borderBottom: '1px solid var(--border)',
+                    borderRight: gridSettings.visible && (col + 1) % gridSettings.cellW === 0 && col < mapW - 1 ? `1px solid ${gridColor}` : 'none',
+                    borderBottom: gridSettings.visible && (row + 1) % gridSettings.cellH === 0 && row < mapH - 1 ? `1px solid ${gridColor}` : 'none',
                     transition: 'none',
                     position: 'relative',
                     overflow: 'hidden',

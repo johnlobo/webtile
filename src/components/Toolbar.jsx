@@ -134,6 +134,19 @@ const IconRescan = () => (
   </svg>
 )
 
+const IconGrid = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <path d="M2 2h16v16H2zm2 2v5h5V4zm7 0v5h5V4zM4 11v5h5v-5zm7 0v5h5v-5z"/>
+  </svg>
+)
+
+const IconGridSettings = () => (
+  <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
+    <path d="M2 3h10v2H2zm14 0h2v2h-2zM2 9h3v2H2zm7 0h9v2H9zM2 15h10v2H2zm14 0h2v2h-2z"/>
+    <rect x="12" y="1" width="4" height="6"/><rect x="5" y="7" width="4" height="6"/><rect x="12" y="13" width="4" height="6"/>
+  </svg>
+)
+
 const IconConnection = () => (
   <svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor">
     {/* Map A */}
@@ -249,7 +262,7 @@ const Divider = () => (
   <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
-export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, selectedEntityType, onSelectEntityType }) {
+export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, selectedEntityType, onSelectEntityType }) {
   const zoomIdx   = ZOOM_LEVELS.indexOf(zoom)
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
@@ -419,6 +432,26 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       </button>
 
       <Divider />
+
+      <ToolBtn
+        id="map-grid" label="GRID" shortcut="G" Icon={IconGrid}
+        active={showGrid}
+        onClick={onToggleGrid}
+      />
+
+      <button
+        title="Grid settings"
+        onClick={onOpenGridSettings}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: '3px', width: '42px', height: '42px', flexShrink: 0,
+          background: 'transparent', border: '1px solid var(--border)', borderRadius: '8px',
+          color: 'var(--text-dim)', cursor: 'pointer',
+        }}
+      >
+        <IconGridSettings />
+        <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '10px', fontWeight: 700, letterSpacing: '0.5px', lineHeight: 1 }}>GRID…</span>
+      </button>
 
       <ToolBtn
         id="tile-ids" label="IDS" shortcut="N" Icon={IconTileIds}

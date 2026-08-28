@@ -14,6 +14,7 @@ import ImportSpriteModal from '../components/ImportSpriteModal'
 import ImportSpriteSheetModal from '../components/ImportSpriteSheetModal'
 import ImportMapImageModal from '../components/ImportMapImageModal'
 import RescanTilesetModal from '../components/RescanTilesetModal'
+import MapGridSettingsModal from '../components/MapGridSettingsModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
 import StudioExplorer from '../components/StudioExplorer'
@@ -36,6 +37,22 @@ const ENTITY_DEFAULT_PROPERTIES = {
   object:  { collectible: true, respawn: false },
   portal:  { targetRoomId: null, targetEntry: 0 },
   trigger: { event: 'none', once: true },
+}
+
+const DEFAULT_MAP_GRID = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 }
+
+function loadMapGridSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('webtile.mapGrid') || 'null')
+    if (!stored || typeof stored !== 'object') return DEFAULT_MAP_GRID
+    return {
+      visible: stored.visible !== false,
+      cellW: Math.max(1, Number.parseInt(stored.cellW, 10) || 1),
+      cellH: Math.max(1, Number.parseInt(stored.cellH, 10) || 1),
+      color: /^#[0-9a-f]{6}$/i.test(stored.color) ? stored.color : DEFAULT_MAP_GRID.color,
+      opacity: Math.max(0.1, Math.min(1, Number(stored.opacity) || DEFAULT_MAP_GRID.opacity)),
+    }
+  } catch (_) { return DEFAULT_MAP_GRID }
 }
 
 // ── TMX helpers ───────────────────────────────────────────────────────────────
@@ -651,6 +668,8 @@ export default function HomePage() {
   const [activeTool,   setActiveTool]   = useState('stamp')
   const [zoom,         setZoom]         = useState(1)
   const [showTileIds, setShowTileIds] = useState(() => localStorage.getItem('webtile.showTileIds') === 'true')
+  const [mapGridSettings, setMapGridSettings] = useState(loadMapGridSettings)
+  const [showMapGridSettings, setShowMapGridSettings] = useState(false)
   const [saveStatus,   setSaveStatus]   = useState(null)
   const [canUndo,      setCanUndo]      = useState(false)
   const [connections,  setConnections]  = useState({})
@@ -707,6 +726,7 @@ export default function HomePage() {
   useEffect(() => { localStorage.setItem('webtile.explorerWidth', String(explorerWidth)) }, [explorerWidth])
   useEffect(() => { localStorage.setItem('webtile.inspectorWidth', String(inspectorWidth)) }, [inspectorWidth])
   useEffect(() => { localStorage.setItem('webtile.showTileIds', String(showTileIds)) }, [showTileIds])
+  useEffect(() => { localStorage.setItem('webtile.mapGrid', JSON.stringify(mapGridSettings)) }, [mapGridSettings])
 
   const startPanelResize = useCallback((event, side) => {
     event.preventDefault()
@@ -979,6 +999,7 @@ export default function HomePage() {
       if (e.key === 'x' || e.key === 'X') setActiveTool('entity')
       if (e.key === 'd' || e.key === 'D') setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)
       if (e.key === 'n' || e.key === 'N') setShowTileIds(value => !value)
+      if (e.key === 'g' || e.key === 'G') setMapGridSettings(settings => ({ ...settings, visible: !settings.visible }))
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey) && e.shiftKey) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'y' || e.key === 'Y') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleRedo(); return }
       if ((e.key === 'z' || e.key === 'Z') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); handleUndo() }
@@ -1901,6 +1922,9 @@ export default function HomePage() {
               canRedo={canRedo} onRedo={handleRedo}
               doubleWidth={mapConfig.doubleWidth}
               onToggleDoubleWidth={() => setMapConfig(c => c ? { ...c, doubleWidth: !c.doubleWidth } : c)}
+              showGrid={mapGridSettings.visible}
+              onToggleGrid={() => setMapGridSettings(settings => ({ ...settings, visible: !settings.visible }))}
+              onOpenGridSettings={() => setShowMapGridSettings(true)}
               showTileIds={showTileIds}
               onToggleTileIds={() => setShowTileIds(value => !value)}
               canRescanTileset={Boolean(tileset)}
@@ -1938,6 +1962,7 @@ export default function HomePage() {
                     activeTool={activeTool}
                     zoom={zoom} onZoomChange={setZoom}
                     showTileIds={showTileIds}
+                    gridSettings={mapGridSettings}
                     tileset={tileset} selectedTile={selectedTile}
                     mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
                     connections={connections}
@@ -2035,6 +2060,13 @@ export default function HomePage() {
           error={tilesetRescanError}
           onConfirm={handleConfirmTilesetRescan}
           onCancel={() => { if (!tilesetRescanBusy) { setTilesetRescan(null); setTilesetRescanError('') } }}
+        />
+      )}
+      {showMapGridSettings && (
+        <MapGridSettingsModal
+          settings={mapGridSettings}
+          onApply={settings => { setMapGridSettings(settings); setShowMapGridSettings(false) }}
+          onCancel={() => setShowMapGridSettings(false)}
         />
       )}
       {showNewSpriteModal && (
