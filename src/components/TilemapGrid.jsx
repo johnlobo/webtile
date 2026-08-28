@@ -440,7 +440,7 @@ export default function TilemapGrid({
               ENTITIES: {entities.length}
             </span>
           )}
-          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Shift+LMB/RMB: pick FG/BG</span>
+          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Alt+LMB/RMB: pick FG/BG</span>
         </div>
 
         {/* Grid wrapper */}
@@ -484,7 +484,8 @@ export default function TilemapGrid({
                     if (isErasing.current)  tryErase(col, row)
                   }}
                   onMouseDown={(e) => {
-                    if (e.shiftKey) {
+                    const canAltPick = activeTool === 'stamp' || activeTool === 'fill' || activeTool === 'eraser'
+                    if (e.altKey && canAltPick) {
                       if (paintedTile && onPickTile) onPickTile({ ...paintedTile }, e.button === 2 ? 'background' : 'foreground')
                       return
                     }
