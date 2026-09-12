@@ -82,14 +82,16 @@ function MinimapSection({ project, mapTiles, tileset }) {
 }
 
 /* ── Tileset Panel ───────────────────────────────────────────────────── */
-function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, onLoadTileset, onSelectTile, onSelectBackgroundTile, onEditTile }) {
+function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, onLoadTileset, onAppendBlankTile, onAppendTilesFile, onSelectTile, onSelectBackgroundTile, onEditTile }) {
   const fileRef     = useRef()
+  const appendFileRef = useRef()
   const containerRef = useRef()
   const [hover, setHover] = useState(null)  // { col, row }
 
   const handleFile = (e) => {
     const file = e.target.files[0]
     if (!file) return
+    if (tileset && !window.confirm('Replace the shared page tileset? Existing map tile references may change.')) { e.target.value = ''; return }
     const url = URL.createObjectURL(file)
     const img = new Image()
     img.onload = () => {
@@ -111,13 +113,18 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
     return containerRef.current.offsetWidth / tileset.naturalW
   }
 
+  const isExistingTile = (col, row) => {
+    if (!tileset || col < 0 || col >= tileset.cols || row < 0 || row >= tileset.rows) return false
+    return row * tileset.cols + col < (tileset.tileCount ?? tileset.cols * tileset.rows)
+  }
+
   const handleMouseMove = (e) => {
     if (!tileset) return
     const rect = e.currentTarget.getBoundingClientRect()
     const scale = rect.width / tileset.naturalW
     const col = Math.floor((e.clientX - rect.left)  / (tileW * scale))
     const row = Math.floor((e.clientY - rect.top)   / (tileH * scale))
-    if (col >= 0 && col < tileset.cols && row >= 0 && row < tileset.rows) {
+    if (isExistingTile(col, row)) {
       setHover({ col, row })
     } else {
       setHover(null)
@@ -130,7 +137,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
     const scale = rect.width / tileset.naturalW
     const col = Math.floor((e.clientX - rect.left)  / (tileW * scale))
     const row = Math.floor((e.clientY - rect.top)   / (tileH * scale))
-    if (col >= 0 && col < tileset.cols && row >= 0 && row < tileset.rows) {
+    if (isExistingTile(col, row)) {
       onSelectTile({ col, row, idx: row * tileset.cols + col })
     }
   }
@@ -142,7 +149,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
     const scale = rect.width / tileset.naturalW
     const col = Math.floor((e.clientX - rect.left) / (tileW * scale))
     const row = Math.floor((e.clientY - rect.top) / (tileH * scale))
-    if (col >= 0 && col < tileset.cols && row >= 0 && row < tileset.rows) onSelectBackgroundTile({ col, row, idx: row * tileset.cols + col })
+    if (isExistingTile(col, row)) onSelectBackgroundTile({ col, row, idx: row * tileset.cols + col })
   }
 
   return (
@@ -160,21 +167,13 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
         }}>
           TILESET
         </div>
-        <button
-          onClick={() => fileRef.current.click()}
-          style={{
-            fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 600,
-            padding: '5px 10px', background: 'transparent',
-            border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--accent)',
-            cursor: 'pointer',
-            transition: 'border-color 0.15s, background 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(33,82,255,0.06)'; e.currentTarget.style.borderColor = 'rgba(33,82,255,0.35)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)' }}
-        >
-          {tileset ? 'Change' : 'Load'}
-        </button>
+        <div className="tileset-header-actions">
+          {tileset && <button title="Add an empty tile and edit it manually" onClick={onAppendBlankTile}>+ Tile</button>}
+          {tileset && <button title="Append unique tiles from a PNG" onClick={() => appendFileRef.current?.click()}>+ PNG</button>}
+          <button className={tileset ? 'danger' : ''} onClick={() => fileRef.current.click()}>{tileset ? 'Replace…' : 'Load'}</button>
+        </div>
         <input ref={fileRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+        <input ref={appendFileRef} type="file" accept="image/png" style={{ display: 'none' }} onChange={event => { const file = event.target.files?.[0]; if (file) onAppendTilesFile?.(file); event.target.value = '' }} />
       </div>
 
       {!tileset ? (
@@ -711,7 +710,7 @@ function TileEditorSection({ tileW, tileH, tileset, selectedTile, onEditTile }) 
 import { ENTITY_TYPES, ENTITY_DEFAULT_PROPERTIES, ENTITY_BEHAVIORS, ENTITY_EVENTS } from '../services/entityTypes'
 
 /* ── Right Sidebar ───────────────────────────────────────────────────── */
-export default function RightSidebar({ project, mapTiles, tileset, selectedTile, backgroundTile, onLoadTileset, onSelectTile, onSelectBackgroundTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange, maxEntities, view = 'assets', embedded = false }) {
+export default function RightSidebar({ project, mapTiles, tileset, selectedTile, backgroundTile, onLoadTileset, onAppendBlankTile, onAppendTilesFile, onSelectTile, onSelectBackgroundTile, onEditTile, connections, entryPositions, spawns, entities, roomId, maps, selectedEntityId, selectedEntity, onUpdateEntityProperty, onDeleteSelectedEntity, onConnectionTargetChange, maxEntities, view = 'assets', embedded = false }) {
   return (
     <aside className={embedded ? 'studio-embedded-sidebar' : ''} style={{
       width: embedded ? '100%' : '220px',
@@ -735,6 +734,8 @@ export default function RightSidebar({ project, mapTiles, tileset, selectedTile,
           backgroundTile={backgroundTile}
           onSelectBackgroundTile={onSelectBackgroundTile}
           onLoadTileset={onLoadTileset}
+          onAppendBlankTile={onAppendBlankTile}
+          onAppendTilesFile={onAppendTilesFile}
           onSelectTile={onSelectTile}
           onEditTile={onEditTile}
         />

@@ -68,6 +68,7 @@ export default function ImportMapImageModal({ file, pageLabel, existingTileset, 
         marginX, marginY, spacingX, spacingY, palette, emptyTransparent,
         existingImageData: existingTileset?.canvas ? canvasImageData(existingTileset.canvas) : null,
         existingCols: existingTileset?.cols ?? 0, existingRows: existingTileset?.rows ?? 0,
+        existingTileCount: existingTileset?.tileCount ?? null,
       })
     } catch (cause) {
       setError(cause.message)

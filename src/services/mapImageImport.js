@@ -106,7 +106,7 @@ function isTransparent(data) {
   return true
 }
 
-export function analyzeMapImage({ imageData, tileW, tileH, mapW, mapH, marginX = 0, marginY = 0, spacingX = 0, spacingY = 0, palette, emptyTransparent = true, existingImageData = null, existingCols = 0, existingRows = 0 }) {
+export function analyzeMapImage({ imageData, tileW, tileH, mapW, mapH, marginX = 0, marginY = 0, spacingX = 0, spacingY = 0, palette, emptyTransparent = true, existingImageData = null, existingCols = 0, existingRows = 0, existingTileCount = null }) {
   const requiredW = marginX + mapW * tileW + Math.max(0, mapW - 1) * spacingX
   const requiredH = marginY + mapH * tileH + Math.max(0, mapH - 1) * spacingY
   if (requiredW > imageData.width || requiredH > imageData.height) throw new Error('The configured grid does not fit inside the PNG.')
@@ -114,7 +114,8 @@ export function analyzeMapImage({ imageData, tileW, tileH, mapW, mapH, marginX =
   const quantized = quantizeToPalette(imageData, palette)
   const keys = new Map()
   const tiles = []
-  const existingCount = existingImageData ? existingCols * existingRows : 0
+  const existingCapacity = existingCols * existingRows
+  const existingCount = existingImageData ? Math.min(existingTileCount ?? existingCapacity, existingCapacity) : 0
   if (existingImageData) {
     const normalizedExisting = quantizeToPalette(existingImageData, palette)
     for (let index = 0; index < existingCount; index++) {

@@ -23,6 +23,15 @@ describe('map image import', () => {
     expect(result.mapTiles[0].map(tile => tile.idx)).toEqual([0, 2])
   })
 
+  it('fills unused slots in a partially occupied final row', () => {
+    const existing = image(4, 1, [[255, 0, 0, 255], [0, 0, 0, 255], [0, 0, 0, 0], [0, 0, 0, 0]])
+    const source = image(1, 1, [[255, 255, 255, 255]])
+    const result = analyzeMapImage({ imageData: source, tileW: 1, tileH: 1, mapW: 1, mapH: 1, palette: [0, 6, 26], existingImageData: existing, existingCols: 4, existingRows: 1, existingTileCount: 2 })
+    expect(result.existingCount).toBe(2)
+    expect(result.totalCount).toBe(3)
+    expect(result.mapTiles[0][0]).toEqual({ idx: 2, col: 2, row: 0 })
+  })
+
   it('keeps transparent cells empty', () => {
     const source = image(1, 1, [[0, 0, 0, 0]])
     const result = analyzeMapImage({ imageData: source, tileW: 1, tileH: 1, mapW: 1, mapH: 1, palette: [0] })

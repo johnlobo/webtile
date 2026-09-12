@@ -15,6 +15,7 @@ import ImportSpriteSheetModal from '../components/ImportSpriteSheetModal'
 import ImportMapImageModal from '../components/ImportMapImageModal'
 import RescanTilesetModal from '../components/RescanTilesetModal'
 import MapGridSettingsModal from '../components/MapGridSettingsModal'
+import AppendTilesModal from '../components/AppendTilesModal'
 import ConfirmDialog from '../components/ConfirmDialog'
 import PixelHeading from '../components/PixelHeading'
 import StudioExplorer from '../components/StudioExplorer'
@@ -620,7 +621,7 @@ function StudioInspector({ collapsed, onToggle, width, onResizeStart, tab, onTab
       <div className="studio-inspector-tabs">
         {tabs.map(([id, label]) => <button key={id} className={tab === id ? 'active' : ''} onClick={() => onTabChange(id)}>{label}{id === 'entity' && selectedEntity ? ' •' : ''}</button>)}
       </div>
-      <div className="studio-inspector-content">
+      <div className={`studio-inspector-content studio-inspector-content-${tab}`}>
         {tab === 'assets' && <RightSidebar {...rightSidebarProps} view="assets" embedded />}
         {tab === 'room' && <MapDataSection {...mapDataProps} />}
         {tab === 'entity' && <RightSidebar {...rightSidebarProps} view="entity" embedded />}
@@ -705,6 +706,7 @@ export default function HomePage() {
   const [tilesetRescan, setTilesetRescan] = useState(null)
   const [tilesetRescanBusy, setTilesetRescanBusy] = useState(false)
   const [tilesetRescanError, setTilesetRescanError] = useState('')
+  const [appendTilesFile, setAppendTilesFile] = useState(null)
   const spritePngInputRef = useRef(null)
   const spriteSheetInputRef = useRef(null)
 
@@ -1797,7 +1799,18 @@ export default function HomePage() {
   // ── Tileset ────────────────────────────────────────────────────────────────
 
   const handleLoadTileset = useCallback(async (ts) => {
-    setTileset(ts)
+    const config = mapConfigRef_.current
+    const palette = ts.palette ?? (ts.canvas
+      ? inferCpcPalette(ts.canvas.getContext('2d').getImageData(0, 0, ts.canvas.width, ts.canvas.height), 16)
+      : null)
+    const normalized = {
+      ...ts,
+      tileW: ts.tileW ?? config?.tileW ?? null,
+      tileH: ts.tileH ?? config?.tileH ?? null,
+      tileCount: ts.tileCount ?? (ts.cols ?? 0) * (ts.rows ?? 0),
+      palette,
+    }
+    setTileset(normalized)
     setSelectedTile(null)
     setBackgroundTile(null)
     const pid = projectIdRef_.current
@@ -1805,7 +1818,7 @@ export default function HomePage() {
     if (!pid || !pageId) return
     setSaveStatus('saving')
     try {
-      await savePageTileset(user.uid, pid, pageId, ts)
+      await savePageTileset(user.uid, pid, pageId, normalized)
       setSaveStatus('saved')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch (_) {
@@ -1833,6 +1846,49 @@ export default function HomePage() {
       }
     }, 2000)
   }, [user.uid])
+
+  const handleAppendBlankTile = useCallback(async () => {
+    const current = tilesetRef_.current
+    const config = mapConfigRef_.current
+    if (!current?.canvas || !config) return
+    const count = current.tileCount ?? current.cols * current.rows
+    const maxTiles = getProjectProfile(projectProfileId).maxTiles
+    if (maxTiles && count >= maxTiles) {
+      await showAlert('This profile allows a maximum of ' + maxTiles + ' tiles per page.', 'TILESET LIMIT')
+      return
+    }
+    const cols = current.cols
+    const rows = Math.max(current.rows, Math.ceil((count + 1) / cols))
+    const canvas = document.createElement('canvas')
+    canvas.width = current.naturalW
+    canvas.height = rows * config.tileH
+    const context = canvas.getContext('2d')
+    context.drawImage(current.canvas, 0, 0)
+    const col = count % cols
+    const row = Math.floor(count / cols)
+    context.clearRect(col * config.tileW, row * config.tileH, config.tileW, config.tileH)
+    const next = {
+      ...current, url: canvas.toDataURL('image/png'), canvas,
+      rows, tileCount: count + 1, naturalW: canvas.width, naturalH: canvas.height,
+      tileW: config.tileW, tileH: config.tileH,
+    }
+    await handleLoadTileset(next)
+    const tile = { idx: count, col, row }
+    setSelectedTile(tile)
+    setBackgroundTile(background => background ?? tile)
+  }, [handleLoadTileset, projectProfileId, showAlert])
+
+  const handleAppendImportedTiles = useCallback(async nextTileset => {
+    const current = tilesetRef_.current
+    const firstNewIndex = current?.tileCount ?? (current?.cols ?? 0) * (current?.rows ?? 0)
+    await handleLoadTileset(nextTileset)
+    setAppendTilesFile(null)
+    if (nextTileset.tileCount > firstNewIndex) {
+      const tile = { idx: firstNewIndex, col: firstNewIndex % nextTileset.cols, row: Math.floor(firstNewIndex / nextTileset.cols) }
+      setSelectedTile(tile)
+      setBackgroundTile(background => background ?? tile)
+    }
+  }, [handleLoadTileset])
 
   // ── Paint ──────────────────────────────────────────────────────────────────
 
@@ -2118,6 +2174,8 @@ export default function HomePage() {
             rightSidebarProps={{
               project: mapConfig, mapTiles, tileset, selectedTile, backgroundTile,
               onLoadTileset: handleLoadTileset,
+              onAppendBlankTile: handleAppendBlankTile,
+              onAppendTilesFile: setAppendTilesFile,
               onSelectTile: tile => { setSelectedTile(tile); setBackgroundTile(current => current ?? tile) },
               onSelectBackgroundTile: setBackgroundTile, onEditTile: handleEditTile,
               connections, entryPositions, spawns, entities,
@@ -2187,6 +2245,17 @@ export default function HomePage() {
           settings={mapGridSettings}
           onApply={settings => { setMapGridSettings(settings); setShowMapGridSettings(false) }}
           onCancel={() => setShowMapGridSettings(false)}
+        />
+      )}
+      {appendTilesFile && mapConfig && (
+        <AppendTilesModal
+          file={appendTilesFile}
+          tileset={tileset}
+          tileW={mapConfig.tileW}
+          tileH={mapConfig.tileH}
+          maxTiles={getProjectProfile(projectProfileId).maxTiles}
+          onConfirm={handleAppendImportedTiles}
+          onCancel={() => setAppendTilesFile(null)}
         />
       )}
       {showNewSpriteModal && (

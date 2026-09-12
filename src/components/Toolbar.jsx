@@ -214,7 +214,7 @@ function TilePaintSlot({ label, tile, tileset, tileW = 8, tileH = 8 }) {
   tileH = tileset?.tileH ?? tileH
   const scale = Math.min(28 / tileW, 28 / tileH)
   return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title={`${label} tile${tile ? ` #${tile.idx}` : ': none'}`}>
-    <div style={{
+    <div className="map-toolbar" style={{
       width: '28px', height: '28px', boxSizing: 'border-box', border: `2px solid ${label === 'FG' ? 'var(--accent)' : 'var(--amber)'}`,
       backgroundColor: 'var(--bg2)',
       ...(tile && tileset ? {
