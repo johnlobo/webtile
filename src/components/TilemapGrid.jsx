@@ -68,6 +68,7 @@ export default function TilemapGrid({
   const [stampAnchor, setStampAnchor] = useState(null)
   const [shiftPressed, setShiftPressed] = useState(false)
   const gridRef = useRef(null)
+  const mapSurfaceRef = useRef(null)
 
   const connectionDirections = ['north', 'south', 'east', 'west'].filter(d => connections?.[d] != null)
   const hasActiveConnection = activeTool === 'conn' && connectionDirections.length > 0
@@ -101,11 +102,37 @@ export default function TilemapGrid({
   }, [])
 
   const handleWheel = useCallback((e) => {
+    if (!e.altKey) return
     e.preventDefault()
+    if (e.deltaY === 0) return
     const idx = ZOOM_LEVELS.indexOf(zoom)
-    if (e.deltaY < 0 && idx < ZOOM_LEVELS.length - 1) onZoomChange(ZOOM_LEVELS[idx + 1])
-    if (e.deltaY > 0 && idx > 0)                       onZoomChange(ZOOM_LEVELS[idx - 1])
-  }, [zoom, onZoomChange])
+    const nextZoom = e.deltaY < 0
+      ? ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, idx + 1)]
+      : ZOOM_LEVELS[Math.max(0, idx - 1)]
+    if (nextZoom === zoom) return
+
+    const surface = mapSurfaceRef.current
+    const scroller = gridRef.current
+    if (!surface || !scroller) { onZoomChange(nextZoom); return }
+
+    const surfaceRect = surface.getBoundingClientRect()
+    const logicalCol = Math.max(0, Math.min(mapW, (e.clientX - surfaceRect.left) / displayW))
+    const logicalRow = Math.max(0, Math.min(mapH, (e.clientY - surfaceRect.top) / displayH))
+    const pointerX = e.clientX
+    const pointerY = e.clientY
+    const nextDisplayW = (doubleWidth ? tileW * 2 : tileW) * nextZoom
+    const nextDisplayH = tileH * nextZoom
+
+    onZoomChange(nextZoom)
+    requestAnimationFrame(() => {
+      const nextSurface = mapSurfaceRef.current
+      const nextScroller = gridRef.current
+      if (!nextSurface || !nextScroller) return
+      const nextRect = nextSurface.getBoundingClientRect()
+      nextScroller.scrollLeft += nextRect.left + logicalCol * nextDisplayW - pointerX
+      nextScroller.scrollTop += nextRect.top + logicalRow * nextDisplayH - pointerY
+    })
+  }, [zoom, onZoomChange, mapW, mapH, displayW, displayH, doubleWidth, tileW, tileH])
 
   useEffect(() => {
     const el = gridRef.current
@@ -474,12 +501,13 @@ export default function TilemapGrid({
           {activeTool === 'stamp' && stampAnchor && (
             <span style={{ color: 'var(--accent)' }}>Hold Shift: straight line from {stampAnchor.col}, {stampAnchor.row}</span>
           )}
-          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Alt+LMB/RMB: pick FG/BG</span>
+          <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Alt+wheel: zoom · Alt+LMB/RMB: pick FG/BG</span>
         </div>
 
         {/* Grid wrapper */}
         <div style={{ position: 'relative' }}>
           <div
+            ref={mapSurfaceRef}
             style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${mapW}, ${displayW}px)`,
