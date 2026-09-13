@@ -22,3 +22,24 @@ export function floodFillCells(mapTiles, startCol, startRow, mapW, mapH) {
   }
   return result
 }
+
+export function straightLineCells(startCol, startRow, endCol, endRow) {
+  const cells = []
+  let col = startCol
+  let row = startRow
+  const deltaCol = Math.abs(endCol - startCol)
+  const deltaRow = Math.abs(endRow - startRow)
+  const stepCol = startCol < endCol ? 1 : -1
+  const stepRow = startRow < endRow ? 1 : -1
+  let error = deltaCol - deltaRow
+
+  while (true) {
+    cells.push({ col, row })
+    if (col === endCol && row === endRow) break
+    const doubledError = error * 2
+    if (doubledError > -deltaRow) { error -= deltaRow; col += stepCol }
+    if (doubledError < deltaCol) { error += deltaCol; row += stepRow }
+  }
+
+  return cells
+}

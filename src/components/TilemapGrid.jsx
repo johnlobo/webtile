@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { ZOOM_LEVELS } from '../services/constants'
-import { floodFillCells } from '../services/gridAlgorithms'
+import { floodFillCells, straightLineCells } from '../services/gridAlgorithms'
 import { normalizeMapSelection } from '../services/mapSelection'
 
 function getBorderDirection(col, row, mapW, mapH) {
@@ -48,7 +48,7 @@ export default function TilemapGrid({
   showTileIds = false,
   gridSettings = { visible: true, cellW: 1, cellH: 1, color: '#ffaa00', opacity: 0.55 },
   tileset, selectedTile, backgroundTile,
-  mapTiles, onPaintCell, onFillCells, onPickTile,
+  mapTiles, onPaintCell, onPaintCells, onFillCells, onPickTile,
   selection, onSelectionChange, clipboard, isPasting, onPasteCommit,
   connections, entryPositions,
   onConnectionClick, onEntryClick, roomId,
@@ -65,6 +65,8 @@ export default function TilemapGrid({
   const paintTileRef = useRef(null)
   const selectionAnchor = useRef(null)
   const [hoveredCell, setHoveredCell] = useState(null)
+  const [stampAnchor, setStampAnchor] = useState(null)
+  const [shiftPressed, setShiftPressed] = useState(false)
   const gridRef = useRef(null)
 
   const connectionDirections = ['north', 'south', 'east', 'west'].filter(d => connections?.[d] != null)
@@ -82,6 +84,20 @@ export default function TilemapGrid({
     const up = () => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null; selectionAnchor.current = null }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
+  }, [])
+
+  useEffect(() => {
+    const keyDown = event => { if (event.key === 'Shift') setShiftPressed(true) }
+    const keyUp = event => { if (event.key === 'Shift') setShiftPressed(false) }
+    const blur = () => setShiftPressed(false)
+    window.addEventListener('keydown', keyDown)
+    window.addEventListener('keyup', keyUp)
+    window.addEventListener('blur', blur)
+    return () => {
+      window.removeEventListener('keydown', keyDown)
+      window.removeEventListener('keyup', keyUp)
+      window.removeEventListener('blur', blur)
+    }
   }, [])
 
   const handleWheel = useCallback((e) => {
@@ -211,6 +227,10 @@ export default function TilemapGrid({
     col: Math.max(0, Math.min(hoveredCell.col, mapW - clipboard.w)),
     row: Math.max(0, Math.min(hoveredCell.row, mapH - clipboard.h)),
   } : null
+
+  const stampLinePreview = activeTool === 'stamp' && shiftPressed && stampAnchor && hoveredCell && selectedTile && tileset
+    ? straightLineCells(stampAnchor.col, stampAnchor.row, hoveredCell.col, hoveredCell.row)
+    : null
 
   const renderHoverOverlay = () => {
     if (!hoveredCell) return null
@@ -451,6 +471,9 @@ export default function TilemapGrid({
               ENTITIES: {entities.length}
             </span>
           )}
+          {activeTool === 'stamp' && stampAnchor && (
+            <span style={{ color: 'var(--accent)' }}>Hold Shift: straight line from {stampAnchor.col}, {stampAnchor.row}</span>
+          )}
           <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Alt+LMB/RMB: pick FG/BG</span>
         </div>
 
@@ -507,9 +530,15 @@ export default function TilemapGrid({
                     }
                     if (e.button === 2) {
                       if ((activeTool === 'stamp' || activeTool === 'fill') && backgroundTile) {
+                        if (activeTool === 'stamp' && e.shiftKey && stampAnchor) {
+                          onPaintCells?.(straightLineCells(stampAnchor.col, stampAnchor.row, col, row), backgroundTile)
+                          setStampAnchor({ col, row })
+                          return
+                        }
                         paintTileRef.current = backgroundTile
                         isPainting.current = true
                         tryPaint(col, row, backgroundTile)
+                        if (activeTool === 'stamp') setStampAnchor({ col, row })
                       } else {
                         isErasing.current = true
                         tryErase(col, row)
@@ -522,9 +551,15 @@ export default function TilemapGrid({
                       onSelectionChange?.({ x: col, y: row, w: 1, h: 1 })
                       return
                     }
+                    if (activeTool === 'stamp' && e.shiftKey && stampAnchor && selectedTile && tileset) {
+                      onPaintCells?.(straightLineCells(stampAnchor.col, stampAnchor.row, col, row), selectedTile)
+                      setStampAnchor({ col, row })
+                      return
+                    }
                     paintTileRef.current = selectedTile
                     isPainting.current = true
                     tryPaint(col, row, selectedTile)
+                    if (activeTool === 'stamp' && selectedTile && tileset) setStampAnchor({ col, row })
                   }}
                   onDoubleClick={() => {
                     if (activeTool === 'conn' && onEntryClick) {
@@ -589,8 +624,17 @@ export default function TilemapGrid({
             </div>
           )}
 
+          {!isPasting && stampLinePreview?.map(({ col, row }) => (
+            <div key={`${col},${row}`} style={{
+              position: 'absolute', left: col * displayW, top: row * displayH,
+              width: displayW, height: displayH, ...getTileStyle(selectedTile),
+              outline: '2px solid var(--amber)', outlineOffset: '-2px',
+              boxSizing: 'border-box', pointerEvents: 'none', zIndex: 10, opacity: 0.76,
+            }} />
+          ))}
+
           {/* Hover overlay */}
-          {!isPasting && renderHoverOverlay()}
+          {!isPasting && !stampLinePreview && renderHoverOverlay()}
         </div>
       </div>
     </div>

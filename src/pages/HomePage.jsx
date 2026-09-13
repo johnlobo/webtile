@@ -1078,7 +1078,15 @@ export default function HomePage() {
       if (ctrl && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); handleMapCut(); return }
       if (ctrl && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handleBeginMapPaste(); return }
       if (e.key === 'Delete' || e.key === 'Backspace') { if (mapSelection) { e.preventDefault(); handleMapDeleteSelection() }; return }
-      if (e.key === 'Escape' && isMapPasting) { e.preventDefault(); setIsMapPasting(false); setMapPasteMode('paste'); setMapMoveSource(null); return }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setIsMapPasting(false)
+        setMapPasteMode('paste')
+        setMapMoveSource(null)
+        setMapSelection(null)
+        setActiveTool(tool => tool === 'select' ? 'stamp' : tool)
+        return
+      }
       if (e.key === 's' || e.key === 'S') setActiveTool('stamp')
       if (e.key === 'f' || e.key === 'F') setActiveTool('fill')
       if (e.key === 'e' || e.key === 'E') setActiveTool('eraser')
@@ -1904,6 +1912,18 @@ export default function HomePage() {
     scheduleAutoSave(next)
   }, [pushHistory, scheduleAutoSave])
 
+  const handlePaintCells = useCallback((cells, tile) => {
+    const current = mapTilesRef_.current
+    if (!current || !cells.length) return
+    const validCells = cells.filter(({ col, row }) => row >= 0 && row < current.length && col >= 0 && col < current[row].length)
+    if (!validCells.some(({ col, row }) => current[row][col]?.idx !== tile?.idx)) return
+    pushHistory()
+    const next = current.map(row => [...row])
+    for (const { col, row } of validCells) next[row][col] = tile
+    setMapTiles(next)
+    scheduleAutoSave(next)
+  }, [pushHistory, scheduleAutoSave])
+
   const handleFillCells = useCallback((cells, tile) => {
     if (!cells.length || !mapTilesRef_.current) return
     pushHistory()
@@ -2122,13 +2142,14 @@ export default function HomePage() {
               : !hasMap
                 ? <NoMaps onCreate={() => setShowNewMapModal(true)} onImport={() => tmxInputRef.current?.click()} tmxInputRef={tmxInputRef} />
                 : <TilemapGrid
+                    key={activeMapId}
                     {...mapConfig}
                     activeTool={activeTool}
                     zoom={zoom} onZoomChange={setZoom}
                     showTileIds={showTileIds}
                     gridSettings={mapGridSettings}
                     tileset={tileset} selectedTile={selectedTile} backgroundTile={backgroundTile}
-                    mapTiles={mapTiles} onPaintCell={handlePaintCell} onFillCells={handleFillCells}
+                    mapTiles={mapTiles} onPaintCell={handlePaintCell} onPaintCells={handlePaintCells} onFillCells={handleFillCells}
                     onPickTile={(tile, slot) => {
                       if (slot === 'background') setBackgroundTile(tile)
                       else { setSelectedTile(tile); setBackgroundTile(current => current ?? tile) }
