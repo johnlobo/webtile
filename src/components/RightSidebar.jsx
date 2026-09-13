@@ -57,7 +57,7 @@ function MinimapSection({ project, mapTiles, tileset }) {
   if (!project) return null
 
   return (
-    <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+    <div className="map-minimap-section" style={{ padding: '8px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
       <canvas
         ref={canvasRef}
         style={{ display: 'block', width: INNER_W, flexShrink: 0, imageRendering: 'pixelated' }}
@@ -153,10 +153,10 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+    <div className="map-tileset-section" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
       {/* Header */}
-      <div style={{
+      <div className="map-tileset-header" style={{
         padding: '12px 12px 8px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         flexShrink: 0,
@@ -210,7 +210,7 @@ function TilesetSection({ tileW, tileH, tileset, selectedTile, backgroundTile, o
         </div>
       ) : (
         /* Tileset image + selector */
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }}>
+        <div className="map-tileset-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 12px 12px' }}>
 
           {/* Tile info */}
           <div style={{

@@ -3114,7 +3114,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
         />
 
         {/* RIGHT PANEL */}
-        <div style={{
+        <div className="sprite-side-panel" style={{
           width: `${sidePanelWidth}px`, flexShrink: 0,
           background: 'var(--panel)',
           borderLeft: '1px solid var(--border)',
@@ -3421,7 +3421,7 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
       </div>
 
       {/* Status bar */}
-      <div style={{
+      <div className="sprite-status-bar" style={{
         height: '28px', flexShrink: 0,
         borderTop: '1px solid var(--border)',
         background: 'var(--panel)',

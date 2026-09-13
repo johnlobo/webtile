@@ -613,12 +613,43 @@ body {
   .sprite-layer-timeline-title { display: none; }
 }
 
-@media (max-width: 1360px) {
-  .studio-explorer { width: 210px !important; flex-basis: 210px !important; }
-  .studio-inspector { width: 250px !important; flex-basis: 250px !important; }
+@media (max-width: 1600px) {
+  .studio-explorer { width: 200px !important; flex-basis: 200px !important; }
+  .studio-inspector { width: 230px !important; flex-basis: 230px !important; }
   .studio-explorer-collapsed,
   .studio-inspector-collapsed { width: 32px !important; flex-basis: 32px !important; }
+  .studio-logo { padding-left: 14px !important; padding-right: 14px !important; }
+  .studio-version,
+  .studio-account-name { display: none !important; }
+  .studio-account { gap: 6px !important; padding: 0 8px !important; }
+  .studio-account .btn-ghost { padding: 7px 9px; font-size: 9px; }
+  .studio-top-nav > div > button { padding-left: 10px !important; padding-right: 10px !important; }
+  .studio-breadcrumb { padding-left: 10px !important; padding-right: 10px !important; }
+
+  .map-toolbar { min-width: 0; min-height: 42px; gap: 3px !important; padding: 4px 6px !important; overflow: visible !important; }
+  .map-toolbar > button { width: 34px !important; height: 34px !important; flex-basis: 34px !important; gap: 0 !important; }
+  .map-toolbar > button > span { display: none !important; }
+  .map-toolbar-divider { height: 29px !important; margin-left: 1px !important; margin-right: 1px !important; }
+  .map-active-tool { display: none !important; }
+  .map-paint-slots { gap: 2px !important; }
+  .map-paint-slot { gap: 0 !important; }
+  .map-paint-slot > div { width: 24px !important; height: 24px !important; }
+  .map-paint-slot > span { font-size: 7px !important; }
+  .map-selection-actions { display: none !important; }
+  .map-selection-compact-menu { display: block !important; position: relative; flex: 0 0 auto; }
+  .map-selection-compact-menu summary { height: 34px; padding: 0 8px; display: flex; align-items: center; list-style: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-dim); cursor: pointer; font-size: 9px; font-weight: 700; }
+  .map-selection-compact-menu summary::-webkit-details-marker { display: none; }
+  .map-selection-compact-menu[open] summary { color: var(--accent); border-color: var(--green-dim); background: var(--green-glow); }
+  .map-selection-compact-menu > div { position: absolute; top: calc(100% + 5px); left: 0; z-index: 80; width: 180px; padding: 5px; display: grid; gap: 2px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); box-shadow: var(--shadow-md); }
+  .map-selection-compact-menu button { height: 29px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between; border: 0; border-radius: 4px; background: transparent; color: var(--text); cursor: pointer; font-size: 10px; text-align: left; }
+  .map-selection-compact-menu button:hover:not(:disabled) { color: var(--accent); background: var(--green-glow); }
+  .map-selection-compact-menu button:disabled { opacity: .35; cursor: default; }
+  .map-selection-compact-menu button span { color: var(--text-dim); font-size: 8px; }
+  .map-entity-actions { min-width: 0; padding: 0 2px !important; margin-left: 0 !important; }
+  .map-entity-actions button { padding-left: 4px !important; padding-right: 4px !important; font-size: 8px !important; }
 }
+
+.map-selection-compact-menu { display: none; }
 
 .studio-tree-scroll,
 .studio-inspector-content,
@@ -639,13 +670,33 @@ body {
 .sprite-layer-timeline-scroll::-webkit-scrollbar-thumb,
 .map-toolbar::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: rgba(123,128,154,.65); background-clip: padding-box; }
 
-@media (max-height: 820px) {
+@media (max-height: 1000px) {
   .studio-topbar { height: 42px !important; }
   .studio-panel-header,
-  .studio-inspector-title { min-height: 48px; padding-top: 8px; padding-bottom: 7px; }
+  .studio-inspector-title { min-height: 46px; padding: 7px 8px 6px 11px; }
+  .studio-panel-eyebrow { margin-bottom: 4px; font-size: 8px; }
+  .studio-project-profile { display: none; }
   .studio-inspector-tabs button { height: 30px; }
-  .map-toolbar { padding-top: 3px !important; padding-bottom: 3px !important; }
-  .map-toolbar > button { height: 38px !important; }
+  .studio-tree-heading { height: 30px; }
+  .studio-tree-row { min-height: 27px; padding-top: 2px; padding-bottom: 2px; }
+  .studio-tree-content { padding-bottom: 3px; }
+  .map-minimap-section { padding-top: 5px !important; padding-bottom: 5px !important; }
+  .map-minimap-section canvas { max-height: 58px; object-fit: contain; object-position: top; }
+  .map-tileset-header { padding-top: 7px !important; padding-bottom: 6px !important; }
+  .map-tileset-scroll { padding-bottom: 6px !important; }
+
+  .sprite-editor-tabs { height: 30px; }
+  .sprite-toolbar { min-height: 40px; padding-top: 3px; padding-bottom: 3px; }
+  .sprite-tool-btn { width: 30px; height: 30px; flex-basis: 30px; font-size: 18px; }
+  .sprite-zoom-control,
+  .sprite-toolbar-toggle,
+  .sprite-toolbar-menu-btn { height: 30px; }
+  .sprite-fixed-tool-options { height: 34px; min-height: 34px; padding-top: 3px; padding-bottom: 3px; }
+  .sprite-canvas-scroll { padding: 8px; }
+  .sprite-side-panel { width: 180px !important; padding: 8px !important; gap: 8px !important; }
+  .sprite-layer-timeline { height: min(180px, 24vh) !important; min-height: 116px; }
+  .sprite-layer-timeline-toolbar { min-height: 34px; padding-top: 3px; padding-bottom: 3px; }
+  .sprite-status-bar { height: 24px !important; padding-left: 10px !important; padding-right: 10px !important; }
 }
 
 @media (max-width: 900px) {

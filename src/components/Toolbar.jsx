@@ -213,8 +213,8 @@ function TilePaintSlot({ label, tile, tileset, tileW = 8, tileH = 8 }) {
   tileW = tileset?.tileW ?? tileW
   tileH = tileset?.tileH ?? tileH
   const scale = Math.min(28 / tileW, 28 / tileH)
-  return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title={`${label} tile${tile ? ` #${tile.idx}` : ': none'}`}>
-    <div className="map-toolbar" style={{
+  return <div className="map-paint-slot" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }} title={`${label} tile${tile ? ` #${tile.idx}` : ': none'}`}>
+    <div style={{
       width: '28px', height: '28px', boxSizing: 'border-box', border: `2px solid ${label === 'FG' ? 'var(--accent)' : 'var(--amber)'}`,
       backgroundColor: 'var(--bg2)',
       ...(tile && tileset ? {
@@ -277,7 +277,7 @@ function ToolBtn({ id, label, shortcut, badge, Icon, active, onClick }) {
 }
 
 const Divider = () => (
-  <div style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
+  <div className="map-toolbar-divider" style={{ width: '1px', height: '36px', background: 'var(--border)', margin: '0 4px', flexShrink: 0 }} />
 )
 
 export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZoomOut, canUndo, onUndo, canRedo, onRedo, doubleWidth, onToggleDoubleWidth, showGrid, onToggleGrid, onOpenGridSettings, showTileIds, onToggleTileIds, canRescanTileset, onRescanTileset, tileset, tileW, tileH, foregroundTile, backgroundTile, onSwapPaintTiles, hasMapSelection, hasMapClipboard, onSelectAll, onCopySelection, onCutSelection, onPasteSelection, onDeleteSelection, onMoveSelection, onTransformSelection, selectedEntityType, onSelectEntityType }) {
@@ -285,9 +285,21 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
   const canZoomIn  = zoomIdx < ZOOM_LEVELS.length - 1
   const canZoomOut = zoomIdx > 0
   const zoomLabel  = zoom >= 1 ? `${zoom}×` : `${Math.round(zoom * 100)}%`
+  const selectionActions = [
+    ['ALL', 'Ctrl+A', onSelectAll, false],
+    ['COPY', 'Ctrl+C', onCopySelection, !hasMapSelection],
+    ['CUT', 'Ctrl+X', onCutSelection, !hasMapSelection],
+    ['PASTE', 'Ctrl+V', onPasteSelection, !hasMapClipboard],
+    ['DEL', 'Delete', onDeleteSelection, !hasMapSelection],
+    ['MOVE', 'Place', onMoveSelection, !hasMapSelection],
+    ['↔', 'Flip horizontal', () => onTransformSelection?.('flipH'), !hasMapSelection],
+    ['↕', 'Flip vertical', () => onTransformSelection?.('flipV'), !hasMapSelection],
+    ['↶', 'Rotate left', () => onTransformSelection?.('rotateLeft'), !hasMapSelection],
+    ['↷', 'Rotate right', () => onTransformSelection?.('rotateRight'), !hasMapSelection],
+  ]
 
   return (
-    <div style={{
+    <div className="map-toolbar" style={{
       display: 'flex', alignItems: 'center', gap: '4px',
       padding: '5px 8px', overflowX: 'auto',
       background: 'var(--panel)',
@@ -304,7 +316,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       ))}
 
       {activeTool === 'entity' && onSelectEntityType && (
-        <div style={{
+        <div className="map-entity-actions" style={{
           display: 'flex', alignItems: 'center', gap: '2px',
           padding: '0 4px', marginLeft: '4px',
         }}>
@@ -334,23 +346,20 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       )}
 
       {activeTool === 'select' && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0 4px' }}>
-          {[
-            ['ALL', 'Ctrl+A', onSelectAll, false],
-            ['COPY', 'Ctrl+C', onCopySelection, !hasMapSelection],
-            ['CUT', 'Ctrl+X', onCutSelection, !hasMapSelection],
-            ['PASTE', 'Ctrl+V', onPasteSelection, !hasMapClipboard],
-            ['DEL', 'Delete', onDeleteSelection, !hasMapSelection],
-            ['MOVE', 'Place', onMoveSelection, !hasMapSelection],
-            ['↔', 'Flip horizontal', () => onTransformSelection?.('flipH'), !hasMapSelection],
-            ['↕', 'Flip vertical', () => onTransformSelection?.('flipV'), !hasMapSelection],
-            ['↶', 'Rotate left', () => onTransformSelection?.('rotateLeft'), !hasMapSelection],
-            ['↷', 'Rotate right', () => onTransformSelection?.('rotateRight'), !hasMapSelection],
-          ].map(([label, shortcut, action, disabled]) => <button key={label} title={`${label} [${shortcut}]`} disabled={disabled} onClick={action} style={{
+        <>
+          <div className="map-selection-actions" style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0 4px' }}>
+            {selectionActions.map(([label, shortcut, action, disabled]) => <button key={label} title={`${label} [${shortcut}]`} disabled={disabled} onClick={action} style={{
             padding: '6px 7px', border: '1px solid var(--border)', borderRadius: '4px', background: 'transparent',
             color: disabled ? 'var(--border)' : 'var(--text-dim)', cursor: disabled ? 'default' : 'pointer', fontSize: '9px', fontWeight: 700,
-          }}>{label}</button>)}
-        </div>
+            }}>{label}</button>)}
+          </div>
+          <details className="map-selection-compact-menu">
+            <summary>EDIT…</summary>
+            <div>
+              {selectionActions.map(([label, shortcut, action, disabled]) => <button key={label} disabled={disabled} onClick={event => { action?.(); event.currentTarget.closest('details').removeAttribute('open') }}>{label} <span>{shortcut}</span></button>)}
+            </div>
+          </details>
+        </>
       )}
 
       <Divider />
@@ -515,7 +524,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
 
       <Divider />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
+      <div className="map-paint-slots" style={{ display: 'flex', alignItems: 'center', gap: '5px', flexShrink: 0 }}>
         <TilePaintSlot label="FG" tile={foregroundTile} tileset={tileset} tileW={tileW} tileH={tileH} />
         <button title="Swap foreground / background tiles [X]" onClick={onSwapPaintTiles} style={{ border: 0, background: 'transparent', color: 'var(--text-dim)', cursor: 'pointer', padding: '4px', fontSize: '16px' }}>⇄</button>
         <TilePaintSlot label="BG" tile={backgroundTile} tileset={tileset} tileW={tileW} tileH={tileH} />
@@ -524,7 +533,7 @@ export default function Toolbar({ activeTool, onSelectTool, zoom, onZoomIn, onZo
       <Divider />
 
       {/* Active tool label */}
-      <div style={{
+      <div className="map-active-tool" style={{
         fontFamily: "'Roboto', sans-serif",
         fontSize: '12px', fontWeight: 600, color: 'var(--accent)',
       }}>

@@ -2005,7 +2005,7 @@ export default function HomePage() {
         />
 
         {/* Centre breadcrumb */}
-        <div style={{
+        <div className="studio-breadcrumb" style={{
           flex: 1, display: 'flex', alignItems: 'center',
           padding: '0 20px', gap: '10px', overflow: 'hidden',
         }}>
@@ -2014,7 +2014,7 @@ export default function HomePage() {
               <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '13px', fontWeight: 500, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {mapConfig.name}
               </span>
-              <span style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 400, color: 'var(--text-dim)', flexShrink: 0 }}>
+              <span className="studio-breadcrumb-meta" style={{ fontFamily: "'Roboto', sans-serif", fontSize: '11px', fontWeight: 400, color: 'var(--text-dim)', flexShrink: 0 }}>
                 {mapConfig.mapW}×{mapConfig.mapH} · {mapConfig.tileW}×{mapConfig.tileH}px
               </span>
             </>
