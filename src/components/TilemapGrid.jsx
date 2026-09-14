@@ -82,7 +82,7 @@ export default function TilemapGrid({
 
   // Release both drag modes on mouse up anywhere
   useEffect(() => {
-    const up = () => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null; selectionAnchor.current = null }
+    const up = event => { isPainting.current = false; isErasing.current = false; paintTileRef.current = null; selectionAnchor.current = null; setShiftPressed(event.shiftKey) }
     window.addEventListener('mouseup', up)
     return () => window.removeEventListener('mouseup', up)
   }, [])
@@ -498,7 +498,7 @@ export default function TilemapGrid({
               ENTITIES: {entities.length}
             </span>
           )}
-          {activeTool === 'stamp' && stampAnchor && (
+          {stampLinePreview && (
             <span style={{ color: 'var(--accent)' }}>Hold Shift: straight line from {stampAnchor.col}, {stampAnchor.row}</span>
           )}
           <span style={{ marginLeft: 'auto', opacity: 0.65 }}>Alt+wheel: zoom · Alt+LMB/RMB: pick FG/BG</span>
@@ -518,7 +518,8 @@ export default function TilemapGrid({
               userSelect: 'none',
             }}
             onContextMenu={e => e.preventDefault()}
-            onMouseLeave={() => setHoveredCell(null)}
+            onMouseMove={event => setShiftPressed(event.shiftKey)}
+            onMouseLeave={() => { setHoveredCell(null); setShiftPressed(false) }}
           >
             {Array.from({ length: mapW * mapH }).map((_, i) => {
               const col = i % mapW
@@ -540,13 +541,15 @@ export default function TilemapGrid({
                     position: 'relative',
                     overflow: 'hidden',
                   }}
-                  onMouseEnter={() => {
+                  onMouseEnter={(event) => {
+                    setShiftPressed(event.shiftKey)
                     setHoveredCell({ col, row })
                     if (selectionAnchor.current && activeTool === 'select') onSelectionChange?.(normalizeMapSelection(selectionAnchor.current, { col, row }))
                     if (isPainting.current) tryPaint(col, row, paintTileRef.current)
                     if (isErasing.current)  tryErase(col, row)
                   }}
                   onMouseDown={(e) => {
+                    setShiftPressed(e.shiftKey)
                     if (isPasting && e.button === 0 && pasteOrigin) {
                       onPasteCommit?.(pasteOrigin.col, pasteOrigin.row)
                       return
