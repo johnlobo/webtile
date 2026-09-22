@@ -139,3 +139,34 @@ export function scalePixelBlock(block, newW, newH) {
     })).flat()
   return { ...block, w: width, h: height, pixels }
 }
+
+export function scalePixelsInSelection(pixels, canvasW, canvasH, selection, newW, newH, eraseInk = 0) {
+  if (!selection || !Array.isArray(pixels)) return { pixels, selection }
+
+  const x = Math.max(0, Math.floor(selection.x))
+  const y = Math.max(0, Math.floor(selection.y))
+  const sourceW = Math.max(1, Math.min(Math.floor(selection.w), canvasW - x))
+  const sourceH = Math.max(1, Math.min(Math.floor(selection.h), canvasH - y))
+  const targetW = Math.max(1, Math.min(Math.round(newW), canvasW - x))
+  const targetH = Math.max(1, Math.min(Math.round(newH), canvasH - y))
+  const source = []
+
+  for (let sourceY = 0; sourceY < sourceH; sourceY++) {
+    for (let sourceX = 0; sourceX < sourceW; sourceX++) {
+      source.push(pixels[(y + sourceY) * canvasW + x + sourceX] ?? eraseInk)
+    }
+  }
+
+  const scaled = scalePixelBlock({ w: sourceW, h: sourceH, pixels: source }, targetW, targetH)
+  const nextPixels = [...pixels]
+  for (let clearY = y; clearY < y + sourceH; clearY++) {
+    for (let clearX = x; clearX < x + sourceW; clearX++) nextPixels[clearY * canvasW + clearX] = eraseInk
+  }
+  for (let targetY = 0; targetY < targetH; targetY++) {
+    for (let targetX = 0; targetX < targetW; targetX++) {
+      nextPixels[(y + targetY) * canvasW + x + targetX] = scaled.pixels[targetY * targetW + targetX]
+    }
+  }
+
+  return { pixels: nextPixels, selection: { x, y, w: targetW, h: targetH } }
+}

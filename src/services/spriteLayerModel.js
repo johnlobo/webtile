@@ -1,3 +1,5 @@
+import { scalePixelsInSelection } from './spriteDrawing'
+
 export const SPRITE_SCHEMA_VERSION = 2
 export const TRANSPARENT_INK = -1
 export const BASE_LAYER_ID = 'base'
@@ -151,6 +153,35 @@ export function commitWorkingLayer(sprite) {
       },
     })),
   }
+}
+
+export function scaleEditorSelection(sprite, frameIndex, selection, newW, newH, eraseInk = 0) {
+  if (!sprite || !selection) return sprite
+  const activeLayerId = sprite.activeLayerId ?? sprite.layers?.[0]?.id
+  if (!activeLayerId) return sprite
+
+  const frames = sprite.frames.map((frame, index) => {
+    if (index !== frameIndex) return frame
+    const { pixels } = scalePixelsInSelection(
+      frame.pixels,
+      sprite.width,
+      sprite.height,
+      selection,
+      newW,
+      newH,
+      eraseInk,
+    )
+    return {
+      ...frame,
+      pixels,
+      cels: {
+        ...(frame.cels ?? {}),
+        [activeLayerId]: { ...(frame.cels?.[activeLayerId] ?? {}), pixels: [...pixels] },
+      },
+    }
+  })
+
+  return { ...sprite, frames }
 }
 
 export function selectEditorLayer(sprite, layerId) {

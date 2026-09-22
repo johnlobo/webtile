@@ -22,10 +22,28 @@ import {
   flattenEditorLayers,
   cropEditorSprite,
   getEditorCropBounds,
+  scaleEditorSelection,
   selectEditorLayer,
 } from './spriteLayerModel'
 
 describe('sprite layer model', () => {
+  it('scales selected content in both the active working buffer and its cel', () => {
+    let sprite = prepareSpriteForEditor({
+      width: 4,
+      height: 3,
+      frames: [{ pixels: [0, 0, 0, 0, 0, 1, 2, 0, 0, 3, 4, 0] }],
+    })
+
+    sprite = scaleEditorSelection(sprite, 0, { x: 1, y: 1, w: 2, h: 2 }, 3, 2, 0)
+
+    expect(sprite.frames[0].pixels).toEqual([
+      0, 0, 0, 0,
+      0, 1, 1, 2,
+      0, 3, 3, 4,
+    ])
+    expect(sprite.frames[0].cels[BASE_LAYER_ID].pixels).toEqual(sprite.frames[0].pixels)
+  })
+
   it('crops every frame and layer while retaining CPC width alignment', () => {
     let sprite = prepareSpriteForEditor({ videoMode: 1, width: 8, height: 3, frames: [{ pixels: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 1, 2, 3, 4, 5, 6, 7, 8] }] })
     sprite = addEditorLayer(sprite, { id: 'top', name: 'Top' })

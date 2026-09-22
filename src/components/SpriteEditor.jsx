@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { loadSprite, saveSprite } from '../services/spriteService'
 import { loadFont, stampText, GLYPH_W, GLYPH_H, CHAR_MAP, glyphs } from '../services/fontService'
 import { encodeFrame } from '../services/cpcEncoding'
-import { bresenhamLine, fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
+import { bresenhamLine, fillPixels, scalePixelBlock, scalePixelsInSelection, shapeCells, transformPixelBlock } from '../services/spriteDrawing'
 import { decodePaletteBytes, parseJascPalette, remapFramesToPalette } from '../services/paletteService'
 import { combineSelections, invertSelection, resizeSelectionMask, selectPixelsByColor, selectionContains } from '../services/spriteSelection'
 import { clipboardImageFile, decodeImageBlob, positionClipboardOverCanvas, quantizeClipboardImage, readClipboardImage } from '../services/clipboardImage'
@@ -21,6 +21,7 @@ import {
   cropEditorSprite,
   getEditorCropBounds,
   getEditorLayerFrame,
+  scaleEditorSelection,
   selectEditorLayer,
 } from '../services/spriteLayerModel'
 
@@ -2214,29 +2215,18 @@ export default function SpriteEditor({ userId, projectId, spriteId, activeEditor
 
   const scaleSelection = useCallback((newW, newH) => {
     if (!selection || !sprite || activeLayerLocked) return
-    const { x, y, w, h } = selection
-    const targetW = Math.min(newW, sprite.width - x)
-    const targetH = Math.min(newH, sprite.height - y)
+    const targetSelection = scalePixelsInSelection(
+      sprite.frames[currentFrame]?.pixels ?? [],
+      sprite.width,
+      sprite.height,
+      selection,
+      newW,
+      newH,
+      layerEraseInk,
+    ).selection
     pushHistory()
-    updateSprite(prev => {
-      const frames = prev.frames.map((frame, fi) => {
-        if (fi !== currentFrame) return frame
-        const source = []
-        for (let sy = 0; sy < h; sy++) for (let sx = 0; sx < w; sx++) source.push(frame.pixels[(y + sy) * prev.width + x + sx] ?? 0)
-        const pixels = [...frame.pixels]
-        for (let py = y; py < y + h; py++) for (let px = x; px < x + w; px++) pixels[py * prev.width + px] = layerEraseInk
-        for (let dy = 0; dy < targetH; dy++) {
-          for (let dx = 0; dx < targetW; dx++) {
-            const sx = Math.min(w - 1, Math.floor(dx * w / targetW))
-            const sy = Math.min(h - 1, Math.floor(dy * h / targetH))
-            pixels[(y + dy) * prev.width + x + dx] = source[sy * w + sx]
-          }
-        }
-        return { ...frame, pixels }
-      })
-      return { ...prev, frames }
-    })
-    setSelection({ x, y, w: targetW, h: targetH })
+    updateSprite(prev => scaleEditorSelection(prev, currentFrame, selection, newW, newH, layerEraseInk))
+    setSelection(targetSelection)
     setShowScaleSelection(false)
   }, [selection, sprite, layerEraseInk, currentFrame, activeLayerLocked, updateSprite, pushHistory])
 

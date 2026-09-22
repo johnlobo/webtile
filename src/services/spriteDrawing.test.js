@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fillPixels, scalePixelBlock, shapeCells, transformPixelBlock } from './spriteDrawing'
+import { fillPixels, scalePixelBlock, scalePixelsInSelection, shapeCells, transformPixelBlock } from './spriteDrawing'
 
 describe('fillPixels', () => {
   const pixels = [1, 1, 2, 1, 2, 1, 2, 1, 1]
@@ -55,5 +55,40 @@ describe('pixel block transformations', () => {
     const clipboard = { w: 2, h: 1, pixels: [1, 2], palette: [0, 6, 20] }
     expect(transformPixelBlock(clipboard, 'flipH').palette).toEqual(clipboard.palette)
     expect(scalePixelBlock(clipboard, 4, 2).palette).toEqual(clipboard.palette)
+  })
+
+  it('scales the selected pixel content in place, not only its bounds', () => {
+    const result = scalePixelsInSelection(
+      [0, 0, 0, 0, 0, 1, 2, 0, 0, 3, 4, 0, 0, 0, 0, 0],
+      4,
+      4,
+      { x: 1, y: 1, w: 2, h: 2 },
+      3,
+      3,
+      0,
+    )
+
+    expect(result.selection).toEqual({ x: 1, y: 1, w: 3, h: 3 })
+    expect(result.pixels).toEqual([
+      0, 0, 0, 0,
+      0, 1, 1, 2,
+      0, 1, 1, 2,
+      0, 3, 3, 4,
+    ])
+  })
+
+  it('clips scaled pixels and selection together at the canvas edge', () => {
+    const result = scalePixelsInSelection(
+      [0, 0, 0, 0, 0, 0, 0, 5, 6],
+      3,
+      3,
+      { x: 1, y: 2, w: 2, h: 1 },
+      5,
+      4,
+      0,
+    )
+
+    expect(result.selection).toEqual({ x: 1, y: 2, w: 2, h: 1 })
+    expect(result.pixels).toEqual([0, 0, 0, 0, 0, 0, 0, 5, 6])
   })
 })
